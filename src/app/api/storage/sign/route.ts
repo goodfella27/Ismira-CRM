@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ensureCompanyMembership } from "@/lib/company/membership";
 
 export const runtime = "nodejs";
 
@@ -43,18 +44,10 @@ export async function GET(request: Request) {
   const isOwnProfile =
     bucket === "candidate-documents" &&
     path.startsWith(`profiles/${user.id}/`);
-  if (!isOwnProfile) {
-    const { data: member } = await supabase
-      .from("company_members")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (!member) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-  }
-
   const admin = createSupabaseAdminClient();
+  if (!isOwnProfile) {
+    await ensureCompanyMembership(admin, user.id);
+  }
   const { data, error } = await admin.storage
     .from(bucket)
     .createSignedUrl(path, 60 * 15);

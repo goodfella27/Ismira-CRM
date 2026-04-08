@@ -160,8 +160,10 @@ export async function POST(request: Request) {
     const entries = entriesData?.entries ?? [];
     transcriptText = entries
       .map(
-        (entry: any) =>
-          entry?.transcriptSegment?.text ?? entry?.text ?? ""
+        (entry: {
+          transcriptSegment?: { text?: string | null } | null;
+          text?: string | null;
+        }) => entry?.transcriptSegment?.text ?? entry?.text ?? ""
       )
       .filter(Boolean)
       .join(" ")

@@ -2,44 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ensureCompanyMembership } from "@/lib/company/membership";
 
 export const runtime = "nodejs";
-
-const getOrCreateCompanyId = async (
-  admin: ReturnType<typeof createSupabaseAdminClient>,
-  userId: string
-) => {
-  const { data: memberRow, error: memberError } = await admin
-    .from("company_members")
-    .select("company_id")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
-  if (memberError) {
-    throw new Error(memberError.message ?? "Failed to load membership");
-  }
-  if (memberRow?.company_id) return memberRow.company_id as string;
-
-  const { data, error } = await admin
-    .from("companies")
-    .select("id")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (error) {
-    throw new Error(error.message ?? "Failed to load company");
-  }
-  if (data?.id) return data.id as string;
-  const { data: created, error: createError } = await admin
-    .from("companies")
-    .insert({ name: "Default Company" })
-    .select("id")
-    .single();
-  if (createError || !created?.id) {
-    throw new Error(createError?.message ?? "Failed to create company");
-  }
-  return created.id as string;
-};
 
 const resolveName = (user: {
   email?: string | null;
@@ -111,40 +76,12 @@ export async function GET(request: NextRequest) {
 
   let companyId: string;
   try {
-    companyId = await getOrCreateCompanyId(admin, user.id);
+    companyId = (await ensureCompanyMembership(admin, user.id)).companyId;
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to load company" },
       { status: 500 }
     );
-  }
-
-  const { data: membership, error: membershipError } = await admin
-    .from("company_members")
-    .select("user_id")
-    .eq("company_id", companyId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (membershipError) {
-    return NextResponse.json(
-      { error: membershipError.message ?? "Failed to load membership" },
-      { status: 500 }
-    );
-  }
-
-  if (!membership?.user_id) {
-    const { error: insertError } = await admin.from("company_members").insert({
-      company_id: companyId,
-      user_id: user.id,
-      role: "Admin",
-    });
-    if (insertError) {
-      return NextResponse.json(
-        { error: insertError.message ?? "Failed to bootstrap membership" },
-        { status: 500 }
-      );
-    }
   }
 
   const { data: memberRows, error: memberError } = await admin

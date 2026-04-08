@@ -5,6 +5,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { MessageCircle, Send as SendIcon, X } from "lucide-react";
 
 const OPEN_PROFILE_EVENT = "pipeline-open-profile";
+const TEAM_CHAT_EVENT = "app-team-chat";
+const TEAM_CHAT_UNREAD_EVENT = "app-team-chat-unread";
 
 const resolveDisplayName = (member: { name?: string | null; email?: string | null }) => {
   if (member.name && member.name.trim()) return member.name.trim();
@@ -508,6 +510,7 @@ export function ChatWidget() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesScrollRef = useRef<HTMLDivElement | null>(null);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
   const composerHighlightRef = useRef<HTMLDivElement | null>(null);
   const composerEntityIdRef = useRef(1);
@@ -520,6 +523,98 @@ export function ChatWidget() {
   const hydratePromiseRef = useRef<Promise<string | null> | null>(null);
   const avatarsLoadedRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const [lastSeenAt, setLastSeenAt] = useState<number>(0);
+
+  const lastSeenKey = useMemo(() => {
+    if (!currentUser?.id) return null;
+    return `teamChat:lastSeen:${currentUser.id}`;
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handler = (
+      event: Event
+    ) => {
+      const detail = (event as CustomEvent<{
+        open?: boolean;
+        toggle?: boolean;
+        view?: "threads" | "messages" | "new";
+      }>).detail;
+
+      if (detail?.view) {
+        setView(detail.view);
+      } else {
+        setView("threads");
+      }
+
+      if (detail?.toggle) {
+        void ensureAudioContext().catch(() => null);
+        setOpen((prev) => !prev);
+        return;
+      }
+
+      if (typeof detail?.open === "boolean") {
+        if (detail.open) {
+          void ensureAudioContext().catch(() => null);
+        }
+        setOpen(detail.open);
+        return;
+      }
+
+      void ensureAudioContext().catch(() => null);
+      setOpen(true);
+    };
+
+    window.addEventListener(TEAM_CHAT_EVENT, handler as EventListener);
+    return () => window.removeEventListener(TEAM_CHAT_EVENT, handler as EventListener);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!lastSeenKey) return;
+
+    const raw = window.localStorage.getItem(lastSeenKey);
+    if (raw) {
+      const parsed = Number(raw);
+      setLastSeenAt(Number.isFinite(parsed) ? parsed : 0);
+      return;
+    }
+
+    const now = Date.now();
+    window.localStorage.setItem(lastSeenKey, String(now));
+    setLastSeenAt(now);
+  }, [lastSeenKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!lastSeenKey) return;
+    if (!open) return;
+
+    const now = Date.now();
+    window.localStorage.setItem(lastSeenKey, String(now));
+    setLastSeenAt(now);
+  }, [open, lastSeenKey]);
+
+  const unreadThreadCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    if (!lastSeenAt) return 0;
+
+    return threads.filter((thread) => {
+      const ms = thread.last_message_at ? new Date(thread.last_message_at).getTime() : 0;
+      return Number.isFinite(ms) && ms > lastSeenAt;
+    }).length;
+  }, [threads, lastSeenAt, currentUser?.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!currentUser?.id) return;
+    window.dispatchEvent(
+      new CustomEvent(TEAM_CHAT_UNREAD_EVENT, {
+        detail: { count: unreadThreadCount },
+      })
+    );
+  }, [unreadThreadCount, currentUser?.id]);
 
   const scrollToBottom = () => {
     requestAnimationFrame(() => {
@@ -539,6 +634,13 @@ export function ChatWidget() {
     if (!open || view !== "messages") return;
     resizeComposer();
   }, [open, view, activeThreadId, messageDraft]);
+
+  const isMessagesNearBottom = () => {
+    const node = messagesScrollRef.current;
+    if (!node) return true;
+    const remaining = node.scrollHeight - node.scrollTop - node.clientHeight;
+    return remaining < 140;
+  };
 
   const ensureAudioContext = async () => {
     if (typeof window === "undefined") return null;
@@ -808,11 +910,14 @@ export function ChatWidget() {
         },
         (payload) => {
           const next = payload.new as Message;
+          const shouldScroll = isMessagesNearBottom();
           setMessages((prev) => {
             if (prev.some((item) => item.id === next.id)) return prev;
             return [...prev, next];
           });
-          scrollToBottom();
+          if (shouldScroll) {
+            scrollToBottom();
+          }
         }
       )
       .subscribe();
@@ -824,9 +929,59 @@ export function ChatWidget() {
   }, [activeThreadId, supabase]);
 
   useEffect(() => {
-    if (!currentUser || threads.length === 0) return;
+    if (typeof window === "undefined") return;
+    if (!open) return;
+    if (!currentUser?.id) return;
+    if (document.visibilityState === "hidden") return;
 
-    const threadIds = new Set(threads.map((thread) => thread.id));
+    if (view === "threads") {
+      const interval = window.setInterval(() => {
+        void loadThreads(currentUser.id).catch(() => null);
+      }, 6_000);
+      return () => window.clearInterval(interval);
+    }
+
+    if (view !== "messages" || !activeThreadId) return;
+
+    const interval = window.setInterval(() => {
+      const since = messages.length > 0 ? messages[messages.length - 1]?.created_at : null;
+      let query = supabase
+        .from("chat_messages")
+        .select("id, thread_id, sender_id, body, created_at")
+        .eq("thread_id", activeThreadId)
+        .order("created_at", { ascending: true });
+
+      if (since) {
+        query = query.gt("created_at", since);
+      } else {
+        query = query.limit(50);
+      }
+
+      void query.then(({ data, error }) => {
+        if (error) return;
+        const incoming = (data as Message[] | null) ?? [];
+        if (incoming.length === 0) return;
+        const shouldScroll = isMessagesNearBottom();
+        setMessages((prev) => {
+          const ids = new Set(prev.map((item) => item.id));
+          const merged = [...prev];
+          for (const item of incoming) {
+            if (!ids.has(item.id)) merged.push(item);
+          }
+          return merged;
+        });
+        if (shouldScroll) {
+          scrollToBottom();
+        }
+      });
+    }, 4_000);
+
+    return () => window.clearInterval(interval);
+  }, [open, view, activeThreadId, currentUser?.id, supabase, messages]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
     const channel = supabase
       .channel(`chat-notifications-${currentUser.id}`)
       .on(
@@ -838,9 +993,7 @@ export function ChatWidget() {
         },
         (payload) => {
           const next = payload.new as Message;
-          if (!threadIds.has(next.thread_id) || next.sender_id === currentUser.id) {
-            return;
-          }
+          if (next.sender_id === currentUser.id) return;
 
           void playNotificationTone();
           void loadThreads(currentUser.id);
@@ -851,7 +1004,7 @@ export function ChatWidget() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUser, threads, supabase]);
+  }, [currentUser, supabase]);
 
   const getThreadTitle = (thread: Thread) => {
     if (thread.is_group) return thread.name?.trim() || "Group chat";
@@ -1501,8 +1654,11 @@ export function ChatWidget() {
                 </div>
               </div>
             ) : (
-              <div className="flex min-h-0 flex-1 flex-col">
-                <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-4">
+	      <div className="flex min-h-0 flex-1 flex-col">
+	                <div
+	                  ref={messagesScrollRef}
+	                  className="hide-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-4"
+	                >
                   {messages.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
                       No messages yet. Say hello.
@@ -1785,20 +1941,23 @@ export function ChatWidget() {
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => {
-          void ensureAudioContext().catch(() => null);
-          setOpen((prev) => !prev);
-        }}
-        className="flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-full bg-slate-900 text-white shadow-[0_20px_40px_-20px_rgba(15,23,42,0.8)] transition hover:-translate-y-0.5 hover:bg-slate-800"
-        aria-label={open ? "Close chat" : "Open chat"}
-      >
-        {open ? (
-          <X className="h-6 w-6" />
-        ) : (
-          <>
-            <MessageCircle className="h-6 w-6" />
+	      <button
+	        type="button"
+	        onClick={() => {
+	          void ensureAudioContext().catch(() => null);
+	          setOpen((prev) => !prev);
+	        }}
+	        className="relative flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-full bg-slate-900 text-white shadow-[0_20px_40px_-20px_rgba(15,23,42,0.8)] transition hover:-translate-y-0.5 hover:bg-slate-800"
+	        aria-label={open ? "Close chat" : "Open chat"}
+	      >
+	        {!open && unreadThreadCount > 0 ? (
+	          <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-slate-900" />
+	        ) : null}
+	        {open ? (
+	          <X className="h-6 w-6" />
+	        ) : (
+	          <>
+	            <MessageCircle className="h-6 w-6" />
             <span className="text-[11px] font-semibold leading-none">Chat</span>
           </>
         )}

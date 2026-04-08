@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ensureCompanyMembership } from "@/lib/company/membership";
 
 export const runtime = "nodejs";
 
@@ -33,14 +34,8 @@ export async function GET(request: Request) {
       { status: 401 }
     );
   }
-  const { data: member } = await supabase
-    .from("company_members")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!member) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const admin = createSupabaseAdminClient();
+  await ensureCompanyMembership(admin, user.id);
 
   const { searchParams } = new URL(request.url);
   const candidateId = searchParams.get("candidateId");
@@ -51,7 +46,6 @@ export async function GET(request: Request) {
     );
   }
 
-  const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("cv_forms")
     .select("token, status, expires_at, created_at, submitted_at, pdf_path")
@@ -89,14 +83,8 @@ export async function POST(request: Request) {
       { status: 401 }
     );
   }
-  const { data: member } = await supabase
-    .from("company_members")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!member) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const admin = createSupabaseAdminClient();
+  await ensureCompanyMembership(admin, user.id);
 
   let payload: {
     candidateId?: string;
@@ -117,7 +105,6 @@ export async function POST(request: Request) {
   const token = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const admin = createSupabaseAdminClient();
   const { error } = await admin.from("cv_forms").insert({
     token,
     candidate_id: payload.candidateId,

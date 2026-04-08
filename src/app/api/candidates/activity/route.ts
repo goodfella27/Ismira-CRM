@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ensureCompanyMembership } from "@/lib/company/membership";
 
 type ActivityPayload = {
   id?: string;
@@ -36,14 +37,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: member } = await supabase
-    .from("company_members")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!member) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const admin = createSupabaseAdminClient();
+  try {
+    await ensureCompanyMembership(admin, user.id);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to bootstrap membership" },
+      { status: 500 }
+    );
   }
 
   const payload = (await request.json().catch(() => null)) as ActivityPayload | null;
@@ -74,7 +75,6 @@ export async function POST(request: Request) {
   const metadata = user.user_metadata as Record<string, unknown> | null;
   const authorName = buildAuthorName(metadata);
 
-  const admin = createSupabaseAdminClient();
   const { error: insertError } = await admin.from("candidate_activity").insert({
     id,
     candidate_id: candidateId,

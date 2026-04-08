@@ -37,3 +37,9 @@ Notes:
 - Add full candidate search and analytics
 - Connect MailerLite / form intake
 
+## HubSpot (Sync)
+
+Configure `HUBSPOT_PRIVATE_APP_TOKEN` (or store it in the app via Company → Integrations), then call:
+
+- `POST /api/hubspot/companies/sync` with JSON `{ "hubspotCompanyId": "123" }`
+

@@ -48,17 +48,36 @@ export type Scorecard = {
 
 export type TaskItem = {
   id: string;
+  kind?: "task" | "request_info" | string | null;
   title: string;
   status: "open" | "done";
   created_at?: string;
+  watcher_ids?: string[];
+  completed_at?: string | null;
+  completed_by?: string | null;
+  assigned_to?: string | null;
+  due_at?: string | null;
+  reminder_minutes_before?: number | null;
+  notes?: string | null;
 };
 
 export type Candidate = {
   id: string;
   name: string;
   email: string;
+  start_date?: string;
+  website_url?: string;
   phone?: string;
   avatar_url?: string | null;
+  company_owner?: string;
+  company_owner_id?: string;
+  company_representative_name?: string;
+  company_representative_email?: string;
+  company_representative_phone?: string;
+  city?: string;
+  industry?: string;
+  assigned_company_id?: string;
+  assigned_company_name?: string;
   pipeline_id: string;
   pool_id: string;
   stage_id: string;

@@ -22,3 +22,17 @@ export const formatRelative = (dateString?: string | null) => {
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
 };
+
+export const formatDateShort = (value?: string | null) => {
+  const raw = (value ?? "").trim();
+  if (!raw) return "";
+  const datePart = raw.includes("T") ? raw.split("T")[0] ?? raw : raw;
+  const hasDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(datePart);
+  const date = hasDateOnly ? new Date(`${datePart}T00:00:00`) : new Date(raw);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  });
+};

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   ActivityEvent,
   Candidate,
@@ -21,13 +21,66 @@ import {
 } from "@/lib/questionnaires";
 import Markdown from "@/components/Markdown";
 import Image from "next/image";
-import { Mic, Paperclip, RefreshCw, Send, Smile, Zap } from "lucide-react";
+import {
+  CalendarDays,
+  ExternalLink,
+  ListTodo,
+  Mail,
+  MessageCircle,
+  Mic,
+  Notebook,
+  Paperclip,
+  RefreshCw,
+  Send,
+  Smile,
+  Zap,
+} from "lucide-react";
 import chatBackground from "@/images/whatsup_bg.jpg";
 import iconJpg from "@/images/icons/jpg_black.png";
+
+const OPEN_PROFILE_EVENT = "pipeline-open-profile";
+const TEAM_CHAT_EVENT = "app-team-chat";
+const TEAM_CHAT_UNREAD_EVENT = "app-team-chat-unread";
+
+const toSlugPart = (value?: string) =>
+  (value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+const getCandidateShareKey = (candidateId: string) => {
+  const cleaned = candidateId.replace(/[^a-fA-F0-9]/g, "").toLowerCase();
+  if (!cleaned) return "00000000";
+
+  let hash = 0n;
+  for (const char of cleaned) {
+    const digit = Number.parseInt(char, 16);
+    if (Number.isNaN(digit)) continue;
+    hash = (hash * 16n + BigInt(digit)) % 100000000n;
+  }
+
+  return hash.toString().padStart(8, "0");
+};
+
+const getCandidateLastNameSlug = (name?: string) => {
+  const parts = (name ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const lastName = parts.length > 1 ? parts[parts.length - 1] : parts[0] ?? "candidate";
+  return toSlugPart(lastName) || "candidate";
+};
+
+const getCandidateShareSlug = (candidate: { id: string; name?: string }) =>
+  `${getCandidateShareKey(candidate.id)}-${getCandidateLastNameSlug(candidate.name)}`;
 import iconPdf from "@/images/icons/pdf_black.png";
 import iconPng from "@/images/icons/png_black.png";
 import aiSearchIcon from "@/images/icons/ai_search.png";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { EmailThread } from "./EmailThread";
+import { formatDateShort } from "../utils";
 
 type TeamUser = {
   id: string;
@@ -61,9 +114,17 @@ type ActivityRow = {
 type TaskRow = {
   candidate_id: string;
   id: string;
+  kind?: string | null;
   title: string;
   status: string;
   created_at: string | null;
+  watcher_ids?: string[] | null;
+  completed_at?: string | null;
+  completed_by?: string | null;
+  assigned_to?: string | null;
+  due_at?: string | null;
+  reminder_minutes_before?: number | null;
+  notes?: string | null;
 };
 
 type WorkHistoryRow = {
@@ -224,6 +285,59 @@ const formatTimestamp = (value?: string | null) => {
   });
 };
 
+type DaySeparatedTimelineRow =
+  | { kind: "divider"; key: string; label: string }
+  | { kind: "item"; key: string; item: ActivityEvent | Note };
+
+const dayKeyForTimestamp = (value?: string | null) => {
+  if (!value) return "unknown";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "unknown";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const dayLabelForTimestamp = (value?: string | null) => {
+  if (!value) return "Unknown date";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown date";
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const buildDaySeparatedTimelineRows = (items: Array<ActivityEvent | Note>) => {
+  const rows: DaySeparatedTimelineRow[] = [];
+  let currentKey: string | null = null;
+  items.forEach((item, index) => {
+    const dayKey = dayKeyForTimestamp(item.created_at);
+    if (!currentKey || dayKey !== currentKey) {
+      currentKey = dayKey;
+      rows.push({
+        kind: "divider",
+        key: `divider-${dayKey}`,
+        label: dayLabelForTimestamp(item.created_at),
+      });
+    }
+    const itemKey = typeof item.id === "string" && item.id ? item.id : `item-${dayKey}-${index}`;
+    rows.push({ kind: "item", key: itemKey, item });
+  });
+  return rows;
+};
+
+const toExternalHref = (raw?: string | null) => {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.replace(/\s+/g, "");
+  if (!normalized) return null;
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(normalized)) return normalized;
+  return `https://${normalized.replace(/^\/+/, "")}`;
+};
+
 const parseEmails = (value?: string) => {
   if (!value) return [];
   return value
@@ -255,10 +369,44 @@ const mapActivityRow = (row: ActivityRow): ActivityEvent => ({
 
 const mapTaskRow = (row: TaskRow): TaskItem => ({
   id: row.id,
+  kind: typeof row.kind === "string" ? row.kind : row.kind ?? null,
   title: row.title,
   status: row.status === "done" ? "done" : "open",
   created_at: row.created_at ?? new Date().toISOString(),
+  watcher_ids: Array.isArray(row.watcher_ids)
+    ? row.watcher_ids.filter((id): id is string => typeof id === "string" && id)
+    : [],
+  completed_at: typeof row.completed_at === "string" ? row.completed_at : row.completed_at ?? null,
+  completed_by: typeof row.completed_by === "string" ? row.completed_by : row.completed_by ?? null,
+  assigned_to: typeof row.assigned_to === "string" ? row.assigned_to : row.assigned_to ?? null,
+  due_at: typeof row.due_at === "string" ? row.due_at : row.due_at ?? null,
+  reminder_minutes_before:
+    typeof row.reminder_minutes_before === "number"
+      ? row.reminder_minutes_before
+      : row.reminder_minutes_before ?? null,
+  notes: typeof row.notes === "string" ? row.notes : row.notes ?? null,
 });
+
+const REQUEST_INFO_TASK_IDS = new Set<string>(FORM_FIELD_KEYS);
+const REQUEST_INFO_TASK_TITLES = new Set(
+  FORM_FIELD_DEFINITIONS.map((field) => field.label.trim().toLowerCase())
+);
+
+const isRequestInfoTask = (task: Pick<TaskItem, "id" | "title" | "kind"> & Partial<TaskItem>) => {
+  const kind = typeof task.kind === "string" ? task.kind.toLowerCase() : "";
+  if (kind === "request_info") return true;
+  if (task.id.startsWith("form_")) return true;
+  if (REQUEST_INFO_TASK_IDS.has(task.id)) return true;
+  const title = (task.title ?? "").trim().toLowerCase();
+  if (!title || !REQUEST_INFO_TASK_TITLES.has(title)) return false;
+
+  return (
+    !task.assigned_to &&
+    !task.due_at &&
+    !task.notes &&
+    (task.reminder_minutes_before == null || task.reminder_minutes_before === null)
+  );
+};
 
 const mapWorkHistoryRow = (row: WorkHistoryRow): WorkHistoryItem => ({
   id: row.id,
@@ -465,9 +613,9 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 type RightTab =
   | "discussion"
+  | "notes"
   | "email"
   | "meetings"
-  | "scorecards"
   | "tasks";
 
 const scorecardScale = [
@@ -603,6 +751,7 @@ type CandidateDrawerProps = {
   sharePath?: string | null;
   stages: Stage[];
   pipelines: Pipeline[];
+  requestedRightTab?: RightTab | null;
   onClose: () => void;
   onStageChange: (stageId: string) => void;
   onPipelineChange: (pipelineId: string) => void;
@@ -620,10 +769,11 @@ type CandidateDrawerProps = {
 
 export default function CandidateDrawer({
   open,
-  candidate,
+  candidate: candidateProp,
   sharePath,
   stages,
   pipelines,
+  requestedRightTab,
   onClose,
   onStageChange,
   onPipelineChange,
@@ -634,19 +784,129 @@ export default function CandidateDrawer({
   currentUser,
 }: CandidateDrawerProps) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const DRAWER_CLOSE_TRANSITION_MS = 170;
+  const [shouldRender, setShouldRender] = useState(open);
+  const [isVisible, setIsVisible] = useState(open);
+  const closeTimerRef = useRef<number | null>(null);
+  const lastCandidateRef = useRef<Candidate | null>(candidateProp);
+
+  useEffect(() => {
+    if (candidateProp) lastCandidateRef.current = candidateProp;
+  }, [candidateProp]);
+
+  const candidate = candidateProp ?? lastCandidateRef.current;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+
+    if (open) {
+      setShouldRender(true);
+      const raf = window.requestAnimationFrame(() => setIsVisible(true));
+      return () => window.cancelAnimationFrame(raf);
+    }
+
+    setIsVisible(false);
+    closeTimerRef.current = window.setTimeout(() => {
+      setShouldRender(false);
+      closeTimerRef.current = null;
+    }, DRAWER_CLOSE_TRANSITION_MS);
+
+    return () => {
+      if (!closeTimerRef.current) return;
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    };
+  }, [open]);
+  const [teamChatUnreadCount, setTeamChatUnreadCount] = useState(0);
+  const touchCandidateActivity = useCallback(() => {
+    if (!candidate?.id) return;
+    onUpdateCandidate(candidate.id, {});
+  }, [candidate?.id, onUpdateCandidate]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ count?: number }>).detail;
+      const next = typeof detail?.count === "number" ? detail.count : 0;
+      setTeamChatUnreadCount(Number.isFinite(next) ? next : 0);
+    };
+
+    window.addEventListener(TEAM_CHAT_UNREAD_EVENT, handler as EventListener);
+    return () => window.removeEventListener(TEAM_CHAT_UNREAD_EVENT, handler as EventListener);
+  }, []);
+  const lastSeenKey = useCallback(
+    (kind: "discussion" | "notes", userId: string, candidateId: string) =>
+      `candidate:lastSeen:${kind}:${userId}:${candidateId}`,
+    []
+  );
+  const readLocalLastSeen = useCallback(
+    (kind: "discussion" | "notes", userId: string, candidateId: string) => {
+      if (typeof window === "undefined") return null;
+      const raw = window.localStorage.getItem(lastSeenKey(kind, userId, candidateId));
+      const ms = raw ? new Date(raw).getTime() : Number.NaN;
+      if (!Number.isFinite(ms)) return null;
+      return new Date(ms).toISOString();
+    },
+    [lastSeenKey]
+  );
+  const writeLocalLastSeen = useCallback(
+    (kind: "discussion" | "notes", userId: string, candidateId: string, iso: string) => {
+      if (typeof window === "undefined") return;
+      try {
+        window.localStorage.setItem(lastSeenKey(kind, userId, candidateId), iso);
+      } catch {
+        // ignore
+      }
+    },
+    [lastSeenKey]
+  );
+  const maxIsoTimestamp = useCallback((values: Array<string | null | undefined>) => {
+    let bestMs: number | null = null;
+    values.forEach((value) => {
+      if (!value) return;
+      const ms = new Date(value).getTime();
+      if (Number.isNaN(ms)) return;
+      bestMs = bestMs === null ? ms : Math.max(bestMs, ms);
+    });
+    return bestMs === null ? null : new Date(bestMs).toISOString();
+  }, []);
+  const maxCreatedAtIso = useCallback(
+    (items: Array<{ created_at: string }>) => maxIsoTimestamp(items.map((item) => item.created_at)),
+    [maxIsoTimestamp]
+  );
   const topStrengths = Array.isArray(candidate?.top_strengths)
     ? candidate?.top_strengths.filter((item) => typeof item === "string" && item.trim())
     : [];
-  const topConcerns = Array.isArray(candidate?.top_concerns)
-    ? candidate?.top_concerns.filter((item) => typeof item === "string" && item.trim())
-    : [];
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [activity, setActivity] = useState<ActivityEvent[]>([]);
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [timelineError, setTimelineError] = useState<string | null>(null);
+	  const topConcerns = Array.isArray(candidate?.top_concerns)
+	    ? candidate?.top_concerns.filter((item) => typeof item === "string" && item.trim())
+	    : [];
+	  const [notes, setNotes] = useState<Note[]>([]);
+	  const [activity, setActivity] = useState<ActivityEvent[]>([]);
+	  const [discussionLastSeenAt, setDiscussionLastSeenAt] = useState<
+	    string | null | undefined
+	  >(undefined);
+	  const [notesLastSeenAt, setNotesLastSeenAt] = useState<string | null | undefined>(
+	    undefined
+	  );
+	  const [timelineLoading, setTimelineLoading] = useState(false);
+	  const [timelineError, setTimelineError] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
-  const [taskDraft, setTaskDraft] = useState("");
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [taskEditingId, setTaskEditingId] = useState<string | null>(null);
+  const [taskFormTitle, setTaskFormTitle] = useState("");
+  const [taskFormAssigneeId, setTaskFormAssigneeId] = useState("");
+  const [taskFormDueDate, setTaskFormDueDate] = useState("");
+  const [taskFormDueTime, setTaskFormDueTime] = useState("");
+  const [taskFormReminder, setTaskFormReminder] = useState("none");
+  const [taskFormNotes, setTaskFormNotes] = useState("");
+  const [taskFormError, setTaskFormError] = useState<string | null>(null);
+  const [taskFormSaving, setTaskFormSaving] = useState(false);
+  const [taskActionError, setTaskActionError] = useState<string | null>(null);
   const [selectedFormFields, setSelectedFormFields] = useState<string[]>([]);
   const [isFormSelectionDirty, setIsFormSelectionDirty] = useState(false);
   const [formLink, setFormLink] = useState<string | null>(null);
@@ -666,6 +926,47 @@ export default function CandidateDrawer({
   const [shareCopied, setShareCopied] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [companyOptions, setCompanyOptions] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [companyOptionsLoading, setCompanyOptionsLoading] = useState(false);
+  const [companyOptionsError, setCompanyOptionsError] = useState<string | null>(
+    null
+  );
+  const [linkedCandidates, setLinkedCandidates] = useState<
+    Array<{
+      id: string;
+      name: string;
+      email: string;
+      stage_id?: string | null;
+      avatar_url?: string | null;
+      pipeline_id?: string | null;
+      start_date?: string | null;
+    }>
+  >([]);
+  const [linkedCandidatesTotal, setLinkedCandidatesTotal] = useState<number | null>(
+    null
+  );
+  const [linkedCandidatesLoading, setLinkedCandidatesLoading] = useState(false);
+  const [linkedCandidatesError, setLinkedCandidatesError] = useState<string | null>(
+    null
+  );
+  const [linkedCandidatesQuery, setLinkedCandidatesQuery] = useState("");
+  const [linkedCandidatesSearchResults, setLinkedCandidatesSearchResults] = useState<
+    Array<{
+      id: string;
+      name: string;
+      email: string;
+      stage_id?: string | null;
+      avatar_url?: string | null;
+      pipeline_id?: string | null;
+      start_date?: string | null;
+    }>
+  >([]);
+  const [linkedCandidatesSearchLoading, setLinkedCandidatesSearchLoading] = useState(false);
+  const [linkedCandidatesSearchError, setLinkedCandidatesSearchError] = useState<string | null>(
+    null
+  );
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
   const [activeDocumentUrl, setActiveDocumentUrl] = useState<string | null>(null);
@@ -704,7 +1005,9 @@ export default function CandidateDrawer({
     {}
   );
   const [signingDocId, setSigningDocId] = useState<string | null>(null);
-  const [leftTab, setLeftTab] = useState<"experience" | "resume" | "documents" | "questionnaires" | "more">(
+  const [leftTab, setLeftTab] = useState<
+    "overview" | "experience" | "resume" | "documents" | "questionnaires" | "more"
+  >(
     "experience"
   );
   const [rightTab, setRightTab] = useState<RightTab>("discussion");
@@ -725,10 +1028,19 @@ export default function CandidateDrawer({
   const [editingEducationId, setEditingEducationId] = useState<string | null>(
     null
   );
+  const [representativeEditing, setRepresentativeEditing] = useState(false);
+  const [representativeNameDraft, setRepresentativeNameDraft] = useState(
+    candidate?.company_representative_name ?? ""
+  );
+  const [representativeEmailDraft, setRepresentativeEmailDraft] = useState(
+    candidate?.company_representative_email ?? ""
+  );
+  const [representativePhoneDraft, setRepresentativePhoneDraft] = useState(
+    candidate?.company_representative_phone ?? ""
+  );
   const [nameDraft, setNameDraft] = useState(candidate?.name ?? "");
   const [editingName, setEditingName] = useState(false);
   const [resumeUploading, setResumeUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [googleConnected, setGoogleConnected] = useState<boolean | null>(null);
   const [googleNeedsReconnect, setGoogleNeedsReconnect] = useState(false);
   const [googleHasScopes, setGoogleHasScopes] = useState(true);
@@ -748,8 +1060,11 @@ export default function CandidateDrawer({
   const [aiChatError, setAiChatError] = useState<string | null>(null);
   const [aiChatOpen, setAiChatOpen] = useState(false);
   const aiChatScrollRef = useRef<HTMLDivElement | null>(null);
-  const saveTimerRef = useRef<number | null>(null);
   const lastLoadedCandidateIdRef = useRef<string | null>(null);
+  const lastAppliedRequestedRightTabRef = useRef<{
+    candidateId: string;
+    tab: RightTab;
+  } | null>(null);
   const discussionScrollRef = useRef<HTMLDivElement | null>(null);
   const bodyOverflowRef = useRef<string>("");
   const bodyPaddingRef = useRef<string>("");
@@ -859,6 +1174,256 @@ export default function CandidateDrawer({
     if (!candidate?.id) return;
     setRefreshing(true);
     setRefreshCounter((prev) => prev + 1);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    if (!candidate?.id) return;
+    if (candidate.pipeline_id === "companies") return;
+    let ignore = false;
+    const loadCompanies = async () => {
+      setCompanyOptionsLoading(true);
+      setCompanyOptionsError(null);
+      try {
+        const { data, error } = await supabase
+          .from("candidates")
+          .select("id,data,created_at")
+          .eq("pipeline_id", "companies")
+          .order("created_at", { ascending: false })
+          .limit(500);
+        if (error) throw new Error(error.message);
+        const next = (data ?? [])
+          .map((row) => {
+            const payload =
+              row && typeof row === "object" && "data" in row ? (row.data as unknown) : null;
+            const record =
+              payload && typeof payload === "object" && !Array.isArray(payload)
+                ? (payload as Record<string, unknown>)
+                : {};
+            const name = typeof record.name === "string" ? record.name : "";
+            return {
+              id: String((row as { id: string }).id),
+              name: name.trim() || "Untitled company",
+            };
+          })
+          .filter((item) => !!item.id)
+          .sort((a, b) => a.name.localeCompare(b.name));
+        if (!ignore) {
+          setCompanyOptions(next);
+        }
+      } catch (err) {
+        if (!ignore) {
+          setCompanyOptionsError(
+            err instanceof Error ? err.message : "Failed to load companies"
+          );
+        }
+      } finally {
+        if (!ignore) setCompanyOptionsLoading(false);
+      }
+    };
+    void loadCompanies();
+    return () => {
+      ignore = true;
+    };
+  }, [candidate?.id, candidate?.pipeline_id, open, supabase]);
+
+  useEffect(() => {
+    if (!open || !candidate?.id || candidate.pipeline_id !== "companies") {
+      setLinkedCandidates([]);
+      setLinkedCandidatesTotal(null);
+      setLinkedCandidatesLoading(false);
+      setLinkedCandidatesError(null);
+      setLinkedCandidatesQuery("");
+      setLinkedCandidatesSearchResults([]);
+      setLinkedCandidatesSearchLoading(false);
+      setLinkedCandidatesSearchError(null);
+      return;
+    }
+    let ignore = false;
+    const load = async () => {
+      setLinkedCandidatesLoading(true);
+      setLinkedCandidatesError(null);
+      setLinkedCandidatesTotal(null);
+      try {
+        const { data, count, error } = await supabase
+          .from("candidates")
+          .select("id,pipeline_id,stage_id,created_at,data", { count: "exact" })
+          .neq("pipeline_id", "companies")
+          .eq("data->>assigned_company_id", candidate.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (error) throw new Error(error.message);
+        const next = (data ?? [])
+          .map((row) => {
+            const payload =
+              row && typeof row === "object" && "data" in row
+                ? ((row as { data?: unknown }).data as unknown)
+                : null;
+            const record =
+              payload && typeof payload === "object" && !Array.isArray(payload)
+                ? (payload as Record<string, unknown>)
+                : {};
+            const name = typeof record.name === "string" ? record.name.trim() : "";
+            const email = typeof record.email === "string" ? record.email.trim() : "";
+            const avatar =
+              typeof record.avatar_url === "string" ? record.avatar_url : null;
+            const startDate =
+              typeof record.start_date === "string" ? record.start_date.trim() : null;
+            return {
+              id: String((row as { id: string }).id),
+              pipeline_id:
+                typeof (row as { pipeline_id?: unknown }).pipeline_id === "string"
+                  ? ((row as { pipeline_id: string }).pipeline_id as string)
+                  : null,
+              stage_id:
+                typeof (row as { stage_id?: unknown }).stage_id === "string"
+                  ? ((row as { stage_id: string }).stage_id as string)
+                  : null,
+              name,
+              email,
+              avatar_url: avatar,
+              start_date: startDate,
+            };
+          })
+          .filter((item) => Boolean(item.id));
+        if (!ignore) {
+          setLinkedCandidates(next);
+          setLinkedCandidatesTotal(
+            typeof count === "number" ? count : next.length
+          );
+        }
+      } catch (err) {
+        if (!ignore) {
+          setLinkedCandidatesError(
+            err instanceof Error ? err.message : "Failed to load assigned profiles"
+          );
+          setLinkedCandidates([]);
+          setLinkedCandidatesTotal(0);
+        }
+      } finally {
+        if (!ignore) setLinkedCandidatesLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      ignore = true;
+    };
+  }, [candidate?.id, candidate?.pipeline_id, open, refreshCounter, supabase]);
+
+  useEffect(() => {
+    if (!open || !candidate?.id || candidate.pipeline_id !== "companies") return;
+
+    const query = linkedCandidatesQuery.trim();
+    if (!query) {
+      setLinkedCandidatesSearchResults([]);
+      setLinkedCandidatesSearchLoading(false);
+      setLinkedCandidatesSearchError(null);
+      return;
+    }
+
+    let ignore = false;
+    const timer = window.setTimeout(() => {
+      if (ignore) return;
+
+      const safeQuery = query.replace(/[%_*,]/g, "").slice(0, 80);
+      if (!safeQuery) {
+        setLinkedCandidatesSearchResults([]);
+        setLinkedCandidatesSearchLoading(false);
+        setLinkedCandidatesSearchError(null);
+        return;
+      }
+
+      const likeValue = `*${safeQuery}*`;
+      const run = async () => {
+        setLinkedCandidatesSearchLoading(true);
+        setLinkedCandidatesSearchError(null);
+        try {
+          const { data, error } = await supabase
+            .from("candidates")
+            .select("id,pipeline_id,stage_id,created_at,data")
+            .neq("pipeline_id", "companies")
+            .eq("data->>assigned_company_id", candidate.id)
+            .or(`data->>name.ilike.${likeValue},data->>email.ilike.${likeValue}`)
+            .order("created_at", { ascending: false })
+            .limit(50);
+          if (error) throw new Error(error.message);
+
+          const mapped = (data ?? [])
+            .map((row) => {
+              const payload =
+                row && typeof row === "object" && "data" in row
+                  ? ((row as { data?: unknown }).data as unknown)
+                  : null;
+              const record =
+                payload && typeof payload === "object" && !Array.isArray(payload)
+                  ? (payload as Record<string, unknown>)
+                  : {};
+              const name = typeof record.name === "string" ? record.name.trim() : "";
+              const email = typeof record.email === "string" ? record.email.trim() : "";
+              const avatar = typeof record.avatar_url === "string" ? record.avatar_url : null;
+              const startDate =
+                typeof record.start_date === "string" ? record.start_date.trim() : null;
+              return {
+                id: String((row as { id: string }).id),
+                pipeline_id:
+                  typeof (row as { pipeline_id?: unknown }).pipeline_id === "string"
+                    ? ((row as { pipeline_id: string }).pipeline_id as string)
+                    : null,
+                stage_id:
+                  typeof (row as { stage_id?: unknown }).stage_id === "string"
+                    ? ((row as { stage_id: string }).stage_id as string)
+                    : null,
+                name,
+                email,
+                avatar_url: avatar,
+                start_date: startDate,
+              };
+            })
+            .filter((item) => Boolean(item.id));
+
+          if (!ignore) setLinkedCandidatesSearchResults(mapped);
+        } catch (err) {
+          if (!ignore) {
+            setLinkedCandidatesSearchError(
+              err instanceof Error ? err.message : "Failed to search assigned profiles"
+            );
+            const lowered = query.toLowerCase();
+            setLinkedCandidatesSearchResults(
+              linkedCandidates.filter((item) => {
+                const haystack = `${item.name} ${item.email}`.toLowerCase();
+                return haystack.includes(lowered);
+              })
+            );
+          }
+        } finally {
+          if (!ignore) setLinkedCandidatesSearchLoading(false);
+        }
+      };
+
+      void run();
+    }, 220);
+
+    return () => {
+      ignore = true;
+      window.clearTimeout(timer);
+    };
+  }, [candidate?.id, candidate?.pipeline_id, linkedCandidates, linkedCandidatesQuery, open, supabase]);
+
+  const handleAssignCompany = (companyId: string) => {
+    if (!candidate?.id) return;
+    const normalized = companyId.trim();
+    if (!normalized) {
+      onUpdateCandidate(candidate.id, {
+        assigned_company_id: undefined,
+        assigned_company_name: undefined,
+      });
+      return;
+    }
+    const match = companyOptions.find((item) => item.id === normalized);
+    onUpdateCandidate(candidate.id, {
+      assigned_company_id: normalized,
+      assigned_company_name: match?.name ?? candidate.assigned_company_name ?? undefined,
+    });
   };
 
   const handleCopyShareLink = async () => {
@@ -1099,9 +1664,9 @@ export default function CandidateDrawer({
         meeting_transcript_excerpt: undefined,
         meeting_transcript_summary: undefined,
         meeting_artifacts_checked_at: undefined,
-        meeting_rsvp_status: undefined,
-        meeting_rsvp_email: undefined,
-        meeting_rsvp_updated_at: undefined,
+        meeting_rsvp_status: "canceled",
+        meeting_rsvp_email: candidate.email,
+        meeting_rsvp_updated_at: new Date().toISOString(),
         meeting_created_at: undefined,
         meeting_is_instant: undefined,
       });
@@ -1118,11 +1683,19 @@ export default function CandidateDrawer({
     }
   };
 
-  useEffect(() => {
-    setFormLink(null);
-    setFormError(null);
-    setFormCopied(false);
-    setFormStatus(null);
+	  useEffect(() => {
+	    setIsTaskModalOpen(false);
+	    setTaskFormTitle("");
+	    setTaskFormAssigneeId("");
+	    setTaskFormDueDate("");
+	    setTaskFormDueTime("");
+	    setTaskFormReminder("none");
+	    setTaskFormNotes("");
+	    setTaskFormError(null);
+	    setFormLink(null);
+	    setFormError(null);
+	    setFormCopied(false);
+	    setFormStatus(null);
     setFormLoading(false);
     setCvLink(null);
     setCvStatus(null);
@@ -1152,12 +1725,31 @@ export default function CandidateDrawer({
     setRefreshing(false);
     setSnapshotLoading(false);
     setRefreshCounter(0);
-    setAiChatMessages([]);
-    setAiChatInput("");
-    setAiChatLoading(false);
-    setAiChatError(null);
-    setAiChatOpen(false);
-  }, [candidate?.id]);
+	    setAiChatMessages([]);
+	    setAiChatInput("");
+	    setAiChatLoading(false);
+	    setAiChatError(null);
+	    setAiChatOpen(false);
+	    setLeftTab(candidate?.pipeline_id === "companies" ? "overview" : "experience");
+	    setRepresentativeEditing(false);
+	  }, [candidate?.id, candidate?.pipeline_id]);
+
+	  useEffect(() => {
+	    if (!open || !candidate?.id) return;
+	    if (candidate.pipeline_id !== "companies") return;
+	    if (representativeEditing) return;
+	    setRepresentativeNameDraft(candidate.company_representative_name ?? "");
+	    setRepresentativeEmailDraft(candidate.company_representative_email ?? "");
+	    setRepresentativePhoneDraft(candidate.company_representative_phone ?? "");
+	  }, [
+	    candidate?.id,
+	    candidate?.pipeline_id,
+	    candidate?.company_representative_name,
+	    candidate?.company_representative_email,
+	    candidate?.company_representative_phone,
+	    open,
+	    representativeEditing,
+	  ]);
 
   useEffect(() => {
     let ignore = false;
@@ -1237,7 +1829,7 @@ export default function CandidateDrawer({
             .limit(200),
           supabase
             .from("candidate_tasks")
-            .select("candidate_id,id,title,status,created_at")
+            .select("*")
             .eq("candidate_id", candidate.id),
           supabase
             .from("candidate_work_history")
@@ -1283,9 +1875,20 @@ export default function CandidateDrawer({
           )
         );
 
-        const tasks = (taskResult.data ?? []).map((row) =>
+        const fetchedTasks = (taskResult.data ?? []).map((row) =>
           mapTaskRow(row as TaskRow)
         );
+        const requestInfoTaskIds = fetchedTasks
+          .filter((task) => isRequestInfoTask(task))
+          .map((task) => task.id);
+        const tasks = fetchedTasks.filter((task) => !isRequestInfoTask(task));
+        if (requestInfoTaskIds.length > 0) {
+          void supabase
+            .from("candidate_tasks")
+            .delete()
+            .eq("candidate_id", candidate.id)
+            .in("id", requestInfoTaskIds);
+        }
         const workHistory = (workResult.data ?? []).map((row) =>
           mapWorkHistoryRow(row as WorkHistoryRow)
         );
@@ -1326,11 +1929,123 @@ export default function CandidateDrawer({
     return () => {
       ignore = true;
     };
-  }, [open, candidate?.id, refreshCounter, supabase, onHydrateCandidate]);
+	  }, [open, candidate?.id, refreshCounter, supabase, onHydrateCandidate]);
+
+	  useEffect(() => {
+	    if (!open || !candidate?.id || !currentUser?.id) {
+	      setDiscussionLastSeenAt(undefined);
+	      return;
+	    }
+	    let ignore = false;
+	    const loadReadState = async () => {
+	      setDiscussionLastSeenAt(undefined);
+	      const { data, error } = await supabase
+	        .from("candidate_note_reads")
+	        .select("last_seen_at")
+	        .eq("user_id", currentUser.id)
+	        .eq("candidate_id", candidate.id)
+	        .maybeSingle();
+	      if (ignore) return;
+	      if (error) {
+	        const local = readLocalLastSeen("discussion", currentUser.id, candidate.id);
+	        setDiscussionLastSeenAt(local ?? null);
+	        return;
+	      }
+	      const dbLastSeenAt =
+	        (data as { last_seen_at?: string | null } | null)?.last_seen_at ?? null;
+	      const localLastSeenAt = readLocalLastSeen("discussion", currentUser.id, candidate.id);
+	      const resolved = maxIsoTimestamp([dbLastSeenAt, localLastSeenAt]);
+	      setDiscussionLastSeenAt(resolved ?? null);
+
+	      if (localLastSeenAt && (!dbLastSeenAt || resolved !== dbLastSeenAt)) {
+	        void supabase.from("candidate_note_reads").upsert(
+	          {
+	            user_id: currentUser.id,
+	            candidate_id: candidate.id,
+	            last_seen_at: resolved,
+	          },
+	          { onConflict: "user_id,candidate_id" }
+	        );
+	      }
+	    };
+	    void loadReadState();
+	    return () => {
+	      ignore = true;
+	    };
+	  }, [candidate?.id, currentUser?.id, maxIsoTimestamp, open, readLocalLastSeen, supabase]);
+
+	  useEffect(() => {
+	    if (!open || !candidate?.id || !currentUser?.id) {
+	      setNotesLastSeenAt(undefined);
+	      return;
+	    }
+	    let ignore = false;
+	    const loadReadState = async () => {
+	      setNotesLastSeenAt(undefined);
+	      const { data, error } = await supabase
+	        .from("candidate_activity_reads")
+	        .select("last_seen_at")
+	        .eq("user_id", currentUser.id)
+	        .eq("candidate_id", candidate.id)
+	        .maybeSingle();
+	      if (ignore) return;
+	      if (error) {
+	        const local = readLocalLastSeen("notes", currentUser.id, candidate.id);
+	        setNotesLastSeenAt(local ?? null);
+	        return;
+	      }
+	      const dbLastSeenAt =
+	        (data as { last_seen_at?: string | null } | null)?.last_seen_at ?? null;
+	      const localLastSeenAt = readLocalLastSeen("notes", currentUser.id, candidate.id);
+	      const resolved = maxIsoTimestamp([dbLastSeenAt, localLastSeenAt]);
+	      setNotesLastSeenAt(resolved ?? null);
+
+	      if (localLastSeenAt && (!dbLastSeenAt || resolved !== dbLastSeenAt)) {
+	        void supabase.from("candidate_activity_reads").upsert(
+	          {
+	            user_id: currentUser.id,
+	            candidate_id: candidate.id,
+	            last_seen_at: resolved,
+	          },
+	          { onConflict: "user_id,candidate_id" }
+	        );
+	      }
+	    };
+	    void loadReadState();
+	    return () => {
+	      ignore = true;
+	    };
+	  }, [candidate?.id, currentUser?.id, maxIsoTimestamp, open, readLocalLastSeen, supabase]);
 
   useEffect(() => {
     if (!open || !candidate?.id) return;
     const channel = supabase.channel(`candidate-timeline-${candidate.id}`);
+    let active = true;
+
+        const refreshTasks = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("candidate_tasks")
+          .select("*")
+          .eq("candidate_id", candidate.id);
+        if (error || !active) return;
+        const fetchedTasks = (data ?? []).map((row) => mapTaskRow(row as TaskRow));
+        const requestInfoTaskIds = fetchedTasks
+          .filter((task) => isRequestInfoTask(task))
+          .map((task) => task.id);
+        const tasks = fetchedTasks.filter((task) => !isRequestInfoTask(task));
+        if (requestInfoTaskIds.length > 0) {
+          void supabase
+            .from("candidate_tasks")
+            .delete()
+            .eq("candidate_id", candidate.id)
+            .in("id", requestInfoTaskIds);
+        }
+        onHydrateCandidate(candidate.id, { tasks });
+      } catch {
+        // ignore - keep UI resilient
+      }
+    };
 
     channel.on(
       "postgres_changes",
@@ -1388,11 +2103,25 @@ export default function CandidateDrawer({
       }
     );
 
+    channel.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "candidate_tasks",
+        filter: `candidate_id=eq.${candidate.id}`,
+      },
+      () => {
+        void refreshTasks();
+      }
+    );
+
     channel.subscribe();
     return () => {
+      active = false;
       supabase.removeChannel(channel);
     };
-  }, [open, candidate?.id, supabase]);
+  }, [open, candidate?.id, supabase, onHydrateCandidate]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1418,19 +2147,23 @@ export default function CandidateDrawer({
     let ignore = false;
     const loadTeamUsers = async () => {
       try {
-        const res = await fetch("/api/admin/users", { cache: "no-store" });
+        const res = await fetch("/api/chat/members?include_avatars=1", {
+          cache: "no-store",
+        });
         const data = await res.json().catch(() => null);
         if (!res.ok) return;
-        const list = Array.isArray(data?.users) ? data.users : [];
+        const list = Array.isArray(data?.members) ? data.members : [];
         if (!ignore) {
           setTeamUsers(
-            list.map((user: TeamUser) => ({
-              id: user.id,
-              email: user.email ?? "",
-              name: user.name ?? "",
-              avatar_url: user.avatar_url ?? null,
-              avatar_path: user.avatar_path ?? null,
-            }))
+            list
+              .map((user: Record<string, unknown>) => ({
+                id: (user.user_id as string) ?? "",
+                email: (user.email as string) ?? "",
+                name: (user.name as string) ?? "",
+                avatar_url: (user.avatar_url as string | null) ?? null,
+                avatar_path: (user.avatar_path as string | null) ?? null,
+              }))
+              .filter((item) => Boolean(item.id))
           );
         }
       } catch {
@@ -1537,6 +2270,34 @@ export default function CandidateDrawer({
       (a, b) => b.label.length - a.label.length
     );
   }, [teamUsers]);
+
+  const discussionItems = useMemo(() => {
+    const items: Note[] = [...notes];
+    items.sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    return items;
+  }, [notes]);
+
+  const notesItems = useMemo(() => {
+    const items: ActivityEvent[] = [...activity];
+    items.sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    return items;
+  }, [activity]);
+
+  const discussionTimelineRows = useMemo(
+    () => buildDaySeparatedTimelineRows(discussionItems),
+    [discussionItems]
+  );
+
+  const notesTimelineRows = useMemo(
+    () => buildDaySeparatedTimelineRows(notesItems),
+    [notesItems]
+  );
 
   const resolveAvatar = (
     authorId?: string,
@@ -1711,6 +2472,7 @@ export default function CandidateDrawer({
         const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? "Failed to save activity");
       }
+      touchCandidateActivity();
     } catch (error) {
       setTimelineError(
         error instanceof Error ? error.message : "Failed to save activity"
@@ -1745,6 +2507,8 @@ export default function CandidateDrawer({
     });
     if (error) {
       setTimelineError(error.message);
+    } else {
+      touchCandidateActivity();
     }
   };
 
@@ -1979,7 +2743,7 @@ export default function CandidateDrawer({
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    if (!open) return;
+    if (!open && !shouldRender) return;
     const { body } = document;
     bodyOverflowRef.current = body.style.overflow;
     bodyPaddingRef.current = body.style.paddingRight;
@@ -1992,10 +2756,11 @@ export default function CandidateDrawer({
       body.style.overflow = bodyOverflowRef.current;
       body.style.paddingRight = bodyPaddingRef.current;
     };
-  }, [open]);
+  }, [open, shouldRender]);
 
   useEffect(() => {
-    if (!open || rightTab !== "discussion") return;
+    if (!open) return;
+    if (rightTab !== "notes" && rightTab !== "discussion") return;
     const el = discussionScrollRef.current;
     if (!el) return;
     const id = requestAnimationFrame(() => {
@@ -2037,26 +2802,30 @@ export default function CandidateDrawer({
     setNameDraft(candidate?.name ?? "");
     setRightTab("discussion");
     setScorecardDraft(buildScorecardDraft(candidate?.scorecard));
-    setSaving(false);
     setShowMeetingModal(false);
     setMeetingForm((prev) => ({
       ...prev,
       date: new Date().toISOString().slice(0, 10),
       title: `${candidate?.name ?? "Candidate"} Meeting`,
     }));
-    if (saveTimerRef.current) {
-      window.clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = null;
-    }
   }, [candidate?.id]);
 
   useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) {
-        window.clearTimeout(saveTimerRef.current);
-      }
+    if (!open) return;
+    if (!candidate?.id) return;
+    if (!requestedRightTab) return;
+
+    const last = lastAppliedRequestedRightTabRef.current;
+    if (last && last.candidateId === candidate.id && last.tab === requestedRightTab) {
+      return;
+    }
+
+    setRightTab(requestedRightTab);
+    lastAppliedRequestedRightTabRef.current = {
+      candidateId: candidate.id,
+      tab: requestedRightTab,
     };
-  }, []);
+  }, [candidate?.id, open, requestedRightTab]);
 
   useEffect(() => {
     if (showMeetingModal) {
@@ -2236,7 +3005,110 @@ export default function CandidateDrawer({
     };
   }, [open, resumeAttachment?.path, refreshCounter]);
 
-  if (!open || !candidate) return null;
+  const discussionUnreadCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    if (discussionLastSeenAt === undefined) return 0;
+    const lastSeenMs = discussionLastSeenAt
+      ? new Date(discussionLastSeenAt).getTime()
+      : null;
+    const safeLastSeenMs =
+      lastSeenMs !== null && !Number.isNaN(lastSeenMs) ? lastSeenMs : null;
+    const currentEmail = currentUser?.email?.toLowerCase() ?? "";
+    return notes.reduce((count, note) => {
+      if (note.author_id && note.author_id === currentUser.id) return count;
+      if (
+        currentEmail &&
+        note.author_email &&
+        note.author_email.toLowerCase() === currentEmail
+      ) {
+        return count;
+      }
+      const createdMs = new Date(note.created_at).getTime();
+      if (Number.isNaN(createdMs)) return count;
+      if (safeLastSeenMs === null) return count + 1;
+      return createdMs > safeLastSeenMs ? count + 1 : count;
+    }, 0);
+  }, [currentUser?.email, currentUser?.id, discussionLastSeenAt, notes]);
+
+  useEffect(() => {
+    if (!open || !candidate?.id || !currentUser?.id) return;
+    if (rightTab !== "discussion") return;
+    if (discussionUnreadCount === 0) return;
+    const seenIso = maxCreatedAtIso(notes) ?? new Date().toISOString();
+    setDiscussionLastSeenAt(seenIso);
+    writeLocalLastSeen("discussion", currentUser.id, candidate.id, seenIso);
+    void supabase.from("candidate_note_reads").upsert(
+      {
+        user_id: currentUser.id,
+        candidate_id: candidate.id,
+        last_seen_at: seenIso,
+      },
+      { onConflict: "user_id,candidate_id" }
+    );
+  }, [
+    candidate?.id,
+    currentUser?.id,
+    discussionUnreadCount,
+    maxCreatedAtIso,
+    notes,
+    open,
+    rightTab,
+    supabase,
+    writeLocalLastSeen,
+  ]);
+
+  const notesUnreadCount = useMemo(() => {
+    if (!currentUser?.id) return 0;
+    if (notesLastSeenAt === undefined) return 0;
+    const lastSeenMs = notesLastSeenAt ? new Date(notesLastSeenAt).getTime() : null;
+    const safeLastSeenMs =
+	      lastSeenMs !== null && !Number.isNaN(lastSeenMs) ? lastSeenMs : null;
+	    const currentEmail = currentUser?.email?.toLowerCase() ?? "";
+	    return activity.reduce((count, entry) => {
+	      if (entry.author_id && entry.author_id === currentUser.id) return count;
+	      if (
+	        currentEmail &&
+	        entry.author_email &&
+	        entry.author_email.toLowerCase() === currentEmail
+	      ) {
+	        return count;
+	      }
+	      const createdMs = new Date(entry.created_at).getTime();
+	      if (Number.isNaN(createdMs)) return count;
+	      if (safeLastSeenMs === null) return count + 1;
+	      return createdMs > safeLastSeenMs ? count + 1 : count;
+	    }, 0);
+  }, [activity, currentUser?.email, currentUser?.id, notesLastSeenAt]);
+
+  useEffect(() => {
+    if (!open || !candidate?.id || !currentUser?.id) return;
+    if (rightTab !== "notes") return;
+    if (notesUnreadCount === 0) return;
+    const seenIso = maxCreatedAtIso(activity) ?? new Date().toISOString();
+    setNotesLastSeenAt(seenIso);
+    writeLocalLastSeen("notes", currentUser.id, candidate.id, seenIso);
+    void supabase.from("candidate_activity_reads").upsert(
+      {
+        user_id: currentUser.id,
+        candidate_id: candidate.id,
+        last_seen_at: seenIso,
+      },
+      { onConflict: "user_id,candidate_id" }
+    );
+  }, [
+    activity,
+    candidate?.id,
+    currentUser?.id,
+    maxCreatedAtIso,
+    notesUnreadCount,
+    open,
+    rightTab,
+    supabase,
+    writeLocalLastSeen,
+  ]);
+
+  const renderNow = shouldRender || open;
+  if (!renderNow || !candidate) return null;
 
   const stage = stages.find((item) => item.id === candidate.stage_id);
   const mailerlite = candidate.mailerlite;
@@ -2250,21 +3122,37 @@ export default function CandidateDrawer({
       (mailerliteFields?.country as string | undefined) ??
       (mailerliteFields?.country_name as string | undefined)
   );
-  const mailerliteDesired =
-    (mailerliteFields?.position_or_department_desired as string | undefined) ??
-    (mailerliteFields?.desired_position as string | undefined) ??
-    (mailerliteFields?.preferred_role as string | undefined);
-  const desiredPosition = candidate.desired_position ?? mailerliteDesired ?? "—";
-  const resumeMime = resumeAttachment?.mime ?? "";
-  const resumeUrl = resumeAttachment?.url ?? resumeSignedUrl ?? "";
-  const isResumePdf =
-    resumeMime.includes("pdf") || resumeUrl.includes("application/pdf");
+	  const mailerliteDesired =
+	    (mailerliteFields?.position_or_department_desired as string | undefined) ??
+	    (mailerliteFields?.desired_position as string | undefined) ??
+	    (mailerliteFields?.preferred_role as string | undefined);
+	  const desiredPosition = candidate.desired_position ?? mailerliteDesired ?? "—";
+	  const companyOwnerLabel = (candidate.company_owner ?? "").trim() || "—";
+		  const companyOwnerKey =
+		    (candidate.company_owner_id ?? "").trim() ||
+		    (candidate.company_owner ?? "").trim() ||
+		    companyOwnerLabel;
+		  const assignedProfilesCount =
+		    candidate.pipeline_id === "companies"
+		      ? linkedCandidatesLoading && linkedCandidatesTotal === null
+		        ? null
+		        : linkedCandidatesTotal ?? linkedCandidates.length
+		      : null;
+		  const companyWebsite = (candidate.website_url ?? "").trim();
+		  const companyPhone = (candidate.phone ?? "").trim();
+		  const companyCity = (candidate.city ?? "").trim();
+		  const companyIndustry = (candidate.industry ?? "").trim();
+	  const resumeMime = resumeAttachment?.mime ?? "";
+	  const resumeUrl = resumeAttachment?.url ?? resumeSignedUrl ?? "";
+	  const isResumePdf =
+	    resumeMime.includes("pdf") || resumeUrl.includes("application/pdf");
   const isResumeImage = resumeMime.startsWith("image/");
   const scorecardEntries = scorecardDraft.entries ?? {};
   const isTranscriptSource =
     (candidate.source ?? "").toLowerCase().includes("transcript") ||
     candidate.id.startsWith("intake-");
   const transcriptDetails = [
+    { label: "Start Date", value: formatDateShort(candidate.start_date) || "—" },
     { label: "Name", value: candidate.name },
     { label: "Email", value: candidate.email || "—" },
     { label: "Phone", value: candidate.phone ?? "—" },
@@ -2285,6 +3173,40 @@ export default function CandidateDrawer({
       experience_summary: summaryDraft.trim(),
     });
   };
+
+  const handleSaveRepresentative = () => {
+    if (candidate.pipeline_id !== "companies") return;
+    const nextName = representativeNameDraft.trim();
+    const nextEmail = representativeEmailDraft.trim();
+    const nextPhone = representativePhoneDraft.trim();
+    onUpdateCandidate(candidate.id, {
+      company_representative_name: nextName || undefined,
+      company_representative_email: nextEmail || undefined,
+      company_representative_phone: nextPhone || undefined,
+    });
+    setRepresentativeEditing(false);
+  };
+
+	  const handleViewProfile = (profile: { id: string; name?: string; email?: string }) => {
+	    if (typeof window === "undefined") return;
+	    const label = (profile.name || profile.email || profile.id || "").trim();
+	    const shareSlug = getCandidateShareSlug({
+	      id: profile.id,
+	      name: label,
+	    });
+
+	    window.dispatchEvent(
+	      new CustomEvent(OPEN_PROFILE_EVENT, { detail: { shareSlug, candidateId: profile.id } })
+	    );
+
+	    const pathname = window.location.pathname.replace(/\/$/, "");
+	    if (pathname.endsWith("/pipeline") || pathname.endsWith("/companies")) {
+	      return;
+	    }
+	    if (!pathname.endsWith("/pipeline")) {
+	      window.location.href = `/pipeline?profile=${encodeURIComponent(shareSlug)}`;
+	    }
+	  };
 
   const normalizeTag = (value: string) =>
     value
@@ -2317,8 +3239,20 @@ export default function CandidateDrawer({
     });
   };
 
-  const tasks = rawTasks;
+  const tasks = rawTasks.filter((task) => !isRequestInfoTask(task));
   const openTaskCount = tasks.filter((task) => task.status !== "done").length;
+  const meetingRsvpStatus = (candidate.meeting_rsvp_status ?? "").toLowerCase();
+  const hasActiveMeeting =
+    !!candidate.meeting_link || !!candidate.meeting_event_id || !!candidate.meeting_start;
+  const meetingsDotClass = !hasActiveMeeting ||
+    meetingRsvpStatus === "canceled" ||
+    meetingRsvpStatus === "cancelled"
+    ? null
+    : meetingRsvpStatus === "accepted"
+    ? "bg-emerald-500"
+    : meetingRsvpStatus === "declined"
+    ? "bg-rose-500"
+    : "bg-amber-500";
   const hasExistingForm = formStatus === "pending" || formStatus === "submitted";
   const requestedFields = hasExistingForm
     ? FORM_FIELD_DEFINITIONS.filter((field) =>
@@ -2328,40 +3262,281 @@ export default function CandidateDrawer({
         missingFieldKeys.includes(field.key)
       );
 
-  const handleToggleTask = (taskId: string) => {
-    onUpdateCandidate(candidate.id, {
-      tasks: tasks.map((task) =>
-        task.id === taskId
-          ? {
-              ...task,
-              status: task.status === "done" ? "open" : "done",
-            }
-          : task
-      ),
+  const handleToggleTask = async (taskId: string) => {
+    if (!candidate?.id || !taskId) return;
+    setTaskActionError(null);
+    const prev = rawTasks;
+    const target = prev.find((task) => task.id === taskId);
+    if (!target) return;
+    const nextStatus = target.status === "done" ? "open" : "done";
+    const next = prev.map((task) =>
+      task.id === taskId ? { ...task, status: nextStatus } : task
+    );
+    onHydrateCandidate(candidate.id, {
+      tasks: next.filter((task) => !isRequestInfoTask(task)),
     });
+    const { error } = await supabase
+      .from("candidate_tasks")
+      .update({ status: nextStatus })
+      .eq("candidate_id", candidate.id)
+      .eq("id", taskId);
+    if (error) {
+      onHydrateCandidate(candidate.id, { tasks: prev });
+      setTaskActionError(error.message);
+    } else {
+      touchCandidateActivity();
+    }
   };
 
-  const handleRemoveTask = (taskId: string) => {
-    onUpdateCandidate(candidate.id, {
-      tasks: tasks.filter((task) => task.id !== taskId),
+  const handleRemoveTask = async (taskId: string) => {
+    if (!candidate?.id || !taskId) return;
+    setTaskActionError(null);
+    const prev = rawTasks;
+    const next = prev.filter((task) => task.id !== taskId);
+    onHydrateCandidate(candidate.id, {
+      tasks: next.filter((task) => !isRequestInfoTask(task)),
     });
+    const { error } = await supabase
+      .from("candidate_tasks")
+      .delete()
+      .eq("candidate_id", candidate.id)
+      .eq("id", taskId);
+    if (error) {
+      onHydrateCandidate(candidate.id, { tasks: prev });
+      setTaskActionError(error.message);
+    } else {
+      touchCandidateActivity();
+    }
   };
 
   const handleAddTask = () => {
-    const next = taskDraft.trim();
-    if (!next) return;
-    onUpdateCandidate(candidate.id, {
-      tasks: [
-        ...tasks,
-        {
-          id: crypto.randomUUID(),
-          title: next,
-          status: "open",
-          created_at: new Date().toISOString(),
-        },
-      ],
+    setTaskActionError(null);
+    setTaskFormError(null);
+    setTaskFormSaving(false);
+    setTaskEditingId(null);
+    setTaskFormTitle("");
+    setTaskFormNotes("");
+    setTaskFormDueDate("");
+    setTaskFormDueTime("");
+    setTaskFormReminder("none");
+    setIsTaskModalOpen(true);
+    if (!taskFormAssigneeId && currentUser?.id) {
+      setTaskFormAssigneeId(currentUser.id);
+    }
+  };
+
+  const splitIsoToLocalDateTime = (value?: string | null) => {
+    if (!value) return { date: "", time: "" };
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return { date: "", time: "" };
+    const pad = (num: number) => String(num).padStart(2, "0");
+    return {
+      date: `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}`,
+      time: `${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`,
+    };
+  };
+
+  const handleEditTask = (task: TaskItem) => {
+    setTaskActionError(null);
+    setTaskFormError(null);
+    setTaskFormSaving(false);
+    setTaskEditingId(task.id);
+    setTaskFormTitle(task.title ?? "");
+    setTaskFormNotes(task.notes ?? "");
+    setTaskFormAssigneeId(typeof task.assigned_to === "string" ? task.assigned_to : "");
+    const { date, time } = splitIsoToLocalDateTime(task.due_at ?? null);
+    setTaskFormDueDate(date);
+    setTaskFormDueTime(time);
+    const reminder =
+      date && task.reminder_minutes_before != null ? String(task.reminder_minutes_before) : "none";
+    setTaskFormReminder(reminder);
+    setIsTaskModalOpen(true);
+  };
+
+  const combineLocalDateTimeToIso = (date: string, time?: string) => {
+    if (!date) return null;
+    const safeTime = time?.trim() ? time.trim() : "09:00";
+    const parsed = new Date(`${date}T${safeTime}`);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString();
+  };
+
+  const notifyAssignee = async (taskId: string, recipientUserId: string) => {
+    if (!candidate?.id || !taskId || !recipientUserId) return;
+    try {
+      await fetch("/api/tasks/notify-assignee", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          candidateId: candidate.id,
+          taskId,
+          recipientUserId,
+        }),
+      });
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleCreateTask = async () => {
+    if (!candidate?.id) return;
+    if (taskFormSaving) return;
+    setTaskActionError(null);
+    const title = taskFormTitle.trim();
+    if (!title) {
+      setTaskFormError("Enter your task.");
+      return;
+    }
+    const dueAt = taskFormDueDate
+      ? combineLocalDateTimeToIso(taskFormDueDate, taskFormDueTime)
+      : null;
+    const reminderMinutes =
+      dueAt && taskFormReminder !== "none"
+        ? Number.parseInt(taskFormReminder, 10)
+        : null;
+    const notesTrimmed = taskFormNotes.trim();
+    const nextTask = {
+      id: crypto.randomUUID(),
+      title,
+      status: "open" as const,
+      created_at: new Date().toISOString(),
+      watcher_ids: [] as string[],
+      assigned_to: taskFormAssigneeId || null,
+      due_at: dueAt,
+      reminder_minutes_before: Number.isFinite(reminderMinutes)
+        ? reminderMinutes
+        : null,
+      notes: notesTrimmed ? notesTrimmed : null,
+    };
+
+    setTaskFormSaving(true);
+    setTaskFormError(null);
+    const insertPayload = {
+      candidate_id: candidate.id,
+      id: nextTask.id,
+      title: nextTask.title,
+      status: nextTask.status,
+      created_at: nextTask.created_at,
+      watcher_ids: nextTask.watcher_ids,
+      assigned_to: nextTask.assigned_to,
+      due_at: nextTask.due_at,
+      reminder_minutes_before: nextTask.reminder_minutes_before,
+      notes: nextTask.notes,
+      kind: "task",
+    };
+    let { error } = await supabase.from("candidate_tasks").insert(insertPayload);
+    if (error && error.message.toLowerCase().includes("kind") && error.message.toLowerCase().includes("does not exist")) {
+      // Backwards compatible with older DB schema.
+      const legacy = { ...insertPayload } as Record<string, unknown>;
+      delete legacy.kind;
+      ({ error } = await supabase.from("candidate_tasks").insert(legacy));
+    }
+    if (error) {
+      setTaskFormError(error.message);
+      setTaskFormSaving(false);
+      return;
+    }
+
+    if (typeof nextTask.assigned_to === "string" && nextTask.assigned_to) {
+      void notifyAssignee(nextTask.id, nextTask.assigned_to);
+    }
+    onHydrateCandidate(candidate.id, { tasks: [...tasks, nextTask] });
+    touchCandidateActivity();
+    setIsTaskModalOpen(false);
+    setTaskFormTitle("");
+    setTaskFormNotes("");
+    setTaskFormDueDate("");
+    setTaskFormDueTime("");
+    setTaskFormReminder("none");
+    setTaskFormError(null);
+    setTaskFormSaving(false);
+  };
+
+  const handleUpdateTask = async () => {
+    if (!candidate?.id) return;
+    if (!taskEditingId) return;
+    if (taskFormSaving) return;
+    setTaskActionError(null);
+    const title = taskFormTitle.trim();
+    if (!title) {
+      setTaskFormError("Enter your task.");
+      return;
+    }
+    const dueAt = taskFormDueDate
+      ? combineLocalDateTimeToIso(taskFormDueDate, taskFormDueTime)
+      : null;
+    const reminderMinutes =
+      dueAt && taskFormReminder !== "none"
+        ? Number.parseInt(taskFormReminder, 10)
+        : null;
+    const notesTrimmed = taskFormNotes.trim();
+    const assignedTo = taskFormAssigneeId || null;
+
+    const prev = rawTasks;
+    const existing = prev.find((task) => task.id === taskEditingId);
+    if (!existing) return;
+    const previousAssigneeId =
+      typeof existing.assigned_to === "string" && existing.assigned_to
+        ? existing.assigned_to
+        : null;
+
+    setTaskFormSaving(true);
+    setTaskFormError(null);
+    const updatePayload = {
+      title,
+      assigned_to: assignedTo,
+      due_at: dueAt,
+      reminder_minutes_before: Number.isFinite(reminderMinutes) ? reminderMinutes : null,
+      notes: notesTrimmed ? notesTrimmed : null,
+    };
+    const { error } = await supabase
+      .from("candidate_tasks")
+      .update(updatePayload)
+      .eq("candidate_id", candidate.id)
+      .eq("id", taskEditingId);
+    if (error) {
+      setTaskFormError(error.message);
+      setTaskFormSaving(false);
+      return;
+    }
+
+    if (
+      typeof assignedTo === "string" &&
+      assignedTo &&
+      assignedTo !== previousAssigneeId
+    ) {
+      void notifyAssignee(taskEditingId, assignedTo);
+    }
+    const next = prev.map((task) =>
+      task.id === taskEditingId
+        ? {
+            ...task,
+            ...updatePayload,
+          }
+        : task
+    );
+    onHydrateCandidate(candidate.id, {
+      tasks: next.filter((task) => !isRequestInfoTask(task)),
     });
-    setTaskDraft("");
+    touchCandidateActivity();
+
+    setIsTaskModalOpen(false);
+    setTaskEditingId(null);
+    setTaskFormTitle("");
+    setTaskFormNotes("");
+    setTaskFormDueDate("");
+    setTaskFormDueTime("");
+    setTaskFormReminder("none");
+    setTaskFormError(null);
+    setTaskFormSaving(false);
+  };
+
+  const handleSaveTask = async () => {
+    if (taskEditingId) {
+      await handleUpdateTask();
+      return;
+    }
+    await handleCreateTask();
   };
 
   const toggleFormField = (key: string) => {
@@ -2409,26 +3584,6 @@ export default function CandidateDrawer({
         setFormCopied(false);
       }
 
-      const existingIds = new Set(tasks.map((task) => task.id));
-      const newTasks = selected
-        .filter((field) => !existingIds.has(`form_${field}`))
-        .map((field) => {
-          const label =
-            FORM_FIELD_DEFINITIONS.find((item) => item.key === field)?.label ??
-            `Collect ${field}`;
-          return {
-            id: `form_${field}`,
-            title: label,
-            status: "open" as const,
-            created_at: new Date().toISOString(),
-          };
-        });
-
-      if (newTasks.length > 0) {
-        onUpdateCandidate(candidate.id, {
-          tasks: [...tasks, ...newTasks],
-        });
-      }
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Failed to create link.");
     } finally {
@@ -2594,15 +3749,6 @@ export default function CandidateDrawer({
     </div>
   );
 
-  const handleSaveAll = () => {
-    if (saving) return;
-    setSaving(true);
-    saveTimerRef.current = window.setTimeout(() => {
-      setSaving(false);
-      onClose();
-    }, 800);
-  };
-
   const handleAddWork = (event: FormEvent) => {
     event.preventDefault();
     if (!workRole.trim() || !workCompany.trim()) return;
@@ -2683,15 +3829,24 @@ export default function CandidateDrawer({
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-        onClick={onClose}
+        className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 transition-opacity ${
+          isVisible
+            ? "duration-200 ease-out opacity-100"
+            : "pointer-events-none duration-150 ease-in opacity-0"
+        }`}
+        onClick={() => {
+          if (!open) return;
+          onClose();
+        }}
       >
         <div
-          className="relative flex h-[92vh] w-[95vw] max-w-[1800px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+          className={`relative flex h-[92vh] w-[95vw] max-w-[1800px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl transition-opacity ${
+            isVisible ? "opacity-100 duration-200 ease-out" : "opacity-0 duration-150 ease-in"
+          }`}
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-4">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <div
                 className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${getAvatarClass(
                   candidate.name
@@ -2699,7 +3854,7 @@ export default function CandidateDrawer({
               >
                 {initials(candidate.name)}
               </div>
-              <div className="flex flex-col gap-1">
+              <div className="flex min-w-0 flex-col gap-1">
                 {editingName ? (
                   <div className="flex items-center gap-2">
                     <input
@@ -2727,7 +3882,7 @@ export default function CandidateDrawer({
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <div className="text-sm font-semibold text-slate-900">
+                    <div className="truncate text-sm font-semibold text-slate-900">
                       {candidate.name}
                     </div>
                     <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
@@ -2742,24 +3897,61 @@ export default function CandidateDrawer({
                     </button>
                   </div>
                 )}
-                <div className="text-xs text-slate-500">{candidate.email}</div>
+                <div className="min-w-0 text-xs text-slate-500">
+                  {candidate.pipeline_id === "companies"
+                    ? candidate.website_url ? (
+                        <a
+                          href={toExternalHref(candidate.website_url) ?? undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-w-0 max-w-[min(520px,60vw)] items-center gap-1 text-sm font-medium text-emerald-700 hover:underline"
+                        >
+                          <span className="truncate">{candidate.website_url}</span>
+                          <ExternalLink className="h-4 w-4 shrink-0" />
+                        </a>
+                      ) : (
+                        "—"
+                      )
+                    : candidate.email}
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
-                onClick={() => {
-                  void handleCopyShareLink();
-                }}
-              >
-                {shareCopied ? "Link copied" : "Copy link"}
-              </button>
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-60"
-                onClick={handleRefresh}
-                disabled={
+	            <div className="flex shrink-0 items-center gap-3">
+	              <button
+	                type="button"
+	                className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+	                onClick={() => {
+	                  void handleCopyShareLink();
+	                }}
+	              >
+	                {shareCopied ? "Link copied" : "Copy link"}
+	              </button>
+		              <button
+		                type="button"
+		                className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+		                onClick={() => {
+		                  if (typeof window === "undefined") return;
+		                  setTeamChatUnreadCount(0);
+		                  window.dispatchEvent(
+		                    new CustomEvent(TEAM_CHAT_EVENT, {
+		                      detail: { open: true, view: "threads" as const },
+		                    })
+		                  );
+		                }}
+		              >
+		                <span className="relative">
+		                  <MessageCircle className="h-4 w-4" />
+		                  {teamChatUnreadCount > 0 ? (
+		                    <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
+		                  ) : null}
+		                </span>
+		                Chat
+		              </button>
+	              <button
+	                type="button"
+	                className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+	                onClick={handleRefresh}
+	                disabled={
                   refreshing ||
                   timelineLoading ||
                   formLoading ||
@@ -2783,20 +3975,33 @@ export default function CandidateDrawer({
             </div>
           </div>
 
-          <div className="grid h-full min-h-0 flex-1 grid-cols-[2.2fr_1.3fr_0.9fr] overflow-hidden">
-          <section className="flex h-full min-h-0 flex-col border-r border-slate-200 px-6 py-4">
-            <div className="flex items-center gap-4 text-xs text-slate-500">
-              {[
-                { id: "experience", label: "Experience" },
-                { id: "resume", label: "Resume / CV" },
-                { id: "documents", label: "Documents" },
-                { id: "questionnaires", label: "Questionnaires" },
-                { id: "more", label: "More" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setLeftTab(tab.id as typeof leftTab)}
+		          <div
+		            className={`grid h-full min-h-0 flex-1 overflow-hidden ${
+		              candidate.pipeline_id === "companies"
+		                ? "grid-cols-[1.782fr_1.474fr_1.664fr]"
+		                : "grid-cols-[1.98fr_1.638fr_1.302fr]"
+		            }`}
+		          >
+	          <section className="flex h-full min-h-0 flex-col border-r border-slate-200 px-6 py-4">
+	            <div className="flex items-center gap-4 text-xs text-slate-500">
+	              {(candidate.pipeline_id === "companies"
+	                ? ([
+	                    { id: "overview", label: "Overview" },
+	                    { id: "documents", label: "Documents" },
+	                    { id: "more", label: "More" },
+	                  ] as const)
+	                : ([
+	                    { id: "experience", label: "Experience" },
+	                    { id: "resume", label: "Resume / CV" },
+	                    { id: "documents", label: "Documents" },
+	                    { id: "questionnaires", label: "Questionnaires" },
+	                    { id: "more", label: "More" },
+	                  ] as const)
+	              ).map((tab) => (
+	                <button
+	                  key={tab.id}
+	                  type="button"
+	                  onClick={() => setLeftTab(tab.id as typeof leftTab)}
                   className={`border-b-2 pb-2 text-xs ${
                     leftTab === tab.id
                       ? "border-emerald-500 font-semibold text-slate-900"
@@ -2821,12 +4026,270 @@ export default function CandidateDrawer({
                     ? "gap-4 overflow-hidden"
                     : "gap-6 overflow-y-auto"
                 } p-6 text-sm text-slate-600`}
-              >
-                {leftTab === "experience" ? (
-                  <>
-                    {candidate.ai_summary_markdown ? (
-                      <div className="rounded-md border border-slate-200 bg-white px-3 py-3 text-xs text-slate-600">
-                        <div className="text-[11px] font-semibold uppercase text-slate-500">
+	              >
+	                {leftTab === "overview" ? (
+	                  <>
+	                    <div className="grid gap-4 md:grid-cols-2">
+	                      <div className="rounded-md border border-slate-200 bg-white px-4 py-3">
+	                        <div className="text-xs font-semibold uppercase text-slate-500">
+	                          Company owner
+	                        </div>
+	                        <div className="mt-3 flex items-center gap-3">
+	                          <span
+	                            className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ring-1 ring-black/5 ${getAvatarClass(
+	                              companyOwnerKey
+	                            )}`}
+	                          >
+	                            {initials(companyOwnerLabel)}
+	                          </span>
+	                          <div className="min-w-0">
+	                            <div className="truncate text-sm font-semibold text-slate-800">
+	                              {companyOwnerLabel}
+	                            </div>
+	                            <div className="truncate text-xs text-slate-500">
+	                              Owner
+	                            </div>
+	                          </div>
+	                        </div>
+	                      </div>
+	                      <div className="rounded-md border border-slate-200 bg-white px-4 py-3">
+	                        <div className="text-xs font-semibold uppercase text-slate-500">
+	                          Assigned profiles
+	                        </div>
+	                        <div className="mt-3 flex items-baseline gap-2">
+	                          <div className="text-3xl font-semibold text-slate-900">
+	                            {assignedProfilesCount ?? "…"}
+	                          </div>
+	                          <div className="text-xs text-slate-500">total</div>
+	                        </div>
+	                        <div className="mt-2 text-xs text-slate-500">
+	                          Profiles linked to this company.
+	                        </div>
+	                      </div>
+	                    </div>
+
+		                    <div className="rounded-md border border-slate-200 bg-white px-4 py-3">
+		                      <div className="text-xs font-semibold uppercase text-slate-500">
+		                        Company details
+		                      </div>
+		                      <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+		                        <div className="flex items-center justify-between gap-3">
+		                          <div className="text-[11px] font-semibold uppercase text-slate-500">
+		                            Company representative
+		                          </div>
+		                          {!representativeEditing ? (
+		                            <button
+		                              type="button"
+		                              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+		                              onClick={() => setRepresentativeEditing(true)}
+		                            >
+		                              {candidate.company_representative_name ||
+		                              candidate.company_representative_email ||
+		                              candidate.company_representative_phone
+		                                ? "Edit"
+		                                : "Add"}
+		                            </button>
+		                          ) : null}
+		                        </div>
+		                        {representativeEditing ? (
+		                          <div className="mt-3 grid gap-2 md:grid-cols-3">
+		                            <input
+		                              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700"
+		                              placeholder="Name"
+		                              value={representativeNameDraft}
+		                              onChange={(event) =>
+		                                setRepresentativeNameDraft(event.target.value)
+		                              }
+		                            />
+		                            <input
+		                              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700"
+		                              placeholder="Email"
+		                              value={representativeEmailDraft}
+		                              onChange={(event) =>
+		                                setRepresentativeEmailDraft(event.target.value)
+		                              }
+		                            />
+		                            <input
+		                              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700"
+		                              placeholder="Phone"
+		                              value={representativePhoneDraft}
+		                              onChange={(event) =>
+		                                setRepresentativePhoneDraft(event.target.value)
+		                              }
+		                            />
+		                            <div className="flex items-center justify-end gap-2 md:col-span-3">
+		                              <button
+		                                type="button"
+		                                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+		                                onClick={() => {
+		                                  setRepresentativeEditing(false);
+		                                  setRepresentativeNameDraft(
+		                                    candidate.company_representative_name ?? ""
+		                                  );
+		                                  setRepresentativeEmailDraft(
+		                                    candidate.company_representative_email ?? ""
+		                                  );
+		                                  setRepresentativePhoneDraft(
+		                                    candidate.company_representative_phone ?? ""
+		                                  );
+		                                }}
+		                              >
+		                                Cancel
+		                              </button>
+		                              <button
+		                                type="button"
+		                                className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white hover:bg-slate-800"
+		                                onClick={handleSaveRepresentative}
+		                              >
+		                                Save
+		                              </button>
+		                            </div>
+		                          </div>
+			                        ) : (
+			                          <div className="mt-3 grid gap-4 md:grid-cols-3">
+			                            <div className="min-w-0">
+			                              <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                                Name
+			                              </div>
+			                              <div
+			                                className={`mt-1 truncate text-sm font-semibold ${
+			                                  candidate.company_representative_name
+			                                    ? "text-slate-800"
+			                                    : "text-slate-400"
+			                                }`}
+			                              >
+			                                {candidate.company_representative_name || "—"}
+			                              </div>
+			                            </div>
+			                            <div className="min-w-0">
+			                              <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                                Email
+			                              </div>
+			                              {candidate.company_representative_email ? (
+				                                <a
+				                                  href={`mailto:${candidate.company_representative_email}`}
+				                                  className="mt-1 block truncate text-sm font-semibold text-slate-900 hover:underline"
+				                                >
+				                                  {candidate.company_representative_email}
+				                                </a>
+				                              ) : (
+			                                <div className="mt-1 text-sm font-semibold text-slate-400">
+			                                  —
+			                                </div>
+			                              )}
+			                            </div>
+			                            <div className="min-w-0">
+			                              <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                                Phone
+			                              </div>
+			                              {candidate.company_representative_phone ? (
+				                                <a
+				                                  href={`tel:${candidate.company_representative_phone}`}
+				                                  className="mt-1 block truncate text-sm font-semibold text-slate-900 hover:underline"
+				                                >
+				                                  {candidate.company_representative_phone}
+				                                </a>
+				                              ) : (
+			                                <div className="mt-1 text-sm font-semibold text-slate-400">
+			                                  —
+			                                </div>
+			                              )}
+			                            </div>
+			                          </div>
+			                        )}
+		                      </div>
+			                      <div className="mt-4 grid gap-4">
+			                        <div className="min-w-0">
+			                          <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                            Website
+			                          </div>
+			                          {companyWebsite ? (
+				                            <a
+				                              href={
+				                                companyWebsite.startsWith("http")
+				                                  ? companyWebsite
+				                                  : `https://${companyWebsite.replace(/^\/+/, "")}`
+				                              }
+				                              target="_blank"
+				                              rel="noopener noreferrer"
+				                              className="mt-1 block truncate text-sm font-semibold text-slate-900 hover:underline"
+				                            >
+				                              {companyWebsite}
+				                            </a>
+				                          ) : (
+			                            <div className="mt-1 text-sm font-semibold text-slate-400">
+			                              —
+			                            </div>
+			                          )}
+			                        </div>
+
+			                        <div className="min-w-0">
+			                          <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                            Phone
+			                          </div>
+			                          {companyPhone ? (
+				                            <a
+				                              href={`tel:${companyPhone}`}
+				                              className="mt-1 block truncate text-sm font-semibold text-slate-900 hover:underline"
+				                            >
+				                              {companyPhone}
+				                            </a>
+				                          ) : (
+			                            <div className="mt-1 text-sm font-semibold text-slate-400">
+			                              —
+			                            </div>
+			                          )}
+			                        </div>
+
+			                        <div className="min-w-0">
+			                          <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                            City
+			                          </div>
+			                          <div
+			                            className={`mt-1 truncate text-sm font-semibold ${
+			                              companyCity ? "text-slate-800" : "text-slate-400"
+			                            }`}
+			                          >
+			                            {companyCity || "—"}
+			                          </div>
+			                        </div>
+
+			                        <div className="min-w-0">
+			                          <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                            Country
+			                          </div>
+			                          <div
+			                            className={`mt-1 truncate text-sm font-semibold ${
+			                              country.label !== "—" ? "text-slate-800" : "text-slate-400"
+			                            }`}
+			                          >
+			                            {country.label !== "—"
+			                              ? `${country.flag ? `${country.flag} ` : ""}${country.label}`
+			                              : "—"}
+			                          </div>
+			                        </div>
+
+			                        <div className="min-w-0">
+			                          <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                            Industry
+			                          </div>
+			                          <div
+			                            className={`mt-1 truncate text-sm font-semibold ${
+			                              companyIndustry ? "text-slate-800" : "text-slate-400"
+			                            }`}
+			                          >
+			                            {companyIndustry || "—"}
+			                          </div>
+			                        </div>
+			                      </div>
+		                    </div>
+
+		                  </>
+		                ) : leftTab === "experience" ? (
+	                  <>
+	                    {candidate.ai_summary_markdown ? (
+	                      <div className="rounded-md border border-slate-200 bg-white px-3 py-3 text-xs text-slate-600">
+	                        <div className="text-[11px] font-semibold uppercase text-slate-500">
                           AI Summary
                         </div>
                         <Markdown
@@ -3502,14 +4965,38 @@ export default function CandidateDrawer({
                 ) : (
                   <>
                     <div className="text-sm font-semibold text-slate-800">
-                      Content
-                    </div>
-                    <div className="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-xs text-slate-400">
-                      Content placeholder.
+                      Details
                     </div>
                     <div className="space-y-2 text-xs text-slate-500">
-                      <div>Position: {candidate.source ?? "Candidate"}</div>
-                      <div>Email: {candidate.email}</div>
+                      {candidate.pipeline_id === "companies" ? (
+                        <>
+                          <div>Company owner: {candidate.company_owner ?? "—"}</div>
+                              <div className="flex items-center gap-1">
+                                <span>Website:</span>
+                                {candidate.website_url ? (
+                                  <a
+                                    href={toExternalHref(candidate.website_url) ?? undefined}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex max-w-full items-center gap-1 font-medium text-emerald-700 hover:underline"
+                                  >
+                                    <span className="break-all">
+                                      {candidate.website_url}
+                                    </span>
+                                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                                  </a>
+                                ) : (
+                              <span>—</span>
+                            )}
+                          </div>
+                          <div>City: {candidate.city ?? "—"}</div>
+                          <div>Country/Region: {candidate.country ?? "—"}</div>
+                          <div>Industry: {candidate.industry ?? "—"}</div>
+                        </>
+                      ) : (
+                        <div>Position: {candidate.source ?? "Candidate"}</div>
+                      )}
+                      <div>Email: {candidate.email || "—"}</div>
                       <div>Phone: {candidate.phone ?? "—"}</div>
                     </div>
                   </>
@@ -3629,91 +5116,148 @@ export default function CandidateDrawer({
             </div>
           </section>
 
-          <section className="flex h-full min-h-0 flex-col border-r border-slate-200 px-5 py-4">
-            <div className="flex items-center gap-4 text-xs text-slate-500">
-              {[
-                { id: "discussion", label: "Discussion" },
-                { id: "email", label: "Email" },
-                {
-                  id: "meetings",
-                  label: "Meetings",
-                  badge: candidate.meeting_link ? "Awaiting" : null,
-                },
-                { id: "scorecards", label: "Scorecards" },
-                { id: "tasks", label: "Tasks", count: openTaskCount },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setRightTab(tab.id as RightTab)}
-                  className={`border-b-2 pb-2 text-xs ${
-                    rightTab === tab.id
-                      ? "border-emerald-500 font-semibold text-slate-900"
-                      : "border-transparent hover:text-slate-800"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    {tab.label}
-                    {"badge" in tab && tab.badge ? (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                        {tab.badge}
-                      </span>
-                    ) : null}
-                    {tab.id === "tasks" && tab.count && tab.count > 0 ? (
-                      <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold text-white">
-                        {tab.count}
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <div
-              ref={discussionScrollRef}
-              className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 hide-scrollbar"
-              style={{
-                backgroundImage: `url(${chatBackground.src})`,
-                backgroundSize: "cover",
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "center",
-              }}
+	          <section className="flex h-full min-h-0 flex-col border-r border-slate-200 px-5 py-4">
+		            <div className="flex items-center justify-between gap-4 text-xs text-slate-500">
+			              <div className="flex items-center gap-4">
+		                {[
+		                  {
+		                    id: "discussion",
+		                    label: "Discussion",
+		                    icon: MessageCircle,
+		                    notifCount: discussionUnreadCount,
+		                  },
+		                  {
+		                    id: "notes",
+		                    label: "Notes",
+		                    icon: Notebook,
+		                    notifCount: notesUnreadCount,
+		                  },
+		                  { id: "email", label: "Email", icon: Mail },
+			                  {
+			                    id: "meetings",
+			                    label: "Meetings",
+			                    icon: CalendarDays,
+			                    dotClass: meetingsDotClass,
+			                  },
+			                  {
+			                    id: "tasks",
+			                    label: "Tasks",
+			                    icon: ListTodo,
+			                    count: openTaskCount,
+			                  },
+			                ].map((tab) => {
+			                  const isActive = rightTab === tab.id;
+			                  const Icon = tab.icon;
+				                  return (
+				                  <button
+			                    key={tab.id}
+			                    type="button"
+			                    onClick={() => setRightTab(tab.id as RightTab)}
+			                    className={`border-b-2 pb-2 text-xs ${
+			                      rightTab === tab.id
+			                        ? "border-emerald-500 font-semibold text-slate-900"
+			                        : "border-transparent hover:text-slate-800"
+			                    }`}
+			                  >
+			                    <span className="flex items-center gap-2">
+			                      <Icon
+			                        className={`h-3.5 w-3.5 ${
+			                          isActive ? "text-emerald-600" : "text-slate-400"
+			                        }`}
+			                      />
+			                      {tab.label}
+			                      {"notifCount" in tab &&
+			                      tab.notifCount &&
+			                      tab.notifCount > 0 ? (
+			                        <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+			                          {tab.notifCount}
+			                        </span>
+			                      ) : null}
+			                      {"dotClass" in tab && tab.dotClass ? (
+			                        <span
+			                          className={`ml-1 h-2.5 w-2.5 rounded-full ${tab.dotClass}`}
+			                          aria-label="Meeting status"
+			                        />
+		                      ) : null}
+		                      {tab.id === "tasks" && tab.count && tab.count > 0 ? (
+		                        <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+			                          {tab.count}
+			                        </span>
+			                      ) : null}
+			                    </span>
+				                  </button>
+				                );
+				              })}
+			              </div>
+			            </div>
+	            <div
+	              ref={discussionScrollRef}
+	              className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 hide-scrollbar"
+	              style={
+	                rightTab === "discussion" || rightTab === "notes"
+	                  ? {
+	                      backgroundImage: `url(${chatBackground.src})`,
+	                      backgroundSize: "cover",
+	                      backgroundRepeat: "no-repeat",
+	                      backgroundPosition: "center",
+                    }
+                  : undefined
+              }
             >
-              {rightTab === "discussion" ? (
-                <>
-                  <div className="mt-3 space-y-3">
-                    {timelineLoading ? (
-                      <div className="space-y-2">
-                        {Array.from({ length: 3 }).map((_, index) => (
-                          <div
+	              {rightTab === "notes" || rightTab === "discussion" ? (
+		                <>
+		                  <div className="mt-3 space-y-3">
+		                    {timelineLoading ? (
+		                      <div className="space-y-2">
+		                        {Array.from({ length: 3 }).map((_, index) => (
+		                          <div
                             key={index}
                             className="h-12 w-full animate-pulse rounded-2xl border border-slate-200 bg-white/80"
                           />
                         ))}
-                      </div>
-                    ) : null}
-                    {timelineError ? (
-                      <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
-                        {timelineError}
-                      </div>
-                    ) : null}
-                    {activity.length === 0 && notes.length === 0 ? (
-                      <div className="rounded-md border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-400">
-                        No team activity yet.
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {[...activity, ...notes]
-                          .sort(
-                            (a, b) =>
-                              new Date(a.created_at).getTime() -
-                              new Date(b.created_at).getTime()
-                          )
-                          .map((item) => {
-                            const isActivity = "type" in item;
-                            const isSystemEvent =
-                              isActivity && item.type !== "note";
-                            const label = isActivity
-                              ? item.type === "move"
+		                      </div>
+		                    ) : null}
+		                    {timelineError ? (
+		                      <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+		                        {timelineError}
+		                      </div>
+		                    ) : null}
+		                    {(rightTab === "discussion"
+                          ? discussionItems.length === 0
+                          : notesItems.length === 0) ? (
+		                      <div className="rounded-md border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-400">
+		                        {rightTab === "discussion"
+		                          ? "No messages yet."
+		                          : "No history yet."}
+		                      </div>
+		                    ) : (
+		                      <div className="space-y-3">
+		                        {(rightTab === "discussion"
+                              ? discussionTimelineRows
+                              : notesTimelineRows
+                            ).map((row) => {
+                              if (row.kind === "divider") {
+                                return (
+                                  <div
+                                    key={row.key}
+                                    className="my-4 -mx-4 flex items-center"
+                                    aria-label={row.label}
+                                  >
+                                    <div className="h-px flex-1 bg-white/40" />
+                                    <div className="mx-3 rounded-full bg-white/85 px-3 py-1 text-[11px] font-semibold text-slate-700 shadow-sm backdrop-blur">
+                                      {row.label}
+                                    </div>
+                                    <div className="h-px flex-1 bg-white/40" />
+                                  </div>
+                                );
+                              }
+
+                              const item = row.item;
+		                            const isActivity = "type" in item;
+		                            const isSystemEvent =
+		                              isActivity && item.type !== "note";
+		                            const label = isActivity
+	                              ? item.type === "move"
                                 ? "Stage update"
                                 : item.type === "note"
                                 ? "Note"
@@ -3801,99 +5345,99 @@ export default function CandidateDrawer({
                               meetingMeta = [startLabel, durationLabel]
                                 .filter(Boolean)
                                 .join(" • ");
-                            }
-                            return (
-                              <div
-                                key={item.id}
-                                className={`flex items-end gap-2 ${
-                                  isMine ? "justify-end" : "justify-start"
-                                }`}
-                              >
-                                {!isMine ? (
-                                  <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-100 text-[10px] font-semibold text-slate-600">
-                                    {avatarUrl ? (
-                                      <img
-                                        src={avatarUrl}
-                                        alt={avatarLabel}
-                                        className="h-full w-full object-cover"
-                                        loading="lazy"
-                                      />
-                                    ) : (
-                                      initials(avatarLabel)
-                                    )}
-                                  </div>
-                                ) : null}
-                                <div
-                                  className={`max-w-[78%] rounded-2xl px-3 py-2 text-xs shadow-sm ${bubbleClass}`}
-                                >
-                                  <div
-                                    className={`flex items-center gap-2 text-[10px] ${metaClass}`}
-                                  >
-                                    <span>
-                                      {label}
-                                      {author ? ` • ${author}` : ""}
-                                    </span>
-                                    <span className="ml-auto">
-                                      {formatDate(item.created_at)}
-                                    </span>
-                                  </div>
-                                  <div className="mt-1 text-sm">
-                                    {isMeetingSystem &&
-                                    typeof item.body === "string" &&
-                                    item.body.includes("•") ? (
-                                      (() => {
-                                        const dividerIndex = item.body.indexOf("•");
-                                        const prefix = item.body.slice(0, dividerIndex).trim();
-                                        const suffix = item.body
-                                          .slice(dividerIndex + 1)
-                                          .trim();
-                                        return (
-                                          <span>
-                                            {prefix}
-                                            <span className="mt-1 block">
-                                              <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[13px] text-slate-900">
-                                                {suffix}
-                                              </span>
-                                            </span>
-                                          </span>
-                                        );
-                                      })()
-                                    ) : (
-                                      renderMentionedBody(
-                                        item.body,
-                                        mentionLabels,
-                                        isMine && !isSystemEvent
-                                      )
-                                    )}
-                                  </div>
-                                  {isLegacyMeetingMessage && meetingMeta ? (
-                                    <div className={`mt-1 text-[11px] ${metaClass}`}>
-                                      Meeting: {meetingMeta}
-                                    </div>
-                                  ) : null}
-                                </div>
-                                {isMine ? (
-                                  <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-900 text-[10px] font-semibold text-white">
-                                    {avatarUrl ? (
-                                      <img
-                                        src={avatarUrl}
-                                        alt={avatarLabel}
-                                        className="h-full w-full object-cover"
-                                        loading="lazy"
-                                      />
-                                    ) : (
-                                      initials(avatarLabel)
-                                    )}
-                                  </div>
-                                ) : null}
-                              </div>
-                            );
-                          })}
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : rightTab === "meetings" ? (
+	                            }
+	                            return (
+	                              <div
+	                                key={row.key}
+	                                className={`flex items-end gap-2 ${
+	                                  isMine ? "justify-end" : "justify-start"
+	                                }`}
+	                              >
+	                                {!isMine ? (
+	                                  <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-100 text-[10px] font-semibold text-slate-600">
+	                                    {avatarUrl ? (
+	                                      <img
+	                                        src={avatarUrl}
+	                                        alt={avatarLabel}
+	                                        className="h-full w-full object-cover"
+	                                        loading="lazy"
+	                                      />
+	                                    ) : (
+	                                      initials(avatarLabel)
+	                                    )}
+	                                  </div>
+	                                ) : null}
+	                                <div
+	                                  className={`max-w-[78%] rounded-2xl px-3 py-2 text-xs shadow-sm ${bubbleClass}`}
+	                                >
+	                                  <div
+	                                    className={`flex items-center gap-2 text-[10px] ${metaClass}`}
+	                                  >
+	                                    <span>
+	                                      {label}
+	                                      {author ? ` • ${author}` : ""}
+	                                    </span>
+	                                    <span className="ml-auto">
+	                                      {formatDate(item.created_at)}
+	                                    </span>
+	                                  </div>
+	                                  <div className="mt-1 text-sm">
+	                                    {isMeetingSystem &&
+	                                    typeof item.body === "string" &&
+	                                    item.body.includes("•") ? (
+	                                      (() => {
+	                                        const dividerIndex = item.body.indexOf("•");
+	                                        const prefix = item.body.slice(0, dividerIndex).trim();
+	                                        const suffix = item.body
+	                                          .slice(dividerIndex + 1)
+	                                          .trim();
+	                                        return (
+	                                          <span>
+	                                            {prefix}
+	                                            <span className="mt-1 block">
+	                                              <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[13px] text-slate-900">
+	                                                {suffix}
+	                                              </span>
+	                                            </span>
+	                                          </span>
+	                                        );
+	                                      })()
+	                                    ) : (
+	                                      renderMentionedBody(
+	                                        item.body,
+	                                        mentionLabels,
+	                                        isMine && !isSystemEvent
+	                                      )
+	                                    )}
+	                                  </div>
+	                                  {isLegacyMeetingMessage && meetingMeta ? (
+	                                    <div className={`mt-1 text-[11px] ${metaClass}`}>
+	                                      Meeting: {meetingMeta}
+	                                    </div>
+	                                  ) : null}
+	                                </div>
+	                                {isMine ? (
+	                                  <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-900 text-[10px] font-semibold text-white">
+	                                    {avatarUrl ? (
+	                                      <img
+	                                        src={avatarUrl}
+	                                        alt={avatarLabel}
+	                                        className="h-full w-full object-cover"
+	                                        loading="lazy"
+	                                      />
+	                                    ) : (
+	                                      initials(avatarLabel)
+	                                    )}
+	                                  </div>
+	                                ) : null}
+	                              </div>
+	                            );
+	                          })}
+	                      </div>
+		                    )}
+		                  </div>
+		                </>
+		              ) : rightTab === "meetings" ? (
                 <div className="flex h-full flex-col gap-4">
                   {candidate.meeting_link ? (
                     <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -3910,32 +5454,38 @@ export default function CandidateDrawer({
                           With {candidate.meeting_interviewers}
                         </div>
                       ) : null}
-                      {candidate.meeting_rsvp_status ? (
-                        <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-                          <span className="text-[11px] uppercase text-slate-400">
-                            RSVP
-                          </span>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                              candidate.meeting_rsvp_status === "accepted"
-                                ? "bg-emerald-100 text-emerald-700"
-                                : candidate.meeting_rsvp_status === "declined"
-                                ? "bg-rose-100 text-rose-700"
-                                : candidate.meeting_rsvp_status === "tentative"
-                                ? "bg-amber-100 text-amber-700"
-                                : "bg-slate-100 text-slate-600"
-                            }`}
-                          >
-                            {candidate.meeting_rsvp_status === "accepted"
-                              ? "Confirmed"
-                              : candidate.meeting_rsvp_status === "declined"
-                              ? "Declined"
-                              : candidate.meeting_rsvp_status === "tentative"
-                              ? "Maybe"
-                              : "Awaiting"}
-                          </span>
-                        </div>
-                      ) : null}
+	                      {candidate.meeting_rsvp_status ? (
+	                        <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+	                          <span className="text-[11px] uppercase text-slate-400">
+	                            RSVP
+	                          </span>
+	                          <span
+	                            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+	                              candidate.meeting_rsvp_status === "accepted"
+	                                ? "bg-emerald-100 text-emerald-700"
+	                                : candidate.meeting_rsvp_status === "canceled" ||
+	                                  candidate.meeting_rsvp_status === "cancelled"
+	                                ? "bg-rose-100 text-rose-700"
+	                                : candidate.meeting_rsvp_status === "declined"
+	                                ? "bg-rose-100 text-rose-700"
+	                                : candidate.meeting_rsvp_status === "tentative"
+	                                ? "bg-amber-100 text-amber-700"
+	                                : "bg-slate-100 text-slate-600"
+	                            }`}
+	                          >
+	                            {candidate.meeting_rsvp_status === "accepted"
+	                              ? "Confirmed"
+	                              : candidate.meeting_rsvp_status === "canceled" ||
+	                                candidate.meeting_rsvp_status === "cancelled"
+	                              ? "Canceled"
+	                              : candidate.meeting_rsvp_status === "declined"
+	                              ? "Declined"
+	                              : candidate.meeting_rsvp_status === "tentative"
+	                              ? "Maybe"
+	                              : "Awaiting"}
+	                          </span>
+	                        </div>
+	                      ) : null}
                       <div className="mt-3 flex items-center gap-2">
                         <a
                           className="rounded-md bg-sky-500 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-600"
@@ -4086,7 +5636,7 @@ export default function CandidateDrawer({
                           No meetings yet
                         </div>
                         <div className="text-sm text-slate-500">
-                          There haven't been any meetings scheduled yet.
+                          There haven&apos;t been any meetings scheduled yet.
                         </div>
                       </div>
                     </div>
@@ -4100,174 +5650,183 @@ export default function CandidateDrawer({
                     Schedule Interview
                   </button>
                 </div>
-              ) : rightTab === "scorecards" ? (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-slate-900">
-                      Scorecard
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                        onClick={handleScorecardReset}
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-md bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-600"
-                        onClick={handleScorecardSave}
-                      >
-                        Save Scorecard
-                      </button>
+	              ) : rightTab === "tasks" ? (
+		                <div className="space-y-4">
+			                  <div className="flex items-center justify-between">
+			                    <div>
+		                      <div className="text-xs font-semibold uppercase text-slate-500">
+		                        Tasks
+		                      </div>
+		                      <div className="mt-1 text-[11px] text-slate-400">
+		                        {timelineLoading ? "Loading…" : `${openTaskCount} open`}
+		                      </div>
+		                    </div>
+		                    <button
+		                      type="button"
+		                      className="rounded-full bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-black/90"
+		                      onClick={handleAddTask}
+		                    >
+		                      Create
+		                    </button>
+		                  </div>
+	                  {taskActionError ? (
+	                    <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+	                      {taskActionError}
                     </div>
-                  </div>
-                  <div className="rounded-xl border border-slate-200 bg-white p-4">
-                    <div className="space-y-4">
-                      <div>
-                        <div className="text-sm font-semibold text-slate-900">
-                          Thoughts on this Candidate?
-                        </div>
-                        <textarea
-                          className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
-                          rows={4}
-                          value={scorecardDraft.thoughts ?? ""}
-                          onChange={(event) =>
-                            handleScorecardThoughtsChange(event.target.value)
-                          }
+                  ) : null}
+                  {timelineError ? (
+                    <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                      {timelineError}
+                    </div>
+                  ) : null}
+                  {timelineLoading ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: 3 }).map((_, index) => (
+                        <div
+                          key={index}
+                          className="h-12 w-full animate-pulse rounded-md border border-slate-200 bg-white"
                         />
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold text-slate-900">
-                          Overall Rating?
-                        </div>
-                        <div className="mt-2">
-                          {renderScorecardRating(
-                            scorecardDraft.overall_rating ?? null,
-                            handleScorecardOverallChange,
-                            true
-                          )}
-                        </div>
-                      </div>
+                      ))}
                     </div>
-                  </div>
-                  {scorecardSections.map((section) => (
-                    <div key={section.title} className="space-y-3">
-                      <div className="text-sm font-semibold uppercase text-slate-700">
-                        {section.title}
-                      </div>
-                      <div className="space-y-3">
-                        {section.items.map((item) => {
-                          const entry = scorecardEntries[item.key] ?? {};
-                          return (
-                            <div
-                              key={item.key}
-                              className="rounded-xl border border-slate-200 bg-white p-4"
-                            >
-                              <div className="text-sm font-semibold text-slate-900">
-                                {item.label}
-                              </div>
-                              <div className="mt-3">
-                                {renderScorecardRating(
-                                  entry.rating ?? null,
-                                  (value) =>
-                                    handleScorecardEntryChange(item.key, {
-                                      rating: value,
-                                    })
-                                )}
-                              </div>
-                              <textarea
-                                className="mt-3 w-full rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-700"
-                                rows={3}
-                                value={entry.notes ?? ""}
-                                onChange={(event) =>
-                                  handleScorecardEntryChange(item.key, {
-                                    notes: event.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : rightTab === "tasks" ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs font-semibold uppercase text-slate-500">
-                      Tasks
-                    </div>
-                    <button
-                      type="button"
-                      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-50"
-                      onClick={handleAddTask}
-                    >
-                      Add
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      className="h-9 flex-1 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700"
-                      placeholder="Add a task..."
-                      value={taskDraft}
-                      onChange={(event) => setTaskDraft(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          handleAddTask();
-                        }
-                      }}
-                    />
-                  </div>
-                  {tasks.length === 0 ? (
+                  ) : tasks.length === 0 ? (
                     <div className="rounded-md border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-400">
                       No tasks yet.
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {tasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700"
-                        >
-                          <button
-                            type="button"
-                            className="flex items-center gap-2 text-left"
-                            onClick={() => handleToggleTask(task.id)}
-                          >
-                            <span
-                              className={`flex h-4 w-4 items-center justify-center rounded border ${
-                                task.status === "done"
-                                  ? "border-emerald-400 bg-emerald-400 text-white"
-                                  : "border-slate-300 text-transparent"
-                              }`}
-                            >
-                              ✓
-                            </span>
-                            <span
-                              className={
-                                task.status === "done"
-                                  ? "text-slate-400 line-through"
-                                  : "text-slate-700"
-                              }
-                            >
-                              {task.title}
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            className="text-slate-400 hover:text-slate-600"
-                            onClick={() => handleRemoveTask(task.id)}
-                            aria-label="Remove task"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+	                    <div className="space-y-2">
+		                      {tasks.map((task) => {
+		                        const completedByLabel = task.completed_by
+		                          ? teamUsersById.get(task.completed_by)?.name ||
+		                            teamUsersById.get(task.completed_by)?.email ||
+		                            (task.completed_by === currentUser?.id ? "You" : task.completed_by.slice(0, 8))
+		                          : null;
+		                        const assigneeId = typeof task.assigned_to === "string" ? task.assigned_to : null;
+		                        const assigneeUser = assigneeId ? teamUsersById.get(assigneeId) : null;
+		                        const assigneeAvatar = assigneeId
+		                          ? resolveAvatar(
+		                              assigneeId,
+		                              assigneeUser?.email,
+		                              assigneeId === currentUser?.id
+		                            )
+		                          : null;
+		                        const assigneeLabel = assigneeId
+		                          ? assigneeUser?.name?.trim() ||
+		                            assigneeUser?.email?.trim() ||
+		                            (assigneeId === currentUser?.id ? "You" : assigneeId.slice(0, 8))
+		                          : null;
+		                        const notesPreview =
+		                          typeof task.notes === "string" && task.notes.trim()
+		                            ? task.notes.trim()
+		                            : null;
+		                        const dueLabel = task.due_at ? formatTimestamp(task.due_at) : null;
+		                        const openMeta = [
+		                          assigneeLabel ? `Assigned to ${assigneeLabel}` : "Unassigned",
+		                          dueLabel ? `Due ${dueLabel}` : null,
+		                        ]
+		                          .filter(Boolean)
+		                          .join(" • ");
+			                        return (
+			                          <div key={task.id} className="space-y-2">
+			                            <div
+			                              className="flex items-start justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 transition hover:bg-slate-50"
+			                              role="button"
+			                              tabIndex={0}
+			                              onClick={() => handleEditTask(task)}
+			                              onKeyDown={(event) => {
+		                                if (event.key === "Enter" || event.key === " ") {
+		                                  event.preventDefault();
+		                                  handleEditTask(task);
+		                                }
+		                              }}
+		                            >
+		                              <div className="min-w-0 flex-1">
+		                                <div className="flex min-w-0 items-center gap-2">
+		                                  <button
+		                                    type="button"
+		                                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded border"
+		                                    onClick={(event) => {
+		                                      event.stopPropagation();
+		                                      handleToggleTask(task.id);
+		                                    }}
+		                                    aria-label={
+		                                      task.status === "done"
+		                                        ? "Mark task as open"
+		                                        : "Mark task as done"
+		                                    }
+		                                  >
+		                                    <span
+		                                      className={`flex h-full w-full items-center justify-center rounded ${
+		                                        task.status === "done"
+		                                          ? "bg-emerald-400 text-white"
+		                                          : "bg-white text-transparent"
+		                                      }`}
+		                                    >
+		                                      ✓
+		                                    </span>
+		                                  </button>
+		                                  <div
+		                                    className={`min-w-0 flex-1 truncate ${
+		                                      task.status === "done"
+		                                        ? "text-slate-400 line-through"
+		                                        : "text-slate-700"
+		                                    }`}
+		                                  >
+		                                    {task.title}
+		                                  </div>
+		                                </div>
+		                                {task.status === "done" ? (
+		                                  <div className="ml-6 mt-1 text-[11px] text-slate-400">
+		                                    Completed{" "}
+		                                    {task.completed_at ? formatTimestamp(task.completed_at) : "—"}
+                                    {completedByLabel ? ` • ${completedByLabel}` : ""}
+                                  </div>
+		                                ) : openMeta ? (
+		                                  <div className="ml-6 mt-1 text-[11px] text-slate-400">
+		                                    {openMeta}
+		                                  </div>
+		                                ) : null}
+			                                {notesPreview ? (
+			                                  <div className="ml-6 mt-1 line-clamp-2 text-[11px] text-slate-500">
+			                                    {notesPreview}
+			                                  </div>
+			                                ) : null}
+			                              </div>
+			                              <div className="ml-3 flex shrink-0 items-center gap-3 self-center">
+			                                {assigneeId && assigneeLabel ? (
+			                                  <div
+			                                    className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-xs font-semibold text-slate-600"
+			                                    title={assigneeLabel}
+			                                  >
+			                                    {assigneeAvatar ? (
+			                                      // eslint-disable-next-line @next/next/no-img-element
+			                                      <img
+			                                        src={assigneeAvatar}
+			                                        alt={assigneeLabel}
+			                                        className="h-full w-full object-cover"
+                                              loading="lazy"
+			                                      />
+			                                    ) : (
+			                                      initials(assigneeLabel)
+			                                    )}
+			                                  </div>
+		                                ) : null}
+		                                <button
+		                                  type="button"
+		                                  className="text-slate-400 hover:text-slate-600"
+		                                  onClick={(event) => {
+		                                    event.stopPropagation();
+		                                    handleRemoveTask(task.id);
+		                                  }}
+		                                  aria-label="Remove task"
+		                                >
+		                                  ×
+		                                </button>
+		                              </div>
+	                            </div>
+	                          </div>
+	                        );
+	                      })}
+	                    </div>
                   )}
                   <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-700">
                     <div className="text-[11px] font-semibold uppercase text-slate-500">
@@ -4340,53 +5899,85 @@ export default function CandidateDrawer({
                     ) : null}
                   </div>
                 </div>
+              ) : rightTab === "email" ? (
+                <EmailThread
+                  candidateId={candidate.id}
+                  candidateEmail={
+                    candidate.pipeline_id === "companies"
+                      ? candidate.email?.trim()
+                        ? candidate.email.trim()
+                        : null
+                      : candidate.email?.trim()
+                      ? candidate.email.trim()
+                      : null
+                  }
+                />
               ) : (
                 <div className="rounded-md border border-dashed border-slate-200 px-4 py-6 text-center text-xs text-slate-400">
                   This section is coming soon.
                 </div>
               )}
             </div>
-            {rightTab === "discussion" ? (
-              <div className="shrink-0 bg-white p-4">
-                <AddNoteForm onAddNote={handleAddNote} teamUsers={teamUsers} />
-              </div>
-            ) : null}
-          </section>
+		            {rightTab === "discussion" ? (
+		              <div className="shrink-0 bg-white p-4">
+		                <AddNoteForm
+                      onAddNote={handleAddNote}
+                      teamUsers={teamUsers}
+                      placeholder="Write a message... Use @ to mention"
+                    />
+		              </div>
+		            ) : null}
+		            {rightTab === "notes" ? (
+		              <div className="shrink-0 bg-white p-4">
+		                <AddNoteForm
+                      onAddNote={(body) => {
+                        void addActivity(body, "note");
+                      }}
+                      teamUsers={teamUsers}
+                      placeholder="Add a note... Use @ to mention"
+                    />
+		              </div>
+		            ) : null}
+	          </section>
 
-          <aside className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto px-5 py-4">
-            <div className="grid gap-2 text-xs text-slate-600">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold uppercase">Stage</span>
-                <select
-                  className="rounded-md border border-slate-200 px-2 py-1 text-xs"
-                  value={candidate.stage_id}
-                  onChange={(event) => onStageChange(event.target.value)}
-                >
-                  {stages.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="font-semibold uppercase">Pipeline</span>
-                <select
-                  className="rounded-md border border-slate-200 px-2 py-1 text-xs"
-                  value={candidate.pipeline_id}
-                  onChange={(event) => onPipelineChange(event.target.value)}
-                >
-                  {pipelines.map((pipeline) => (
-                    <option key={pipeline.id} value={pipeline.id}>
-                      {pipeline.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="font-semibold uppercase">Country</span>
-                <span>
-                  {country.label !== "—"
+	          <aside className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto px-5 py-4">
+	            <div className="grid gap-2 text-xs text-slate-600">
+                {candidate.pipeline_id !== "companies" ? (
+                  <>
+	                  <div className="flex items-center justify-between">
+	                    <span className="font-semibold uppercase">Stage</span>
+	                    <select
+	                      className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+	                      value={candidate.stage_id}
+	                      onChange={(event) => onStageChange(event.target.value)}
+	                    >
+	                      {stages.map((item) => (
+	                        <option key={item.id} value={item.id}>
+	                          {item.name}
+	                        </option>
+	                      ))}
+	                    </select>
+	                  </div>
+	                  <div className="flex items-center justify-between">
+	                    <span className="font-semibold uppercase">Pipeline</span>
+	                    <select
+	                      className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+	                      value={candidate.pipeline_id}
+	                      onChange={(event) => onPipelineChange(event.target.value)}
+	                    >
+	                      {pipelines.map((pipeline) => (
+	                        <option key={pipeline.id} value={pipeline.id}>
+	                          {pipeline.name}
+	                        </option>
+	                      ))}
+	                    </select>
+	                  </div>
+                  </>
+                ) : null}
+	              <div className="flex items-center justify-between">
+	                <span className="font-semibold uppercase">Country</span>
+	                <span>
+	                  {country.label !== "—"
                     ? `${country.flag ? `${country.flag} ` : ""}${country.label}`
                     : "—"}
                 </span>
@@ -4399,39 +5990,271 @@ export default function CandidateDrawer({
                 <span className="font-semibold uppercase">Created</span>
                 <span>{formatDate(candidate.created_at)}</span>
               </div>
-            </div>
-
-            <div className="rounded-lg border border-slate-900 bg-slate-950 px-4 py-3 text-xs text-slate-100">
-              <div className="font-semibold uppercase text-slate-300">Details</div>
-              <div className="mt-2 space-y-1 text-slate-100">
-                <div>Desired position: {desiredPosition}</div>
-                <div>Email: {candidate.email ?? "—"}</div>
-                <div>Phone: {candidate.phone ?? "—"}</div>
-                <div>
-                  Country:{" "}
-                  {country.label !== "—"
-                    ? `${country.flag ? `${country.flag} ` : ""}${country.label}`
-                    : "—"}
+              {candidate.pipeline_id !== "companies" ? (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-semibold uppercase">Start date</span>
+                  <input
+                    type="date"
+                    className="h-8 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700"
+                    value={(candidate.start_date ?? "").split("T")[0] ?? ""}
+                    onChange={(event) => {
+                      const next = event.target.value.trim();
+                      onUpdateCandidate(candidate.id, {
+                        start_date: next ? next : undefined,
+                      });
+                    }}
+                  />
                 </div>
-                <div>Source: {candidate.source ?? "—"}</div>
-                <div>Stage: {stage?.name ?? "—"}</div>
-                {breezy?.desired_salary ? (
-                  <div>Desired salary: {breezy.desired_salary}</div>
-                ) : null}
-                {breezy?.match_score ? (
-                  <div>Match score: {breezy.match_score}</div>
-                ) : null}
-                {breezy?.score ? <div>Score: {breezy.score}</div> : null}
-                {breezy?.address ? <div>Address: {breezy.address}</div> : null}
-                {breezy?.sourced_by ? (
-                  <div>Sourced by: {breezy.sourced_by}</div>
-                ) : null}
-              </div>
+              ) : null}
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
-              <div className="font-semibold uppercase text-slate-500">
-                {mailerlite && isRecord(mailerlite)
+		            {candidate.pipeline_id === "companies" ? (
+		              <>
+		                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700">
+		                  <div className="text-[11px] font-semibold uppercase text-slate-500">
+		                    Company owner
+		                  </div>
+		                  <div className="mt-2 flex items-center gap-2">
+		                    <span
+		                      className={`flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ring-1 ring-black/5 ${getAvatarClass(
+		                        companyOwnerKey
+		                      )}`}
+		                    >
+		                      {initials(companyOwnerLabel)}
+		                    </span>
+		                    <span className="min-w-0 truncate text-sm font-semibold text-slate-900">
+		                      {companyOwnerLabel}
+		                    </span>
+		                  </div>
+		                </div>
+
+			                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+			                  <div className="flex items-center justify-between gap-3">
+			                    <div className="text-[11px] font-semibold uppercase text-slate-500">
+			                      Assigned profiles
+			                    </div>
+			                    <div className="text-xs font-semibold text-slate-500">
+			                      {linkedCandidatesLoading
+			                        ? "…"
+			                        : linkedCandidatesTotal ?? linkedCandidates.length}
+			                    </div>
+			                  </div>
+			                  {(linkedCandidatesTotal ?? linkedCandidates.length) > 6 ? (
+			                    <div className="mt-3">
+			                      <input
+			                        value={linkedCandidatesQuery}
+			                        onChange={(event) => setLinkedCandidatesQuery(event.target.value)}
+			                        placeholder="Search assigned profiles..."
+			                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/30"
+			                      />
+			                      {linkedCandidatesSearchError ? (
+			                        <div className="mt-2 text-xs text-rose-600">
+			                          {linkedCandidatesSearchError}
+			                        </div>
+			                      ) : null}
+			                    </div>
+			                  ) : null}
+			                  {linkedCandidatesError ? (
+			                    <div className="mt-2 text-xs text-rose-600">
+			                      {linkedCandidatesError}
+			                    </div>
+			                  ) : null}
+		                  {linkedCandidatesLoading ? (
+		                    <div className="mt-3 text-xs text-slate-500">Loading...</div>
+			                  ) : linkedCandidates.length === 0 ? (
+			                    <div className="mt-3 text-xs text-slate-500">
+			                      No assigned profiles.
+			                    </div>
+			                  ) : (
+				                    <div className="mt-3 space-y-3">
+				                      {(() => {
+				                        const total = linkedCandidatesTotal ?? linkedCandidates.length;
+				                        const query = linkedCandidatesQuery.trim();
+				                        const lowered = query.toLowerCase();
+				                        const localMatches = query
+				                          ? linkedCandidates.filter((item) =>
+				                              `${item.name} ${item.email}`.toLowerCase().includes(lowered)
+				                            )
+				                          : [];
+				                        const results = query
+				                          ? linkedCandidatesSearchResults.length > 0
+				                            ? linkedCandidatesSearchResults
+				                            : localMatches
+				                          : linkedCandidates;
+				                        const list = query ? results.slice(0, 10) : linkedCandidates.slice(0, 6);
+				                        const hasMoreMatches = Boolean(query) && results.length > list.length;
+
+				                        return (
+				                          <>
+						                      {list.map((item) => {
+					                        const label = (item.name || item.email || item.id).trim();
+					                        const stageLabel =
+					                          item.stage_id && stages.some((s) => s.id === item.stage_id)
+					                            ? stages.find((s) => s.id === item.stage_id)?.name ??
+					                              item.stage_id
+					                            : item.stage_id ?? "—";
+					                        return (
+				                          <button
+				                            key={item.id}
+				                            type="button"
+				                            className="flex w-full min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
+				                            onClick={() =>
+				                              handleViewProfile({
+				                                id: item.id,
+				                                name: item.name,
+				                                email: item.email,
+				                              })
+				                            }
+				                          >
+				                            <span
+				                              className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ring-1 ring-black/5 ${getAvatarClass(
+				                                label
+				                              )}`}
+				                            >
+				                              {item.avatar_url ? (
+				                                // eslint-disable-next-line @next/next/no-img-element
+				                                <img
+				                                  src={item.avatar_url}
+				                                  alt={label}
+				                                  className="h-full w-full object-cover"
+				                                  loading="lazy"
+				                                />
+				                              ) : (
+				                                initials(label)
+				                              )}
+				                            </span>
+					                            <div className="min-w-0 flex-1">
+					                              <div className="truncate text-sm font-semibold text-slate-900">
+					                                {item.name || item.email || "Untitled"}
+					                              </div>
+                                    {item.email ? (
+					                                <div className="truncate text-xs text-slate-500">
+					                                  {item.email}
+					                                </div>
+                                    ) : null}
+                                    {(() => {
+                                      const startLabel = item.start_date
+                                        ? formatDateShort(item.start_date) || item.start_date
+                                        : "";
+                                      const showStage = Boolean(stageLabel && stageLabel !== "—");
+                                      const showStart = Boolean(startLabel);
+                                      if (!showStage && !showStart) return null;
+                                      return (
+					                                  <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-500">
+					                                    {showStart ? (
+					                                      <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5">
+					                                        <CalendarDays className="h-3.5 w-3.5" />
+					                                        Start: {startLabel}
+					                                      </span>
+					                                    ) : null}
+					                                    {showStage ? (
+					                                      <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5">
+					                                        <Zap className="h-3.5 w-3.5" />
+					                                        Stage: {stageLabel}
+					                                      </span>
+					                                    ) : null}
+					                                  </div>
+                                      );
+                                    })()}
+					                            </div>
+						                          </button>
+						                        );
+						                      })}
+				                        {query && linkedCandidatesSearchLoading ? (
+				                          <div className="text-xs text-slate-400">Searching...</div>
+				                        ) : null}
+				                        {query && hasMoreMatches ? (
+				                          <div className="text-xs text-slate-400">
+				                            Showing first {list.length} matches.
+				                          </div>
+				                        ) : null}
+				                        {!query && total > 6 ? (
+				                          <div className="text-xs text-slate-400">
+				                            Showing 6 of {total}. Use search to find more.
+				                          </div>
+				                        ) : null}
+			                        {query && list.length === 0 ? (
+			                          <div className="text-xs text-slate-400">
+			                            No matches for &quot;{query}&quot;.
+			                          </div>
+			                        ) : null}
+			                          </>
+			                        );
+			                      })()}
+			                    </div>
+			                  )}
+			                </div>
+		              </>
+		            ) : (
+		              <div className="rounded-lg border border-slate-900 bg-slate-950 px-4 py-3 text-xs text-slate-100">
+		                <div className="font-semibold uppercase text-slate-300">Details</div>
+		                <div className="mt-2 space-y-1 text-slate-100">
+		                  <div className="flex flex-col gap-1 pt-1">
+		                    <div className="flex items-center justify-between">
+		                      <span>Company:</span>
+		                      {companyOptionsLoading ? (
+		                        <span className="text-[11px] text-slate-400">Loading...</span>
+		                      ) : null}
+		                    </div>
+		                    <select
+		                      className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs text-slate-100"
+		                      value={candidate.assigned_company_id ?? ""}
+		                      onChange={(event) => handleAssignCompany(event.target.value)}
+		                      disabled={companyOptionsLoading}
+		                    >
+		                      <option value="">—</option>
+		                      {candidate.assigned_company_id &&
+		                      !companyOptions.some(
+		                        (company) => company.id === candidate.assigned_company_id
+		                      ) ? (
+		                        <option value={candidate.assigned_company_id}>
+		                          {candidate.assigned_company_name ?? "Unknown company"}
+		                        </option>
+		                      ) : null}
+		                      {companyOptions.map((company) => (
+		                        <option key={company.id} value={company.id}>
+		                          {company.name}
+		                        </option>
+		                      ))}
+		                    </select>
+		                    {companyOptionsError ? (
+		                      <div className="text-[11px] text-rose-300">
+		                        {companyOptionsError}
+		                      </div>
+		                    ) : null}
+		                  </div>
+		                  <div>Desired position: {desiredPosition}</div>
+                      <div>
+                        Start date: {formatDateShort(candidate.start_date) || "—"}
+                      </div>
+		                  <div>Email: {candidate.email ?? "—"}</div>
+		                  <div>Phone: {candidate.phone ?? "—"}</div>
+		                  <div>
+		                    Country:{" "}
+		                    {country.label !== "—"
+		                      ? `${country.flag ? `${country.flag} ` : ""}${country.label}`
+		                      : "—"}
+		                  </div>
+		                  <div>Source: {candidate.source ?? "—"}</div>
+		                  <div>Stage: {stage?.name ?? "—"}</div>
+		                  {breezy?.desired_salary ? (
+		                    <div>Desired salary: {breezy.desired_salary}</div>
+		                  ) : null}
+		                  {breezy?.match_score ? (
+		                    <div>Match score: {breezy.match_score}</div>
+		                  ) : null}
+		                  {breezy?.score ? <div>Score: {breezy.score}</div> : null}
+		                  {breezy?.address ? <div>Address: {breezy.address}</div> : null}
+		                  {breezy?.sourced_by ? (
+		                    <div>Sourced by: {breezy.sourced_by}</div>
+		                  ) : null}
+		                </div>
+		              </div>
+		            )}
+
+	            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
+	              <div className="font-semibold uppercase text-slate-500">
+	                {mailerlite && isRecord(mailerlite)
                   ? "Subscriber Details"
                   : "Transcript Details"}
               </div>
@@ -4623,24 +6446,190 @@ export default function CandidateDrawer({
             </div>
           </aside>
         </div>
-        <div className="flex items-center justify-end border-t border-slate-200 px-6 py-3">
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-md bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-black/90 disabled:opacity-60"
-            onClick={handleSaveAll}
-            disabled={saving}
-          >
-            {saving ? (
-              <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                Saving...
-              </>
-            ) : (
-              "Save"
-            )}
-          </button>
-        </div>
       </div>
+	      {isTaskModalOpen ? (
+	        <div
+	          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4"
+	          onClick={() => setIsTaskModalOpen(false)}
+	        >
+          <div
+            className="w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+	            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+	              <div className="text-lg font-semibold text-slate-900">
+	                {taskEditingId ? "Edit task" : "Task"}
+	              </div>
+	              <button
+                type="button"
+                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close"
+                onClick={() => setIsTaskModalOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="space-y-6 px-6 py-5">
+              <div>
+                <label className="text-xs font-semibold uppercase text-slate-500">
+                  Enter your task
+                </label>
+	                <input
+                  className="mt-2 h-12 w-full rounded-md border border-slate-200 px-4 text-sm text-slate-900 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                  placeholder="Enter your task"
+                  value={taskFormTitle}
+                  onChange={(event) => {
+                    setTaskFormTitle(event.target.value);
+                    if (taskFormError) setTaskFormError(null);
+                  }}
+	                  onKeyDown={(event) => {
+	                    if (event.key === "Enter") {
+	                      event.preventDefault();
+	                      handleSaveTask();
+	                    }
+	                  }}
+	                />
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
+                  <div className="text-xs font-semibold uppercase text-slate-500">
+                    Activity date
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <input
+                      type="date"
+                      className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-900"
+                      value={taskFormDueDate}
+                      onChange={(event) => setTaskFormDueDate(event.target.value)}
+                    />
+                    <input
+                      type="time"
+                      className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-900"
+                      value={taskFormDueTime}
+                      onChange={(event) => setTaskFormDueTime(event.target.value)}
+                      disabled={!taskFormDueDate}
+                    />
+                  </div>
+                  <div className="mt-2 text-[11px] text-slate-400">
+                    Leave empty if no due date.
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
+                  <div className="text-xs font-semibold uppercase text-slate-500">
+                    Send reminder
+                  </div>
+                  <select
+                    className="mt-3 h-11 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-900"
+                    value={taskFormReminder}
+                    onChange={(event) => setTaskFormReminder(event.target.value)}
+                    disabled={!taskFormDueDate}
+                  >
+                    <option value="none">No reminder</option>
+                    <option value="0">At due time</option>
+                    <option value="15">15 minutes before</option>
+                    <option value="60">1 hour before</option>
+                    <option value="1440">1 day before</option>
+                  </select>
+                  <div className="mt-2 text-[11px] text-slate-400">
+                    Reminder setting is saved on the task (delivery not implemented yet).
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
+	                  <div className="text-xs font-semibold uppercase text-slate-500">
+	                    Activity assigned to
+	                  </div>
+                    <div className="relative mt-3">
+                      {(() => {
+                        const assignee = taskFormAssigneeId
+                          ? teamUsersById.get(taskFormAssigneeId) ?? null
+                          : null;
+                        const label = (assignee?.name || assignee?.email || "").trim();
+                        const avatarUrl = assignee
+                          ? resolveAvatar(assignee.id, assignee.email, false)
+                          : null;
+                        return (
+                          <div className="pointer-events-none absolute left-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-[10px] font-semibold text-slate-600">
+                            {avatarUrl ? (
+                              <img
+                                src={avatarUrl}
+                                alt={label || "Assignee"}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : label ? (
+                              initials(label)
+                            ) : (
+                              "—"
+                            )}
+                          </div>
+                        );
+                      })()}
+	                    <select
+	                      className="h-11 w-full rounded-md border border-slate-200 pl-12 pr-3 text-sm text-slate-900"
+	                      value={taskFormAssigneeId}
+	                      onChange={(event) => setTaskFormAssigneeId(event.target.value)}
+	                    >
+	                      <option value="">Unassigned</option>
+	                      {teamUsers.map((user) => (
+	                        <option key={user.id} value={user.id}>
+	                          {user.name?.trim() || user.email}
+	                        </option>
+	                      ))}
+	                    </select>
+                    </div>
+	                </div>
+	              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase text-slate-500">
+                  Notes
+                </label>
+                <textarea
+                  className="mt-2 w-full rounded-md border border-slate-200 px-4 py-3 text-sm text-slate-900"
+                  rows={4}
+                  placeholder="Notes…"
+                  value={taskFormNotes}
+                  onChange={(event) => setTaskFormNotes(event.target.value)}
+                />
+              </div>
+
+              {taskFormError ? (
+                <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                  {taskFormError}
+                </div>
+              ) : null}
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
+	              <button
+	                type="button"
+	                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+	                onClick={() => setIsTaskModalOpen(false)}
+	              >
+	                Cancel
+	              </button>
+	              <button
+	                type="button"
+	                className="rounded-full bg-slate-900 px-5 py-2 text-xs font-semibold text-white disabled:opacity-60"
+	                onClick={handleSaveTask}
+	                disabled={!taskFormTitle.trim() || taskFormSaving}
+	              >
+	                {taskFormSaving
+	                  ? taskEditingId
+	                    ? "Saving..."
+	                    : "Creating..."
+	                  : taskEditingId
+	                    ? "Save"
+	                    : "Create"}
+	              </button>
+	              </div>
+	            </div>
+	          </div>
+	      ) : null}
       {showMeetingModal ? (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
@@ -5277,17 +7266,17 @@ export default function CandidateDrawer({
 type AddNoteFormProps = {
   onAddNote: (body: string) => void;
   teamUsers: TeamUser[];
+  placeholder?: string;
 };
 
-function AddNoteForm({ onAddNote, teamUsers }: AddNoteFormProps) {
-  const [value, setValue] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const [isCompact, setIsCompact] = useState(true);
-  const [mentionQuery, setMentionQuery] = useState("");
-  const [mentionStart, setMentionStart] = useState<number | null>(null);
-  const [mentionOpen, setMentionOpen] = useState(false);
-  const [mentionIndex, setMentionIndex] = useState(0);
-  const mentionCaretRef = useRef<number | null>(null);
+	function AddNoteForm({ onAddNote, teamUsers, placeholder }: AddNoteFormProps) {
+	  const [value, setValue] = useState("");
+	  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+	  const [mentionQuery, setMentionQuery] = useState("");
+	  const [mentionStart, setMentionStart] = useState<number | null>(null);
+	  const [mentionOpen, setMentionOpen] = useState(false);
+	  const [mentionIndex, setMentionIndex] = useState(0);
+	  const mentionCaretRef = useRef<number | null>(null);
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -5298,8 +7287,9 @@ function AddNoteForm({ onAddNote, teamUsers }: AddNoteFormProps) {
     setMentionQuery("");
     setMentionStart(null);
     setMentionIndex(0);
-  };
-  const isEmpty = value.trim().length === 0;
+	  };
+	  const isEmpty = value.trim().length === 0;
+	  const isCompact = isEmpty || !value.includes("\n");
 
   const updateMentions = (text: string, caret: number | null) => {
     if (caret === null || caret === undefined) {
@@ -5336,7 +7326,7 @@ function AddNoteForm({ onAddNote, teamUsers }: AddNoteFormProps) {
     setMentionIndex(0);
   };
 
-  const mentionOptions = useMemo(() => {
+	  const mentionOptions = useMemo(() => {
     const cleanedQuery = mentionQuery.trim().toLowerCase();
     const options = teamUsers
       .map((user) => {
@@ -5362,14 +7352,13 @@ function AddNoteForm({ onAddNote, teamUsers }: AddNoteFormProps) {
         return a.label.localeCompare(b.label);
       })
       .slice(0, 6);
-    return options;
-  }, [mentionQuery, teamUsers]);
+	    return options;
+	  }, [mentionQuery, teamUsers]);
 
-  useEffect(() => {
-    if (mentionIndex >= mentionOptions.length) {
-      setMentionIndex(0);
-    }
-  }, [mentionIndex, mentionOptions.length]);
+	  const mentionIndexSafe =
+	    mentionOptions.length === 0
+	      ? 0
+	      : Math.min(mentionIndex, mentionOptions.length - 1);
 
   const applyMention = (user: TeamUser & { label?: string }) => {
     if (mentionStart === null || mentionCaretRef.current === null) return;
@@ -5392,20 +7381,18 @@ function AddNoteForm({ onAddNote, teamUsers }: AddNoteFormProps) {
     });
   };
 
-  useEffect(() => {
-    if (!textareaRef.current) return;
-    const el = textareaRef.current;
-    if (value.trim().length === 0) {
-      el.style.height = "32px";
-      setIsCompact(true);
-      return;
-    }
-    el.style.height = "0px";
-    const next = Math.min(el.scrollHeight, 160);
-    const clamped = Math.max(next, 32);
-    el.style.height = `${clamped}px`;
-    setIsCompact(clamped <= 32);
-  }, [value]);
+	  useEffect(() => {
+	    if (!textareaRef.current) return;
+	    const el = textareaRef.current;
+	    if (value.trim().length === 0) {
+	      el.style.height = "32px";
+	      return;
+	    }
+	    el.style.height = "0px";
+	    const next = Math.min(el.scrollHeight, 160);
+	    const clamped = Math.max(next, 32);
+	    el.style.height = `${clamped}px`;
+	  }, [value]);
 
   return (
     <div className="mt-4">
@@ -5425,15 +7412,15 @@ function AddNoteForm({ onAddNote, teamUsers }: AddNoteFormProps) {
                 </div>
               ) : (
                 <div className="max-h-40 overflow-y-auto">
-                  {mentionOptions.map((user, index) => (
-                    <button
-                      key={user.id || user.email || user.label || index}
-                      type="button"
-                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left ${
-                        index === mentionIndex
-                          ? "bg-slate-100 text-slate-900"
-                          : "text-slate-700 hover:bg-slate-50"
-                      }`}
+	                  {mentionOptions.map((user, index) => (
+	                    <button
+	                      key={user.id || user.email || user.label || index}
+	                      type="button"
+	                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left ${
+	                        index === mentionIndexSafe
+	                          ? "bg-slate-100 text-slate-900"
+	                          : "text-slate-700 hover:bg-slate-50"
+	                      }`}
                       onMouseDown={(event) => {
                         event.preventDefault();
                         applyMention(user);
@@ -5469,7 +7456,7 @@ function AddNoteForm({ onAddNote, teamUsers }: AddNoteFormProps) {
             className={`max-h-40 min-h-[32px] flex-1 resize-none bg-transparent text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none ${
               isCompact ? "h-8 py-2 leading-4" : "py-1.5 leading-5"
             }`}
-            placeholder="Type a message"
+            placeholder={placeholder ?? "Type a message"}
             value={value}
             onChange={(event) => {
               const nextValue = event.target.value;
@@ -5508,13 +7495,13 @@ function AddNoteForm({ onAddNote, teamUsers }: AddNoteFormProps) {
                 );
                 return;
               }
-              if (event.key === "Enter" || event.key === "Tab") {
-                if (mentionOptions.length > 0) {
-                  event.preventDefault();
-                  applyMention(mentionOptions[mentionIndex]);
-                }
-                return;
-              }
+	              if (event.key === "Enter" || event.key === "Tab") {
+	                if (mentionOptions.length > 0) {
+	                  event.preventDefault();
+	                  applyMention(mentionOptions[mentionIndexSafe]);
+	                }
+	                return;
+	              }
               if (event.key === "Escape") {
                 event.preventDefault();
                 setMentionOpen(false);

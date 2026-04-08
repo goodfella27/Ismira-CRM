@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ensureCompanyMembership } from "@/lib/company/membership";
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -12,14 +13,6 @@ export async function POST(request: Request) {
 
   if (userError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const { data: member } = await supabase
-    .from("company_members")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!member) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const formData = await request.formData();
@@ -34,6 +27,7 @@ export async function POST(request: Request) {
   const path = `manual/${candidateId}/${Date.now()}-${safeName}`;
 
   const admin = createSupabaseAdminClient();
+  await ensureCompanyMembership(admin, user.id);
   const { error: uploadError } = await admin.storage
     .from("candidate-documents")
     .upload(path, file, { contentType: file.type, upsert: true });

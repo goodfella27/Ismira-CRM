@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Database,
   FileText,
+  ListTodo,
   Shield,
   Users2,
 } from "lucide-react";
@@ -27,6 +28,7 @@ import {
 type SectionId =
   | "overview"
   | "users"
+  | "tasks"
   | "positions"
   | "questionnaires"
   | "forms"
@@ -74,6 +76,12 @@ const sections = [
     label: "Users",
     description: "Manage team members",
     icon: Users2,
+  },
+  {
+    id: "tasks",
+    label: "Tasks",
+    description: "Task watchers",
+    icon: ListTodo,
   },
   {
     id: "positions",
@@ -134,6 +142,11 @@ const buildDefaultPipelines = (): Pipeline[] => [
   {
     id: "breezy",
     name: "Breezy",
+    stages: cloneStages(stages),
+  },
+  {
+    id: "companies",
+    name: "Companies",
     stages: cloneStages(stages),
   },
 ];
@@ -219,6 +232,16 @@ export default function CompanyPage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [userActionId, setUserActionId] = useState<string | null>(null);
+  const [taskWatchersCompanyId, setTaskWatchersCompanyId] = useState<string | null>(
+    null
+  );
+  const [taskWatcherIds, setTaskWatcherIds] = useState<string[]>([]);
+  const [taskWatcherSearch, setTaskWatcherSearch] = useState("");
+  const [taskWatchersLoading, setTaskWatchersLoading] = useState(false);
+  const [taskWatchersError, setTaskWatchersError] = useState<string | null>(null);
+  const [taskWatchersSavingId, setTaskWatchersSavingId] = useState<string | null>(
+    null
+  );
   const [expandedPipelineId, setExpandedPipelineId] = useState<string | null>(
     null
   );
@@ -232,12 +255,32 @@ export default function CompanyPage() {
   );
   const [integrationsLoading, setIntegrationsLoading] = useState(false);
   const [integrationsError, setIntegrationsError] = useState<string | null>(null);
+  const [integrationsWarning, setIntegrationsWarning] = useState<string | null>(
+    null
+  );
   const [mailerliteConfigured, setMailerLiteConfigured] = useState(false);
   const [mailerliteSource, setMailerLiteSource] = useState<"db" | "env" | "none">("none");
   const [mailerliteMasked, setMailerLiteMasked] = useState<string | null>(null);
   const [mailerliteCanEdit, setMailerLiteCanEdit] = useState(false);
   const [mailerliteDraftKey, setMailerLiteDraftKey] = useState("");
   const [mailerliteSaving, setMailerLiteSaving] = useState(false);
+  const [sharedInboxConfigured, setSharedInboxConfigured] = useState(false);
+  const [sharedInboxProvider, setSharedInboxProvider] = useState<string | null>(
+    null
+  );
+  const [sharedInboxEmail, setSharedInboxEmail] = useState<string | null>(null);
+  const [sharedInboxCanEdit, setSharedInboxCanEdit] = useState(false);
+  const [sharedInboxSaving, setSharedInboxSaving] = useState(false);
+  const [sharedInboxEmailDraft, setSharedInboxEmailDraft] = useState("");
+  const [sharedInboxNameDraft, setSharedInboxNameDraft] = useState("");
+  const [sharedInboxImapHost, setSharedInboxImapHost] = useState("");
+  const [sharedInboxImapPort, setSharedInboxImapPort] = useState("");
+  const [sharedInboxImapUser, setSharedInboxImapUser] = useState("");
+  const [sharedInboxImapPassword, setSharedInboxImapPassword] = useState("");
+  const [sharedInboxSmtpHost, setSharedInboxSmtpHost] = useState("");
+  const [sharedInboxSmtpPort, setSharedInboxSmtpPort] = useState("");
+  const [sharedInboxSmtpUser, setSharedInboxSmtpUser] = useState("");
+  const [sharedInboxSmtpPassword, setSharedInboxSmtpPassword] = useState("");
   const active = useMemo(
     () => sections.find((item) => item.id === activeSection),
     [activeSection]
@@ -253,6 +296,22 @@ export default function CompanyPage() {
       );
     });
   }, [users, userSearch]);
+
+  const adminUsers = useMemo(
+    () => users.filter((user) => user.role.trim().toLowerCase() === "admin"),
+    [users]
+  );
+
+  const filteredAdminUsersForTaskWatchers = useMemo(() => {
+    const query = taskWatcherSearch.trim().toLowerCase();
+    if (!query) return adminUsers;
+    return adminUsers.filter((user) => {
+      return (
+        user.name.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query)
+      );
+    });
+  }, [adminUsers, taskWatcherSearch]);
 
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
@@ -271,6 +330,96 @@ export default function CompanyPage() {
       setUsersLoading(false);
     }
   }, []);
+
+  const loadTaskWatchers = useCallback(async () => {
+    setTaskWatchersLoading(true);
+    setTaskWatchersError(null);
+    try {
+      const { data: companyRow, error: companyError } = await supabase
+        .from("companies")
+        .select("id")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (companyError) {
+        throw new Error(companyError.message);
+      }
+      const companyId = (companyRow?.id as string | undefined) ?? null;
+      if (!companyId) {
+        throw new Error("Company not found.");
+      }
+      setTaskWatchersCompanyId(companyId);
+
+      const { data: watcherRows, error: watchersError } = await supabase
+        .from("company_task_watchers")
+        .select("user_id")
+        .eq("company_id", companyId);
+      if (watchersError) {
+        throw new Error(watchersError.message);
+      }
+      const ids = Array.isArray(watcherRows)
+        ? watcherRows
+            .map((row) => (row as { user_id?: string | null }).user_id)
+            .filter((id): id is string => typeof id === "string" && id)
+        : [];
+      setTaskWatcherIds(ids);
+    } catch (err) {
+      setTaskWatchersError(
+        err instanceof Error ? err.message : "Failed to load task watchers."
+      );
+      setTaskWatcherIds([]);
+      setTaskWatchersCompanyId(null);
+    } finally {
+      setTaskWatchersLoading(false);
+    }
+  }, [supabase]);
+
+  const handleToggleTaskWatcher = useCallback(
+    async (targetUserId: string) => {
+      if (!targetUserId) return;
+      setTaskWatchersSavingId(targetUserId);
+      setTaskWatchersError(null);
+      try {
+        let companyId = taskWatchersCompanyId;
+        if (!companyId) {
+          const { data: companyRow, error: companyError } = await supabase
+            .from("companies")
+            .select("id")
+            .order("created_at", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (companyError) throw new Error(companyError.message);
+          companyId = (companyRow?.id as string | undefined) ?? null;
+          if (!companyId) throw new Error("Company not found.");
+          setTaskWatchersCompanyId(companyId);
+        }
+        const currentlyWatching = taskWatcherIds.includes(targetUserId);
+        if (currentlyWatching) {
+          const { error } = await supabase
+            .from("company_task_watchers")
+            .delete()
+            .eq("company_id", companyId)
+            .eq("user_id", targetUserId);
+          if (error) throw new Error(error.message);
+          setTaskWatcherIds((prev) => prev.filter((id) => id !== targetUserId));
+        } else {
+          const { error } = await supabase.from("company_task_watchers").insert({
+            company_id: companyId,
+            user_id: targetUserId,
+          });
+          if (error) throw new Error(error.message);
+          setTaskWatcherIds((prev) => [...prev, targetUserId]);
+        }
+      } catch (err) {
+        setTaskWatchersError(
+          err instanceof Error ? err.message : "Failed to update task watcher."
+        );
+      } finally {
+        setTaskWatchersSavingId(null);
+      }
+    },
+    [supabase, taskWatcherIds, taskWatchersCompanyId]
+  );
 
   const loadBranding = useCallback(async () => {
     setBrandingError(null);
@@ -367,21 +516,64 @@ export default function CompanyPage() {
   }, [activeSection, fetchUsers]);
 
   useEffect(() => {
+    if (activeSection !== "tasks") return;
+    loadTaskWatchers();
+  }, [activeSection, loadTaskWatchers]);
+
+  useEffect(() => {
     if (activeSection !== "integrations") return;
     let ignore = false;
     const load = async () => {
       setIntegrationsLoading(true);
       setIntegrationsError(null);
+      setIntegrationsWarning(null);
       try {
-        const res = await fetch("/api/company/integrations", { cache: "no-store" });
+        const [res, mailboxRes] = await Promise.all([
+          fetch("/api/company/integrations", { cache: "no-store" }),
+          fetch("/api/email/mailbox", { cache: "no-store" }),
+        ]);
         const data = await res.json().catch(() => null);
+        const mailboxData = await mailboxRes.json().catch(() => null);
         if (!res.ok) throw new Error(data?.error ?? "Failed to load integrations");
+        if (!mailboxRes.ok) {
+          throw new Error(mailboxData?.error ?? "Failed to load shared inbox");
+        }
         if (ignore) return;
         const ml = data?.mailerlite ?? {};
+        setIntegrationsWarning(typeof data?.warning === "string" ? data.warning : null);
         setMailerLiteConfigured(!!ml.configured);
         setMailerLiteSource(ml.source === "db" || ml.source === "env" ? ml.source : "none");
         setMailerLiteMasked(typeof ml.masked === "string" ? ml.masked : null);
         setMailerLiteCanEdit(!!ml.canEdit);
+
+        setSharedInboxConfigured(!!mailboxData?.configured);
+        setSharedInboxProvider(
+          typeof mailboxData?.provider === "string" ? mailboxData.provider : null
+        );
+        setSharedInboxEmail(
+          typeof mailboxData?.emailAddress === "string" ? mailboxData.emailAddress : null
+        );
+        setSharedInboxCanEdit(!!mailboxData?.canEdit);
+        setSharedInboxEmailDraft(
+          typeof mailboxData?.emailAddress === "string" ? mailboxData.emailAddress : ""
+        );
+        setSharedInboxNameDraft(
+          typeof mailboxData?.displayName === "string" ? mailboxData.displayName : ""
+        );
+        const imap = mailboxData?.config?.imap ?? null;
+        const smtp = mailboxData?.config?.smtp ?? null;
+        setSharedInboxImapHost(typeof imap?.host === "string" ? imap.host : "");
+        setSharedInboxImapPort(
+          typeof imap?.port === "number" ? String(imap.port) : ""
+        );
+        setSharedInboxImapUser(typeof imap?.user === "string" ? imap.user : "");
+        setSharedInboxImapPassword("");
+        setSharedInboxSmtpHost(typeof smtp?.host === "string" ? smtp.host : "");
+        setSharedInboxSmtpPort(
+          typeof smtp?.port === "number" ? String(smtp.port) : ""
+        );
+        setSharedInboxSmtpUser(typeof smtp?.user === "string" ? smtp.user : "");
+        setSharedInboxSmtpPassword("");
       } catch (err) {
         if (!ignore) {
           setIntegrationsError(err instanceof Error ? err.message : "Failed to load integrations");
@@ -610,8 +802,8 @@ export default function CompanyPage() {
           user.id === userId ? { ...user, status: "active" } : user
         )
       );
-    } catch {
-      // ignore for now
+    } catch (err) {
+      setUsersError(err instanceof Error ? err.message : "Failed to update role");
     } finally {
       setUserActionId(null);
     }
@@ -1335,6 +1527,85 @@ export default function CompanyPage() {
             </div>
           ) : null}
 
+          {activeSection === "tasks" ? (
+            <div className="mt-6 space-y-4">
+              {taskWatchersError ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-600">
+                  {taskWatchersError}
+                </div>
+              ) : null}
+              <div className="rounded-2xl border border-slate-200 px-4 py-4">
+                <div className="text-xs font-semibold uppercase text-slate-500">
+                  Watchers
+                </div>
+                <div className="mt-2 text-xs text-slate-500">
+                  Selected admins get an in-app notification when any task is created
+                  or completed.
+                </div>
+                <input
+                  className="mt-4 h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                  placeholder="Search users..."
+                  value={taskWatcherSearch}
+                  onChange={(event) => setTaskWatcherSearch(event.target.value)}
+                />
+                <div className="mt-4 rounded-2xl border border-slate-200">
+                  {taskWatchersLoading ? (
+                    <div className="px-4 py-6 text-center text-xs text-slate-400">
+                      Loading watchers...
+                    </div>
+                  ) : filteredAdminUsersForTaskWatchers.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-xs text-slate-400">
+                      {adminUsers.length === 0
+                        ? "No admin users found."
+                        : "No users match your search."}
+                    </div>
+                  ) : (
+                    filteredAdminUsersForTaskWatchers.map((user) => {
+                      const checked = taskWatcherIds.includes(user.id);
+                      const saving = taskWatchersSavingId === user.id;
+                      return (
+                        <label
+                          key={`task-watcher-${user.id}`}
+                          className="flex cursor-pointer items-center justify-between border-b border-slate-200 px-4 py-3 text-sm last:border-b-0"
+                        >
+                          <span className="flex items-center gap-3">
+                            <span
+                              className={`flex h-5 w-5 items-center justify-center rounded border ${
+                                checked
+                                  ? "border-emerald-500 bg-emerald-500 text-white"
+                                  : "border-slate-300 text-transparent"
+                              }`}
+                            >
+                              ✓
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block truncate font-semibold text-slate-900">
+                                {user.name}
+                              </span>
+                              <span className="block truncate text-xs text-slate-500">
+                                {user.email}
+                              </span>
+                            </span>
+                          </span>
+                          <input
+                            type="checkbox"
+                            className="hidden"
+                            checked={checked}
+                            disabled={saving}
+                            onChange={() => handleToggleTaskWatcher(user.id)}
+                          />
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+                <div className="mt-3 text-[11px] text-slate-400">
+                  Admin only.
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           {activeSection === "questionnaires" ? (
             <div className="mt-6 space-y-4">
               <div className="rounded-2xl border border-slate-200">
@@ -1419,6 +1690,11 @@ export default function CompanyPage() {
                   {integrationsError}
                 </div>
               ) : null}
+              {integrationsWarning ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  {integrationsWarning}
+                </div>
+              ) : null}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-2xl border border-slate-200 px-4 py-4 text-sm">
@@ -1473,6 +1749,9 @@ export default function CompanyPage() {
                             const statusRes = await fetch("/api/company/integrations", { cache: "no-store" });
                             const statusData = await statusRes.json().catch(() => null);
                             const ml = statusData?.mailerlite ?? {};
+                            setIntegrationsWarning(
+                              typeof statusData?.warning === "string" ? statusData.warning : null
+                            );
                             setMailerLiteConfigured(!!ml.configured);
                             setMailerLiteSource(ml.source === "db" || ml.source === "env" ? ml.source : "none");
                             setMailerLiteMasked(typeof ml.masked === "string" ? ml.masked : null);
@@ -1505,6 +1784,9 @@ export default function CompanyPage() {
                             const statusRes = await fetch("/api/company/integrations", { cache: "no-store" });
                             const statusData = await statusRes.json().catch(() => null);
                             const ml = statusData?.mailerlite ?? {};
+                            setIntegrationsWarning(
+                              typeof statusData?.warning === "string" ? statusData.warning : null
+                            );
                             setMailerLiteConfigured(!!ml.configured);
                             setMailerLiteSource(ml.source === "db" || ml.source === "env" ? ml.source : "none");
                             setMailerLiteMasked(typeof ml.masked === "string" ? ml.masked : null);
@@ -1523,9 +1805,287 @@ export default function CompanyPage() {
                       </span>
                       {!mailerliteCanEdit ? (
                         <span className="text-[11px] text-slate-500">
-                          Admin only.
+                          {integrationsWarning ? "Database not configured." : "Admin only."}
                         </span>
                       ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 px-4 py-4 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-semibold text-slate-900">Shared Inbox</div>
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                        sharedInboxConfigured
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {integrationsLoading
+                        ? "Loading…"
+                        : sharedInboxConfigured
+                        ? "Connected"
+                        : "Not connected"}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-500">
+                    Connect a shared inbox so the Email tab can sync threads and send from the platform (with open/click tracking).
+                  </div>
+
+                  <div className="mt-4 space-y-4">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                      <div className="text-xs font-semibold text-slate-900">
+                        Google Workspace (Gmail) — Recommended
+                      </div>
+                      <div className="mt-1 text-[11px] text-slate-500">
+                        Best threading + fastest sync for the Email tab.
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <a
+                          className={`rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white ${
+                            !sharedInboxCanEdit ? "pointer-events-none opacity-50" : ""
+                          }`}
+                          href="/api/email/google/oauth/start?next=/company"
+                        >
+                          {sharedInboxProvider === "gmail" && sharedInboxConfigured
+                            ? "Reconnect Gmail"
+                            : "Connect Gmail"}
+                        </a>
+                        <button
+                          type="button"
+                          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50"
+                          disabled={
+                            !sharedInboxCanEdit ||
+                            sharedInboxSaving ||
+                            integrationsLoading ||
+                            !sharedInboxConfigured
+                          }
+                          onClick={async () => {
+                            setSharedInboxSaving(true);
+                            setIntegrationsError(null);
+                            try {
+                              const res = await fetch("/api/email/mailbox", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ disconnect: true }),
+                              });
+                              const data = await res.json().catch(() => null);
+                              if (!res.ok) throw new Error(data?.error ?? "Failed to disconnect");
+                              const statusRes = await fetch("/api/email/mailbox", {
+                                cache: "no-store",
+                              });
+                              const statusData = await statusRes.json().catch(() => null);
+                              setSharedInboxConfigured(!!statusData?.configured);
+                              setSharedInboxProvider(
+                                typeof statusData?.provider === "string"
+                                  ? statusData.provider
+                                  : null
+                              );
+                              setSharedInboxEmail(
+                                typeof statusData?.emailAddress === "string"
+                                  ? statusData.emailAddress
+                                  : null
+                              );
+                              setSharedInboxCanEdit(!!statusData?.canEdit);
+                              setSharedInboxEmailDraft(
+                                typeof statusData?.emailAddress === "string"
+                                  ? statusData.emailAddress
+                                  : ""
+                              );
+                              setSharedInboxNameDraft(
+                                typeof statusData?.displayName === "string"
+                                  ? statusData.displayName
+                                  : ""
+                              );
+                            } catch (err) {
+                              setIntegrationsError(
+                                err instanceof Error ? err.message : "Failed to disconnect"
+                              );
+                            } finally {
+                              setSharedInboxSaving(false);
+                            }
+                          }}
+                        >
+                          Disconnect
+                        </button>
+                        {!sharedInboxCanEdit ? (
+                          <span className="text-[11px] text-slate-500">Admin only.</span>
+                        ) : null}
+                      </div>
+                      {sharedInboxConfigured && sharedInboxEmail ? (
+                        <div className="mt-2 text-[11px] text-slate-600">
+                          Connected mailbox:{" "}
+                          <span className="font-semibold text-slate-900">
+                            {sharedInboxEmail}
+                          </span>
+                          {sharedInboxProvider ? (
+                            <span className="ml-2 text-slate-500">
+                              ({sharedInboxProvider})
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
+                      <div className="text-xs font-semibold text-slate-900">
+                        Other providers (SMTP/IMAP)
+                      </div>
+                      <div className="mt-1 text-[11px] text-slate-500">
+                        Use this for non-Google inboxes. Outgoing emails will include open/click tracking. (Thread sync depends on provider support.)
+                      </div>
+
+                      <div className="mt-3 grid gap-2">
+                        <input
+                          className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                          placeholder="From email address"
+                          value={sharedInboxEmailDraft}
+                          onChange={(e) => setSharedInboxEmailDraft(e.target.value)}
+                          disabled={!sharedInboxCanEdit}
+                        />
+                        <input
+                          className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                          placeholder="From name (optional)"
+                          value={sharedInboxNameDraft}
+                          onChange={(e) => setSharedInboxNameDraft(e.target.value)}
+                          disabled={!sharedInboxCanEdit}
+                        />
+
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <input
+                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                            placeholder="IMAP host"
+                            value={sharedInboxImapHost}
+                            onChange={(e) => setSharedInboxImapHost(e.target.value)}
+                            disabled={!sharedInboxCanEdit}
+                          />
+                          <input
+                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                            placeholder="IMAP port"
+                            value={sharedInboxImapPort}
+                            onChange={(e) => setSharedInboxImapPort(e.target.value)}
+                            disabled={!sharedInboxCanEdit}
+                          />
+                          <input
+                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                            placeholder="IMAP username"
+                            value={sharedInboxImapUser}
+                            onChange={(e) => setSharedInboxImapUser(e.target.value)}
+                            disabled={!sharedInboxCanEdit}
+                          />
+                          <input
+                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                            placeholder="IMAP password (leave blank to keep)"
+                            type="password"
+                            value={sharedInboxImapPassword}
+                            onChange={(e) => setSharedInboxImapPassword(e.target.value)}
+                            disabled={!sharedInboxCanEdit}
+                          />
+                        </div>
+
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <input
+                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                            placeholder="SMTP host"
+                            value={sharedInboxSmtpHost}
+                            onChange={(e) => setSharedInboxSmtpHost(e.target.value)}
+                            disabled={!sharedInboxCanEdit}
+                          />
+                          <input
+                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                            placeholder="SMTP port"
+                            value={sharedInboxSmtpPort}
+                            onChange={(e) => setSharedInboxSmtpPort(e.target.value)}
+                            disabled={!sharedInboxCanEdit}
+                          />
+                          <input
+                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                            placeholder="SMTP username"
+                            value={sharedInboxSmtpUser}
+                            onChange={(e) => setSharedInboxSmtpUser(e.target.value)}
+                            disabled={!sharedInboxCanEdit}
+                          />
+                          <input
+                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                            placeholder="SMTP password (leave blank to keep)"
+                            type="password"
+                            value={sharedInboxSmtpPassword}
+                            onChange={(e) => setSharedInboxSmtpPassword(e.target.value)}
+                            disabled={!sharedInboxCanEdit}
+                          />
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                            disabled={!sharedInboxCanEdit || sharedInboxSaving || integrationsLoading}
+                            onClick={async () => {
+                              setSharedInboxSaving(true);
+                              setIntegrationsError(null);
+                              try {
+                                const res = await fetch("/api/email/mailbox", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    provider: "smtp_imap",
+                                    emailAddress: sharedInboxEmailDraft,
+                                    displayName: sharedInboxNameDraft,
+                                    imap: {
+                                      host: sharedInboxImapHost,
+                                      port: sharedInboxImapPort
+                                        ? Number(sharedInboxImapPort)
+                                        : undefined,
+                                      user: sharedInboxImapUser,
+                                      password: sharedInboxImapPassword,
+                                    },
+                                    smtp: {
+                                      host: sharedInboxSmtpHost,
+                                      port: sharedInboxSmtpPort
+                                        ? Number(sharedInboxSmtpPort)
+                                        : undefined,
+                                      user: sharedInboxSmtpUser,
+                                      password: sharedInboxSmtpPassword,
+                                    },
+                                  }),
+                                });
+                                const data = await res.json().catch(() => null);
+                                if (!res.ok) throw new Error(data?.error ?? "Failed to save");
+                                const statusRes = await fetch("/api/email/mailbox", {
+                                  cache: "no-store",
+                                });
+                                const statusData = await statusRes.json().catch(() => null);
+                                setSharedInboxConfigured(!!statusData?.configured);
+                                setSharedInboxProvider(
+                                  typeof statusData?.provider === "string"
+                                    ? statusData.provider
+                                    : null
+                                );
+                                setSharedInboxEmail(
+                                  typeof statusData?.emailAddress === "string"
+                                    ? statusData.emailAddress
+                                    : null
+                                );
+                                setSharedInboxCanEdit(!!statusData?.canEdit);
+                                setSharedInboxImapPassword("");
+                                setSharedInboxSmtpPassword("");
+                              } catch (err) {
+                                setIntegrationsError(
+                                  err instanceof Error ? err.message : "Failed to save"
+                                );
+                              } finally {
+                                setSharedInboxSaving(false);
+                              }
+                            }}
+                          >
+                            {sharedInboxSaving ? "Saving…" : "Save"}
+                          </button>
+                          {!sharedInboxCanEdit ? (
+                            <span className="text-[11px] text-slate-500">Admin only.</span>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

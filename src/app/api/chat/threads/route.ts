@@ -2,84 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-const getOrCreateCompanyId = async (
-  admin: ReturnType<typeof createSupabaseAdminClient>,
-  userId: string
-) => {
-  const { data: memberRow, error: memberError } = await admin
-    .from("company_members")
-    .select("company_id")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
-
-  if (memberError) {
-    throw new Error(memberError.message ?? "Failed to load membership");
-  }
-
-  if (memberRow?.company_id) {
-    return memberRow.company_id as string;
-  }
-
-  const { data, error } = await admin
-    .from("companies")
-    .select("id")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message ?? "Failed to load company");
-  }
-
-  if (data?.id) {
-    return data.id as string;
-  }
-
-  const { data: created, error: createError } = await admin
-    .from("companies")
-    .insert({ name: "Default Company" })
-    .select("id")
-    .single();
-
-  if (createError || !created?.id) {
-    throw new Error(createError?.message ?? "Failed to create company");
-  }
-
-  return created.id as string;
-};
-
-const ensureMembership = async (
-  admin: ReturnType<typeof createSupabaseAdminClient>,
-  companyId: string,
-  userId: string
-) => {
-  const { data, error } = await admin
-    .from("company_members")
-    .select("user_id")
-    .eq("company_id", companyId)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message ?? "Failed to verify membership");
-  }
-
-  if (data?.user_id) {
-    return;
-  }
-
-  const { error: insertError } = await admin.from("company_members").insert({
-    company_id: companyId,
-    user_id: userId,
-    role: "Admin",
-  });
-
-  if (insertError) {
-    throw new Error(insertError.message ?? "Failed to create membership");
-  }
-};
+import { ensureCompanyMembership } from "@/lib/company/membership";
 
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -107,8 +30,7 @@ export async function POST(request: NextRequest) {
   const admin = createSupabaseAdminClient();
 
   try {
-    const companyId = await getOrCreateCompanyId(admin, user.id);
-    await ensureMembership(admin, companyId, user.id);
+    const companyId = (await ensureCompanyMembership(admin, user.id)).companyId;
 
     const { data: companyMembers, error: companyMembersError } = await admin
       .from("company_members")

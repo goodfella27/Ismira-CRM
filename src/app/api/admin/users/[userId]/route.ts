@@ -71,7 +71,7 @@ const getMemberRole = async (
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { userId: string } }
+  context: { params: Promise<{ userId: string }> }
 ) {
   const supabase = await createSupabaseServerClient();
   const {
@@ -121,8 +121,9 @@ export async function PATCH(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const userId = params.userId;
-  if (!userId) {
+  const params = await context.params;
+  const targetUserId = params?.userId?.trim();
+  if (!targetUserId) {
     return NextResponse.json({ error: "Missing userId" }, { status: 400 });
   }
 
@@ -134,7 +135,7 @@ export async function PATCH(
   }
 
   const { data: currentData, error: currentError } =
-    await admin.auth.admin.getUserById(userId);
+    await admin.auth.admin.getUserById(targetUserId);
 
   if (currentError || !currentData?.user) {
     return NextResponse.json(
@@ -162,7 +163,7 @@ export async function PATCH(
       .from("company_members")
       .upsert({
         company_id: companyId,
-        user_id: userId,
+        user_id: targetUserId,
         role: role || "Member",
       });
     if (memberError) {
@@ -178,7 +179,7 @@ export async function PATCH(
   }
 
   const { data: updated, error: updateError } =
-    await admin.auth.admin.updateUserById(userId, updates);
+    await admin.auth.admin.updateUserById(targetUserId, updates);
 
   if (updateError || !updated?.user) {
     return NextResponse.json(

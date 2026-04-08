@@ -3,8 +3,12 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { invalidateMailerLiteApiKeyCache } from "@/lib/mailerlite";
+import { invalidateHubspotAccessTokenCache } from "@/lib/hubspot";
 
 export const runtime = "nodejs";
+
+const isMissingCompanyIntegrationsTableError = (message: string) =>
+  /could not find the table/i.test(message) && /company_integrations/i.test(message);
 
 const getPrimaryCompanyId = async (
   admin: ReturnType<typeof createSupabaseAdminClient>
@@ -65,6 +69,7 @@ export async function GET() {
     if (!allowed) {
       // Still return safe status (configured?) but no secret details.
       const envKey = process.env.MAILERLITE_API_KEY?.trim() ?? "";
+      const envHubspot = process.env.HUBSPOT_PRIVATE_APP_TOKEN?.trim() ?? "";
       return NextResponse.json({
         mailerlite: {
           configured: Boolean(envKey),
@@ -72,25 +77,71 @@ export async function GET() {
           masked: envKey ? maskSecret(envKey) : null,
           canEdit: false,
         },
+        hubspot: {
+          configured: Boolean(envHubspot),
+          source: envHubspot ? "env" : "none",
+          masked: envHubspot ? maskSecret(envHubspot) : null,
+          canEdit: false,
+        },
       });
     }
 
-    const { data: row } = await admin
+    const { data: row, error: rowError } = await admin
       .from("company_integrations")
-      .select("mailerlite_api_key")
+      .select("*")
       .eq("company_id", companyId)
       .maybeSingle();
+    if (rowError) {
+      if (isMissingCompanyIntegrationsTableError(rowError.message ?? "")) {
+        return NextResponse.json(
+          {
+            mailerlite: {
+              configured: Boolean(process.env.MAILERLITE_API_KEY?.trim() ?? ""),
+              source: process.env.MAILERLITE_API_KEY?.trim() ? "env" : "none",
+              masked: (process.env.MAILERLITE_API_KEY?.trim() ?? "")
+                ? maskSecret(process.env.MAILERLITE_API_KEY?.trim() ?? "")
+                : null,
+              canEdit: false,
+            },
+            hubspot: {
+              configured: Boolean(process.env.HUBSPOT_PRIVATE_APP_TOKEN?.trim() ?? ""),
+              source: process.env.HUBSPOT_PRIVATE_APP_TOKEN?.trim() ? "env" : "none",
+              masked: (process.env.HUBSPOT_PRIVATE_APP_TOKEN?.trim() ?? "")
+                ? maskSecret(process.env.HUBSPOT_PRIVATE_APP_TOKEN?.trim() ?? "")
+                : null,
+              canEdit: false,
+            },
+            warning:
+              "Database table `company_integrations` is not set up. Apply `supabase/integrations.sql` in your Supabase project to manage API keys from the UI.",
+          },
+          { status: 200 }
+        );
+      }
+      throw new Error(rowError.message ?? "Failed to load integrations");
+    }
 
     const dbKey = (row?.mailerlite_api_key as string | null)?.trim() ?? "";
     const envKey = process.env.MAILERLITE_API_KEY?.trim() ?? "";
     const effective = dbKey || envKey;
     const source = dbKey ? "db" : envKey ? "env" : "none";
 
+    const dbHubspot = (row as Record<string, unknown> | null)?.hubspot_private_app_token;
+    const dbHubspotKey = typeof dbHubspot === "string" ? dbHubspot.trim() : "";
+    const envHubspotKey = process.env.HUBSPOT_PRIVATE_APP_TOKEN?.trim() ?? "";
+    const effectiveHubspot = dbHubspotKey || envHubspotKey;
+    const sourceHubspot = dbHubspotKey ? "db" : envHubspotKey ? "env" : "none";
+
     return NextResponse.json({
       mailerlite: {
         configured: Boolean(effective),
         source,
         masked: effective ? maskSecret(effective) : null,
+        canEdit: true,
+      },
+      hubspot: {
+        configured: Boolean(effectiveHubspot),
+        source: sourceHubspot,
+        masked: effectiveHubspot ? maskSecret(effectiveHubspot) : null,
         canEdit: true,
       },
     });
@@ -108,7 +159,10 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
 
     const body = (await request.json().catch(() => null)) as
-      | { mailerlite_api_key?: string | null }
+      | {
+          mailerlite_api_key?: string | null;
+          hubspot_private_app_token?: string | null;
+        }
       | null;
 
     const admin = createSupabaseAdminClient();
@@ -118,14 +172,49 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Admin access required." }, { status: 403 });
     }
 
-    const nextKeyRaw = body?.mailerlite_api_key ?? null;
-    const nextKey = typeof nextKeyRaw === "string" ? nextKeyRaw.trim() : "";
+    const nextMailerLiteRaw = body?.mailerlite_api_key;
+    const hasMailerLiteUpdate = typeof nextMailerLiteRaw === "string" || nextMailerLiteRaw === null;
+    const nextMailerLiteKey =
+      typeof nextMailerLiteRaw === "string" ? nextMailerLiteRaw.trim() : "";
 
-    await admin.from("company_integrations").upsert({
-      company_id: companyId,
-      mailerlite_api_key: nextKey ? nextKey : null,
-    });
-    invalidateMailerLiteApiKeyCache();
+    const nextHubspotRaw = body?.hubspot_private_app_token;
+    const hasHubspotUpdate = typeof nextHubspotRaw === "string" || nextHubspotRaw === null;
+    const nextHubspotKey = typeof nextHubspotRaw === "string" ? nextHubspotRaw.trim() : "";
+
+    const update: Record<string, unknown> = { company_id: companyId };
+    if (hasMailerLiteUpdate) {
+      update.mailerlite_api_key = nextMailerLiteKey ? nextMailerLiteKey : null;
+    }
+    if (hasHubspotUpdate) {
+      update.hubspot_private_app_token = nextHubspotKey ? nextHubspotKey : null;
+    }
+
+    const { error: upsertError } = await admin.from("company_integrations").upsert(update);
+    if (upsertError) {
+      const message = upsertError.message ?? "Failed to update integrations";
+      if (isMissingCompanyIntegrationsTableError(message)) {
+        return NextResponse.json(
+          {
+            error:
+              "Database table `company_integrations` is not set up. Apply `supabase/integrations.sql` in your Supabase project (SQL Editor), then try again. Until then, use `MAILERLITE_API_KEY` env var.",
+          },
+          { status: 409 }
+        );
+      }
+      if (hasHubspotUpdate && /hubspot_private_app_token/i.test(message)) {
+        return NextResponse.json(
+          {
+            error:
+              "HubSpot token storage is not available in the database yet. Apply `supabase/integrations.sql` (adds `company_integrations.hubspot_private_app_token`) or use `HUBSPOT_PRIVATE_APP_TOKEN` env var.",
+          },
+          { status: 409 }
+        );
+      }
+      throw new Error(message);
+    }
+
+    if (hasMailerLiteUpdate) invalidateMailerLiteApiKeyCache();
+    if (hasHubspotUpdate) invalidateHubspotAccessTokenCache();
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {

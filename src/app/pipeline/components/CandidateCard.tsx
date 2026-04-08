@@ -11,7 +11,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Candidate } from "../types";
 import { getCountryDisplay } from "@/lib/country";
-import { formatEmailShort, formatRelative } from "../utils";
+import { formatDateShort, formatEmailShort, formatRelative } from "../utils";
 
 const initials = (name?: string) => {
   const safeName = name?.trim() || "";
@@ -105,8 +105,11 @@ export default function CandidateCard({
     transition,
   };
   const country = getCountryDisplay(candidate.country);
-  const rawEmail = candidate.email?.trim();
-  const email = formatEmailShort(rawEmail);
+  const rawSubtitle =
+    (candidate.pipeline_id === "companies"
+      ? candidate.website_url
+      : candidate.email)?.trim() ?? "";
+  const email = formatEmailShort(rawSubtitle);
   const countryLine =
     country.label !== "—"
       ? `${country.flag ? `${country.flag} ` : ""}${country.label}`
@@ -114,6 +117,8 @@ export default function CandidateCard({
 
   const avatarClass = getAvatarClass(candidate.name);
   const avatarBg = avatarClass.split(" ")[0] ?? "bg-emerald-100";
+  const startDateLabel =
+    candidate.pipeline_id !== "companies" ? formatDateShort(candidate.start_date) : "";
 
   return (
     <div
@@ -149,7 +154,7 @@ export default function CandidateCard({
               </div>
               <div
                 className="max-w-[160px] truncate text-xs text-slate-500"
-                title={rawEmail || undefined}
+                title={rawSubtitle || undefined}
               >
                 {email || countryLine}
               </div>
@@ -220,7 +225,14 @@ export default function CandidateCard({
         </div>
       </div>
       {USE_STACKED_CARDS ? (
-        <div className="flex items-center justify-center gap-1 px-2 pb-1 pt-2 text-center text-[10px] font-semibold uppercase text-slate-600/70">
+        <div className="flex flex-wrap items-center justify-center gap-1 px-2 pb-1 pt-2 text-center text-[10px] font-semibold uppercase text-slate-600/70">
+          {startDateLabel ? (
+            <>
+              <CalendarDays className="h-3 w-3" />
+              Start {startDateLabel}
+              <span className="px-0.5">•</span>
+            </>
+          ) : null}
           <Clock className="h-3 w-3" />
           Created {formatRelative(candidate.created_at)}
         </div>

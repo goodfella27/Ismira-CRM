@@ -33,7 +33,7 @@ import {
   Pipeline,
   Stage,
 } from "./types";
-import { FORM_FILE_FIELDS } from "@/lib/form-fields";
+import { FORM_FIELD_KEYS, FORM_FILE_FIELDS } from "@/lib/form-fields";
 import {
   canonicalizeCountry,
   getCountryCode,
@@ -44,6 +44,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 const MAILERLITE_STAGE_ID = "consultation";
 const MAILERLITE_PIPELINE_ID = "mailerlite";
 const BREEZY_PIPELINE_ID = "breezy";
+const COMPANIES_PIPELINE_ID = "companies";
 const ENABLE_SMART_SEARCH = true;
 const OPEN_PROFILE_EVENT = "pipeline-open-profile";
 
@@ -210,6 +211,13 @@ type TaskRow = {
   title: string;
   status: string;
   created_at: string | null;
+  watcher_ids?: string[] | null;
+  completed_at?: string | null;
+  completed_by?: string | null;
+  assigned_to?: string | null;
+  due_at?: string | null;
+  reminder_minutes_before?: number | null;
+  notes?: string | null;
 };
 
 type WorkHistoryRow = {
@@ -282,6 +290,11 @@ const buildDefaultPipelines = (): Pipeline[] => [
   {
     id: BREEZY_PIPELINE_ID,
     name: "Breezy",
+    stages: cloneStages(stages),
+  },
+  {
+    id: COMPANIES_PIPELINE_ID,
+    name: "Companies",
     stages: cloneStages(stages),
   },
 ];
@@ -419,14 +432,36 @@ const stripRelatedFields = (candidate: Candidate): Candidate => {
 
 const buildTaskRows = (candidate: Candidate): TaskRow[] => {
   const tasks = Array.isArray(candidate.tasks) ? candidate.tasks : [];
+  const requestInfoIds = new Set<string>(FORM_FIELD_KEYS);
   return tasks
-    .filter((task) => task && task.id && task.title && !PROFILE_TASK_IDS.has(task.id))
+    .filter(
+      (task) =>
+        task &&
+        task.id &&
+        task.title &&
+        !PROFILE_TASK_IDS.has(task.id) &&
+        !task.id.startsWith("form_") &&
+        !requestInfoIds.has(task.id)
+    )
     .map((task) => ({
       candidate_id: candidate.id,
       id: task.id,
       title: task.title,
       status: normalizeTaskStatus(task.status),
       created_at: task.created_at ?? new Date().toISOString(),
+      watcher_ids: Array.isArray(task.watcher_ids)
+        ? task.watcher_ids.filter((id): id is string => typeof id === "string" && id)
+        : [],
+      assigned_to: typeof task.assigned_to === "string" ? task.assigned_to : null,
+      due_at: typeof task.due_at === "string" ? task.due_at : null,
+      reminder_minutes_before:
+        typeof task.reminder_minutes_before === "number"
+          ? task.reminder_minutes_before
+          : null,
+      notes: typeof task.notes === "string" ? task.notes : null,
+      ...(normalizeTaskStatus(task.status) !== "done"
+        ? { completed_at: null, completed_by: null }
+        : {}),
     }));
 };
 
@@ -692,6 +727,11 @@ function applyFormSubmission(candidate: Candidate, form: IntakeFormSubmission) {
   };
 }
 
+type DrawerRequestedRightTab = "tasks" | null;
+
+const parseDrawerRequestedRightTab = (value: string | null): DrawerRequestedRightTab =>
+  value === "tasks" ? "tasks" : null;
+
 export default function PipelinePage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -719,6 +759,10 @@ export default function PipelinePage() {
   const [smartSearchOpen, setSmartSearchOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [drawerCandidateId, setDrawerCandidateId] = useState<string | null>(null);
+  const [drawerRequestedRightTab, setDrawerRequestedRightTab] =
+    useState<DrawerRequestedRightTab>(() =>
+      parseDrawerRequestedRightTab(searchParams.get("tab"))
+    );
   const [mailerliteGroups, setMailerliteGroups] = useState<MailerLiteGroup[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [selectedMailerLiteGroupId, setSelectedMailerLiteGroupId] =
@@ -746,7 +790,9 @@ export default function PipelinePage() {
   const initialShareProfileParamRef = useRef<string | null>(
     searchParams.get("profile")
   );
+  const initialShareTabParamRef = useRef<string | null>(searchParams.get("tab"));
   const pendingShareSlugRef = useRef<string | null>(null);
+  const pendingShareTabRef = useRef<DrawerRequestedRightTab>(null);
 
   const seedRemotePipelines = useCallback(async () => {
     const defaults = buildDefaultPipelines();
@@ -861,7 +907,7 @@ export default function PipelinePage() {
       const migrateQuestionnaireRows: QuestionnaireRow[] = [];
 
       const mappedCandidates = candidateRowList.map((row) => {
-        let candidate = mapCandidateRow(row);
+        const candidate = mapCandidateRow(row);
 
         if (!hasMigrated) {
           if (Array.isArray(candidate.tasks) && candidate.tasks.length > 0) {
@@ -928,7 +974,39 @@ export default function PipelinePage() {
         return stripProfileTasks(stripRelatedFields(candidate));
       });
 
-      setCandidates(mappedCandidates);
+      setCandidates((prev) => {
+        if (!prev || prev.length === 0) return mappedCandidates;
+        const prevById = new Map(prev.map((candidate) => [candidate.id, candidate]));
+        return mappedCandidates.map((candidate) => {
+          const previous = prevById.get(candidate.id);
+          if (!previous) return candidate;
+          return {
+            ...candidate,
+            tasks:
+              typeof previous.tasks === "undefined" ? candidate.tasks : previous.tasks,
+            work_history:
+              typeof previous.work_history === "undefined"
+                ? candidate.work_history
+                : previous.work_history,
+            education:
+              typeof previous.education === "undefined"
+                ? candidate.education
+                : previous.education,
+            attachments:
+              typeof previous.attachments === "undefined"
+                ? candidate.attachments
+                : previous.attachments,
+            scorecard:
+              typeof previous.scorecard === "undefined"
+                ? candidate.scorecard
+                : previous.scorecard,
+            questionnaires_sent:
+              typeof previous.questionnaires_sent === "undefined"
+                ? candidate.questionnaires_sent
+                : previous.questionnaires_sent,
+          };
+        });
+      });
       setNoteCounts(noteCountMap);
       setAttachmentCounts(attachmentCountMap);
 
@@ -1584,12 +1662,14 @@ export default function PipelinePage() {
     ).__pipelineCandidateAvatarClassByShareSlug = mapping;
   }, [candidates]);
 
-  const replaceProfileUrl = useCallback((profileSlug: string | null) => {
+  const replaceProfileUrl = useCallback(
+    (profileSlug: string | null, requestedTab: DrawerRequestedRightTab) => {
     if (typeof window === "undefined") return;
 
     const url = new URL(window.location.href);
     const currentProfile = url.searchParams.get("profile");
-    if ((currentProfile ?? null) === profileSlug) {
+    const currentTab = url.searchParams.get("tab");
+    if ((currentProfile ?? null) === profileSlug && (currentTab ?? null) === requestedTab) {
       shareSyncRef.current = profileSlug;
       return;
     }
@@ -1598,6 +1678,14 @@ export default function PipelinePage() {
       url.searchParams.set("profile", profileSlug);
     } else {
       url.searchParams.delete("profile");
+    }
+
+    if (!profileSlug) {
+      url.searchParams.delete("tab");
+    } else if (requestedTab) {
+      url.searchParams.set("tab", requestedTab);
+    } else {
+      url.searchParams.delete("tab");
     }
 
     const nextUrl = `${url.pathname}${url.search}${url.hash}`;
@@ -1640,15 +1728,17 @@ export default function PipelinePage() {
   );
 
   const openDrawerFromShareSlug = useCallback(
-    (shareSlug: string) => {
+    (shareSlug: string, requestedTab: DrawerRequestedRightTab) => {
       const match = resolveCandidateFromShareSlug(shareSlug);
       if (!match) return false;
 
       const canonicalSlug = getCandidateShareSlug(match);
       pendingShareSlugRef.current = null;
+      pendingShareTabRef.current = null;
       shareSyncRef.current = canonicalSlug;
+      setDrawerRequestedRightTab(requestedTab);
       setDrawerCandidateId(match.id);
-      replaceProfileUrl(canonicalSlug);
+      replaceProfileUrl(canonicalSlug, requestedTab);
       return true;
     },
     [replaceProfileUrl, resolveCandidateFromShareSlug]
@@ -1656,7 +1746,8 @@ export default function PipelinePage() {
 
   const closeDrawer = useCallback(() => {
     setDrawerCandidateId(null);
-    replaceProfileUrl(null);
+    setDrawerRequestedRightTab(null);
+    replaceProfileUrl(null, null);
   }, [replaceProfileUrl]);
 
   useEffect(() => {
@@ -1664,8 +1755,8 @@ export default function PipelinePage() {
 
     const expectedParam = drawerCandidate ? getCandidateShareSlug(drawerCandidate) : null;
     if (shareSyncRef.current === expectedParam) return;
-    replaceProfileUrl(expectedParam);
-  }, [drawerCandidate, hydrated, replaceProfileUrl]);
+    replaceProfileUrl(expectedParam, expectedParam ? drawerRequestedRightTab : null);
+  }, [drawerCandidate, drawerRequestedRightTab, hydrated, replaceProfileUrl]);
 
   useEffect(() => {
     if (hydratedShareRef.current) return;
@@ -1682,7 +1773,8 @@ export default function PipelinePage() {
       return;
     }
 
-    const opened = openDrawerFromShareSlug(shareProfileParam);
+    const shareTabParam = parseDrawerRequestedRightTab(initialShareTabParamRef.current);
+    const opened = openDrawerFromShareSlug(shareProfileParam, shareTabParam);
     if (opened) {
       hydratedShareRef.current = true;
       return;
@@ -1694,8 +1786,8 @@ export default function PipelinePage() {
       return;
     }
 
-    replaceProfileUrl(null);
-  }, [drawerCandidateId, hydrated, openDrawerFromShareSlug, replaceProfileUrl]);
+    replaceProfileUrl(null, null);
+  }, [candidates.length, drawerCandidateId, hydrated, openDrawerFromShareSlug, replaceProfileUrl]);
 
   useEffect(() => {
     if (!hydrated || candidates.length === 0) return;
@@ -1703,24 +1795,28 @@ export default function PipelinePage() {
     const pendingShareSlug = pendingShareSlugRef.current;
     if (!pendingShareSlug) return;
 
-    void openDrawerFromShareSlug(pendingShareSlug);
+    const pendingTab = pendingShareTabRef.current ?? null;
+    pendingShareTabRef.current = null;
+    void openDrawerFromShareSlug(pendingShareSlug, pendingTab);
   }, [candidates.length, hydrated, openDrawerFromShareSlug]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const handleOpenProfile = (event: Event) => {
-      const detail = (event as CustomEvent<{ shareSlug?: string }>).detail;
+      const detail = (event as CustomEvent<{ shareSlug?: string; rightTab?: string }>).detail;
       const shareSlug = detail?.shareSlug?.trim();
       if (!shareSlug) return;
+      const requestedTab = parseDrawerRequestedRightTab(detail?.rightTab ?? null);
 
       if (!hydrated || candidates.length === 0) {
         pendingShareSlugRef.current = shareSlug;
-        replaceProfileUrl(shareSlug);
+        pendingShareTabRef.current = requestedTab;
+        replaceProfileUrl(shareSlug, requestedTab);
         return;
       }
 
-      openDrawerFromShareSlug(shareSlug);
+      openDrawerFromShareSlug(shareSlug, requestedTab);
     };
 
     window.addEventListener(OPEN_PROFILE_EVENT, handleOpenProfile as EventListener);
@@ -2279,62 +2375,66 @@ export default function PipelinePage() {
     []
   );
 
-  const fetchMailerLiteDetails = useCallback(async (candidate: Candidate) => {
-    if (candidate.mailerlite) return;
-    const mlId = candidate.id.startsWith("ml-")
-      ? candidate.id.slice(3)
-      : null;
-    if (!mlId) return;
+  const fetchMailerLiteDetails = useCallback(
+    async (candidate: Candidate) => {
+      if (candidate.mailerlite) return;
+      const mlId = candidate.id.startsWith("ml-") ? candidate.id.slice(3) : null;
+      if (!mlId) return;
 
-    setMailerliteDetailsLoading((prev) => ({ ...prev, [candidate.id]: true }));
-    setMailerliteDetailsError((prev) => ({ ...prev, [candidate.id]: null }));
-    try {
-      const res = await fetch(
-        `/api/mailerlite/subscriber-details?subscriberId=${encodeURIComponent(
-          mlId
-        )}`,
-        { cache: "no-store" }
-      );
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error ?? "Failed to load subscriber details");
+      setMailerliteDetailsLoading((prev) => ({ ...prev, [candidate.id]: true }));
+      setMailerliteDetailsError((prev) => ({ ...prev, [candidate.id]: null }));
+      try {
+        const res = await fetch(
+          `/api/mailerlite/subscriber-details?subscriberId=${encodeURIComponent(
+            mlId
+          )}`,
+          { cache: "no-store" }
+        );
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data?.error ?? "Failed to load subscriber details");
+        }
+        const details = data?.data ?? null;
+        const detailsFields =
+          details && typeof details === "object" && "fields" in details
+            ? (details as { fields?: Record<string, unknown> }).fields
+            : undefined;
+
+        let updatedCandidate: Candidate | null = null;
+        setCandidates((prev) =>
+          prev.map((item) => {
+            if (item.id !== candidate.id) return item;
+            const nextCountry =
+              item.country ??
+              (details as { country?: string })?.country ??
+              (detailsFields?.country as string | undefined) ??
+              (detailsFields?.country_name as string | undefined);
+            updatedCandidate = {
+              ...item,
+              mailerlite: details,
+              country: nextCountry ?? item.country,
+            };
+            return updatedCandidate;
+          })
+        );
+        if (updatedCandidate) {
+          void saveCandidate(updatedCandidate);
+        }
+      } catch (err) {
+        setMailerliteDetailsError((prev) => ({
+          ...prev,
+          [candidate.id]:
+            err instanceof Error ? err.message : "Failed to load subscriber details",
+        }));
+      } finally {
+        setMailerliteDetailsLoading((prev) => ({
+          ...prev,
+          [candidate.id]: false,
+        }));
       }
-      const details = data?.data ?? null;
-      const detailsFields =
-        details && typeof details === "object" && "fields" in details
-          ? (details as { fields?: Record<string, unknown> }).fields
-          : undefined;
-      const nextCountry =
-        candidate.country ??
-        (details as { country?: string })?.country ??
-        (detailsFields?.country as string | undefined) ??
-        (detailsFields?.country_name as string | undefined);
-      const nextCandidate = {
-        ...candidate,
-        mailerlite: details,
-        country: nextCountry ?? candidate.country,
-      };
-      setCandidates((prev) =>
-        prev.map((item) =>
-          item.id === candidate.id
-            ? nextCandidate
-            : item
-        )
-      );
-      void saveCandidate(nextCandidate);
-    } catch (err) {
-      setMailerliteDetailsError((prev) => ({
-        ...prev,
-        [candidate.id]:
-          err instanceof Error ? err.message : "Failed to load subscriber details",
-      }));
-    } finally {
-      setMailerliteDetailsLoading((prev) => ({
-        ...prev,
-        [candidate.id]: false,
-      }));
-    }
-  }, []);
+    },
+    [saveCandidate]
+  );
 
   useEffect(() => {
     if (!drawerCandidate) return;
@@ -2740,7 +2840,7 @@ export default function PipelinePage() {
               </div>
             </div>
           </div>
-          <div className="ml-auto flex items-center gap-4">
+          <div className="ml-auto flex items-center gap-4 md:mr-16">
             {ENABLE_SMART_SEARCH ? (
               <div className="relative w-[520px] max-w-[60vw]">
                 <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
@@ -2785,7 +2885,10 @@ export default function PipelinePage() {
                           key={candidate.id}
                           type="button"
                           className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm text-slate-700 hover:bg-white"
-                          onClick={() => setDrawerCandidateId(candidate.id)}
+                          onClick={() => {
+                            setDrawerRequestedRightTab(null);
+                            setDrawerCandidateId(candidate.id);
+                          }}
                         >
                           <div className="flex items-center gap-3">
                             <div
@@ -2964,7 +3067,10 @@ export default function PipelinePage() {
             noteCounts={noteCounts}
             attachmentCounts={attachmentCounts}
             onDragEnd={handleDragEnd}
-            onOpenCandidate={(candidate) => setDrawerCandidateId(candidate.id)}
+            onOpenCandidate={(candidate) => {
+              setDrawerRequestedRightTab(null);
+              setDrawerCandidateId(candidate.id);
+            }}
             onDeleteCandidate={handleDeleteCandidate}
           />
         </div>
@@ -2983,6 +3089,7 @@ export default function PipelinePage() {
         sharePath={drawerSharePath}
         stages={drawerStages}
         pipelines={pipelines}
+        requestedRightTab={drawerRequestedRightTab}
         onClose={closeDrawer}
         onStageChange={handleStageChange}
         onPipelineChange={handlePipelineChange}

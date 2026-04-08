@@ -18,6 +18,7 @@ import ismiraLogo from "@/images/ismira_logo.png";
 import { cn } from "@/lib/utils";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getCompanyBranding } from "@/lib/company-branding-client";
+import { TaskNotificationBell } from "@/components/task-notification-bell";
 
 const navItems = [
   {
@@ -25,6 +26,12 @@ const navItems = [
     href: "/leads",
     description: "Mailing list intake",
     icon: Users2,
+  },
+  {
+    label: "Companies",
+    href: "/companies",
+    description: "Company records",
+    icon: Building2,
   },
   {
     label: "Pipeline",
@@ -312,6 +319,7 @@ export function MobileTopNav() {
             <div className="text-xs text-slate-500">Talent operations</div>
           </div>
         </div>
+        <TaskNotificationBell />
       </div>
       <nav className="flex items-center gap-2 overflow-x-auto px-4 pb-4 text-xs">
         {navItems.map((item) => {

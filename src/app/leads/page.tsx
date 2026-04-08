@@ -345,6 +345,17 @@ export default function LeadsPage() {
   );
   const [pipelineIds, setPipelineIds] = useState<Set<string>>(new Set());
   const [pipelineEmails, setPipelineEmails] = useState<Set<string>>(new Set());
+  const [purgeBeforeDate, setPurgeBeforeDate] = useState<string>("");
+  const [purgeInclusive, setPurgeInclusive] = useState(true);
+  const [purgeAction, setPurgeAction] = useState<
+    "remove_from_group" | "delete_subscriber"
+  >("remove_from_group");
+  const [purgeLoading, setPurgeLoading] = useState(false);
+  const [purgeError, setPurgeError] = useState<string | null>(null);
+  const [purgePreviewCount, setPurgePreviewCount] = useState<number | null>(null);
+  const [purgeDeletedCount, setPurgeDeletedCount] = useState<number | null>(null);
+  const [purgeFailureCount, setPurgeFailureCount] = useState<number | null>(null);
+  const [purgeNote, setPurgeNote] = useState<string | null>(null);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const sortedGroups = useMemo(() => {
@@ -623,6 +634,92 @@ export default function LeadsPage() {
       }
     },
     []
+  );
+
+  const runGroupPurge = useCallback(
+    async (dryRun: boolean) => {
+      setPurgeError(null);
+      setPurgeDeletedCount(null);
+      setPurgeFailureCount(null);
+      setPurgeNote(null);
+      if (!selectedGroupId) {
+        setPurgeError("Select a group first.");
+        return;
+      }
+      if (!purgeBeforeDate) {
+        setPurgeError("Pick a date first.");
+        return;
+      }
+
+      setPurgeLoading(true);
+      try {
+        const res = await fetch("/api/mailerlite/purge-group", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            groupId: selectedGroupId,
+            beforeDate: purgeBeforeDate,
+            inclusive: purgeInclusive,
+            dryRun,
+            action: purgeAction,
+            max: 250,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          const status =
+            typeof data?.status === "number" ? data.status : res.status;
+          const detailsMessage =
+            typeof data?.details?.message === "string"
+              ? data.details.message
+              : typeof data?.details?.error === "string"
+                ? data.details.error
+                : null;
+          const base = typeof data?.error === "string" ? data.error : "Purge failed";
+          throw new Error(
+            detailsMessage ? `${base} (${status}): ${detailsMessage}` : `${base} (${status})`
+          );
+        }
+
+        if (dryRun) {
+          setPurgePreviewCount(
+            typeof data?.matched === "number" ? data.matched : null
+          );
+          setPurgeNote(typeof data?.note === "string" ? data.note : null);
+        } else {
+          setPurgePreviewCount(null);
+          setPurgeDeletedCount(
+            typeof data?.deleted === "number" ? data.deleted : null
+          );
+          setPurgeFailureCount(
+            typeof data?.failureCount === "number" ? data.failureCount : null
+          );
+          setPurgeNote(
+            typeof data?.note === "string"
+              ? data.note
+              : typeof data?.warning === "string"
+                ? data.warning
+                : null
+          );
+          await Promise.all([
+            loadSubscribers(selectedGroupId, null),
+            loadAllSubscribers(selectedGroupId),
+          ]);
+        }
+      } catch (err) {
+        setPurgeError(err instanceof Error ? err.message : "Purge failed");
+      } finally {
+        setPurgeLoading(false);
+      }
+    },
+    [
+      selectedGroupId,
+      purgeBeforeDate,
+      purgeInclusive,
+      purgeAction,
+      loadSubscribers,
+      loadAllSubscribers,
+    ]
   );
 
   const loadSubscriberDetails = useCallback(
@@ -1050,6 +1147,7 @@ export default function LeadsPage() {
       </section>
 
       {viewMode === "group" ? (
+      <>
       <section className="flex flex-wrap items-end gap-4">
         <label className="flex flex-col gap-2 text-sm font-medium">
           Group
@@ -1100,8 +1198,6 @@ export default function LeadsPage() {
                       className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-muted"
                       onClick={() => {
                         setSearchQuery(option);
-                        setRemoteResults(null);
-                        setRemoteError(null);
                       }}
                     >
                       {option}
@@ -1127,6 +1223,113 @@ export default function LeadsPage() {
           ) : null}
         </label>
       </section>
+      <section className="rounded-md border border-border bg-card p-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex flex-col gap-1">
+            <div className="text-sm font-medium">Bulk remove subscribers</div>
+            <div className="text-xs text-muted-foreground">
+              Runs in batches of 250 (use Preview first).
+            </div>
+          </div>
+
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Before date
+            <input
+              className="h-10 min-w-[200px] rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+              type="date"
+              value={purgeBeforeDate}
+              onChange={(event) => setPurgeBeforeDate(event.target.value)}
+            />
+          </label>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={purgeInclusive}
+              onChange={(event) => setPurgeInclusive(event.target.checked)}
+            />
+            Include selected date
+          </label>
+
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Action
+            <select
+              className="h-10 min-w-[220px] rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+              value={purgeAction}
+              onChange={(event) =>
+                setPurgeAction(
+                  event.target.value === "delete_subscriber"
+                    ? "delete_subscriber"
+                    : "remove_from_group"
+                )
+              }
+            >
+              <option value="remove_from_group">Remove from selected group</option>
+              <option value="delete_subscriber">Delete subscriber permanently</option>
+            </select>
+          </label>
+
+          <button
+            type="button"
+            className="h-10 rounded-md border border-input px-4 text-sm"
+            disabled={purgeLoading || !selectedGroupId || !purgeBeforeDate}
+            onClick={() => runGroupPurge(true)}
+          >
+            {purgeLoading ? "Working..." : "Preview"}
+          </button>
+
+          <button
+            type="button"
+            className="h-10 rounded-md border border-rose-200 bg-rose-50 px-4 text-sm text-rose-700"
+            disabled={purgeLoading || !selectedGroupId || !purgeBeforeDate}
+            onClick={async () => {
+              const actionLabel =
+                purgeAction === "delete_subscriber"
+                  ? "PERMANENTLY DELETE subscribers"
+                  : "remove subscribers from this group";
+              const scopeLabel =
+                purgeInclusive ? "on or before" : "before";
+              const groupLabel = selectedGroup?.name ?? selectedGroupId;
+              const ok = window.confirm(
+                `This will ${actionLabel} who subscribed ${scopeLabel} ${purgeBeforeDate} in “${groupLabel}”. Continue?`
+              );
+              if (!ok) return;
+              await runGroupPurge(false);
+            }}
+          >
+            {purgeLoading ? "Working..." : "Delete"}
+          </button>
+        </div>
+
+        {purgeError ? (
+          <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {purgeError}
+          </div>
+        ) : null}
+
+        {purgePreviewCount !== null ? (
+          <div className="mt-3 text-sm text-muted-foreground">
+            Preview: {purgePreviewCount} subscribers match.
+          </div>
+        ) : null}
+
+        {purgeDeletedCount !== null ? (
+          <div className="mt-1 text-sm text-muted-foreground">
+            Deleted: {purgeDeletedCount}.
+          </div>
+        ) : null}
+
+        {purgeFailureCount !== null && purgeFailureCount > 0 ? (
+          <div className="mt-1 text-sm text-muted-foreground">
+            Failed: {purgeFailureCount} (run again to continue).
+          </div>
+        ) : null}
+
+        {purgeNote ? (
+          <div className="mt-1 text-sm text-muted-foreground">{purgeNote}</div>
+        ) : null}
+      </section>
+      </>
       ) : (
         <section className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-2 text-sm font-medium">
