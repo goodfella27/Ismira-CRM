@@ -883,16 +883,14 @@ export default function IntakePage() {
         return;
       }
 
-      const signedUrl =
-        signData && typeof signData.signedUrl === "string"
-          ? signData.signedUrl
-          : "";
       const storageBucket =
         signData && typeof signData.bucket === "string" ? signData.bucket : "";
       const storagePath =
         signData && typeof signData.path === "string" ? signData.path : "";
+      const uploadToken =
+        signData && typeof signData.token === "string" ? signData.token : "";
 
-      if (!signedUrl || !storageBucket || !storagePath) {
+      if (!storageBucket || !storagePath || !uploadToken) {
         const message = "Upload configuration is invalid.";
         updateUpload(uploadId, {
           status: "error",
@@ -903,59 +901,36 @@ export default function IntakePage() {
         return;
       }
 
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("PUT", signedUrl);
-        try {
-          xhr.setRequestHeader("x-upsert", "false");
-        } catch {
-          // ignore header issues (CORS/preflight handled by storage provider)
-        }
-        xhr.upload.onprogress = (event) => {
-          if (!event.lengthComputable) return;
-          const pct = Math.min(
-            100,
-            Math.round((event.loaded / event.total) * 100)
-          );
-          updateUpload(uploadId, { progress: pct });
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            updateUpload(uploadId, {
-              status: "uploaded",
-              progress: 100,
-              storageBucket,
-              storagePath,
-              mime: file.type,
-            });
-            resolve();
-            return;
-          }
-          const message = xhr.status
-            ? `Upload failed (${xhr.status})`
-            : "Upload failed";
-          updateUpload(uploadId, {
-            status: "error",
-            error: message,
-            progress: null,
-          });
-          setUploadError(message);
-          reject(new Error(message));
-        };
-        xhr.onerror = () => {
-          const message = "Upload failed";
-          updateUpload(uploadId, {
-            status: "error",
-            error: message,
-            progress: null,
-          });
-          setUploadError(message);
-          reject(new Error(message));
-        };
-        const body = new FormData();
-        body.append("cacheControl", "3600");
-        body.append("", file);
-        xhr.send(body);
+      updateUpload(uploadId, { progress: null });
+      const { error: uploadError } = await supabase.storage
+        .from(storageBucket)
+        .uploadToSignedUrl(storagePath, uploadToken, file, {
+          upsert: false,
+          cacheControl: "3600",
+          contentType: file.type || undefined,
+        });
+
+      if (uploadError) {
+        const extra =
+          "status" in uploadError && typeof uploadError.status === "number"
+            ? ` (${uploadError.status})`
+            : "";
+        const message = `${uploadError.message ?? "Upload failed"}${extra}`;
+        updateUpload(uploadId, {
+          status: "error",
+          error: message,
+          progress: null,
+        });
+        setUploadError(message);
+        return;
+      }
+
+      updateUpload(uploadId, {
+        status: "uploaded",
+        progress: 100,
+        storageBucket,
+        storagePath,
+        mime: file.type,
       });
     } catch {
       // error already handled in state
