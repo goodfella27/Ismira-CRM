@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const rawNextPath = url.searchParams.get("next") ?? "/pipeline";
   const nextPath = rawNextPath.startsWith("/") ? rawNextPath : "/pipeline";
   const state = crypto.randomUUID();
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   cookieStore.set("google_oauth_state", state, {
     httpOnly: true,

@@ -100,9 +100,9 @@ export default function CalendarPage() {
               meetingEventId: data.meeting_event_id as string | undefined,
               candidateData: data,
               updatedAt: row.updated_at ?? null,
-            } satisfies MeetingItem;
+            } as MeetingItem;
           })
-          .filter((item): item is MeetingItem => !!item);
+          .filter((item): item is MeetingItem => item !== null);
 
         meetings.sort((a, b) => {
           const aTime = a.meetingStart ? new Date(a.meetingStart).getTime() : 0;

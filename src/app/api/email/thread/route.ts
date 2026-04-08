@@ -204,7 +204,7 @@ export async function GET(request: Request) {
     if (msgError) return NextResponse.json({ error: msgError.message }, { status: 500 });
 
     const formatted = (messages ?? []).map((row) => {
-      const record = row as Record<string, unknown>;
+      const record = row as unknown as Record<string, unknown>;
       const raw = record.raw ?? null;
       const attachments = getGmailAttachmentsFromMessage(raw);
       const { raw: _omit, ...rest } = record;

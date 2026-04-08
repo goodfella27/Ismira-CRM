@@ -67,7 +67,7 @@ export async function POST() {
   const existingTaskIds = new Set(
     (existing ?? [])
       .map((row) => (row as { task_id?: unknown }).task_id)
-      .filter((value): value is string => typeof value === "string" && value)
+      .filter((value): value is string => typeof value === "string" && value.length > 0)
   );
 
   const missing = taskRows.filter((row) => !existingTaskIds.has(row.id));
