@@ -906,12 +906,10 @@ export default function IntakePage() {
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", signedUrl);
-        if (file.type) {
-          try {
-            xhr.setRequestHeader("Content-Type", file.type);
-          } catch {
-            // ignore header issues (CORS/preflight handled by storage provider)
-          }
+        try {
+          xhr.setRequestHeader("x-upsert", "false");
+        } catch {
+          // ignore header issues (CORS/preflight handled by storage provider)
         }
         xhr.upload.onprogress = (event) => {
           if (!event.lengthComputable) return;
@@ -954,7 +952,10 @@ export default function IntakePage() {
           setUploadError(message);
           reject(new Error(message));
         };
-        xhr.send(file);
+        const body = new FormData();
+        body.append("cacheControl", "3600");
+        body.append("", file);
+        xhr.send(body);
       });
     } catch {
       // error already handled in state
