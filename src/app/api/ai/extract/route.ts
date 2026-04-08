@@ -278,39 +278,59 @@ Rules:
 
     const userPrompt = `Transcript:\n${transcript}`;
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    const requestBody = JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${systemPrompt}\n${userPrompt}` }],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseJsonSchema: responseSchema,
+      },
+    });
+
+    const sleep = (ms: number) =>
+      new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+    let res: Response | null = null;
+    let data: any = null;
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-goog-api-key": apiKey,
         },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: `${systemPrompt}\n${userPrompt}` }],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseJsonSchema: responseSchema,
-          },
-        }),
-      }
-    );
+        body: requestBody,
+      });
 
-    const data = await res.json().catch(() => null);
+      data = await res.json().catch(() => null);
 
-    if (!res.ok) {
+      if (res.ok) break;
+      const retryable = res.status === 429 || res.status === 500 || res.status === 503;
+      if (!retryable || attempt === maxAttempts) break;
+      await sleep(250 * attempt * attempt);
+    }
+
+    if (!res || !res.ok) {
+      const status = res?.status ?? 500;
+      const message =
+        data?.error?.message ??
+        data?.error?.status ??
+        data?.message ??
+        "Gemini request failed";
+
       return NextResponse.json(
         {
-          error: "Gemini request failed",
-          status: res.status,
+          error: message,
+          status,
           details: data,
         },
-        { status: res.status }
+        { status }
       );
     }
 

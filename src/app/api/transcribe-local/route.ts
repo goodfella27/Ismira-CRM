@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
@@ -25,8 +26,18 @@ const stripWarnings = (text: string) =>
     .trim();
 
 function getPythonPath() {
-  const venvPython = path.join(process.cwd(), ".venv", "bin", "python");
-  return venvPython;
+  const envPython = (process.env.TRANSCRIBE_PYTHON_PATH ?? "").trim();
+  if (envPython) return envPython;
+
+  const venvCandidates = [
+    path.join(process.cwd(), ".venv", "bin", "python3"),
+    path.join(process.cwd(), ".venv", "bin", "python"),
+  ];
+  for (const candidate of venvCandidates) {
+    if (fsSync.existsSync(candidate)) return candidate;
+  }
+
+  return "python3";
 }
 
 function getScriptPath() {

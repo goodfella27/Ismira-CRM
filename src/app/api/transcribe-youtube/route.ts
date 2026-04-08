@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
@@ -32,6 +33,21 @@ const isYouTubeUrl = (value: string) => {
     return false;
   }
 };
+
+function getPythonPath() {
+  const envPython = (process.env.TRANSCRIBE_PYTHON_PATH ?? "").trim();
+  if (envPython) return envPython;
+
+  const venvCandidates = [
+    path.join(process.cwd(), ".venv", "bin", "python3"),
+    path.join(process.cwd(), ".venv", "bin", "python"),
+  ];
+  for (const candidate of venvCandidates) {
+    if (fsSync.existsSync(candidate)) return candidate;
+  }
+
+  return "python3";
+}
 
 export async function POST(request: Request) {
   let tempDir: string | null = null;
@@ -82,7 +98,7 @@ export async function POST(request: Request) {
         { status: 413 }
       );
     }
-    const pythonPath = path.join(process.cwd(), ".venv", "bin", "python");
+    const pythonPath = getPythonPath();
     const scriptPath = path.join(process.cwd(), "scripts", "transcribe_local.py");
 
     await fs.mkdir(cacheRoot, { recursive: true });
