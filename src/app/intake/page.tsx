@@ -131,6 +131,9 @@ type UploadEntry = {
   sizeBytes?: number;
   sourceUrl?: string;
   fileId?: string;
+  storageBucket?: string;
+  storagePath?: string;
+  mime?: string;
 };
 
 const formatBytes = (value?: number) => {
@@ -858,21 +861,58 @@ export default function IntakePage() {
       sizeBytes: file.size,
     });
 
-    const payload = new FormData();
-    payload.append("file", file);
-
-    const parseResponse = (text: string) => {
-      try {
-        return JSON.parse(text) as { fileId?: string; error?: string };
-      } catch {
-        return null;
-      }
-    };
-
     try {
+      const signRes = await fetch("/api/storage/signed-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name,
+          contentType: file.type,
+        }),
+      });
+      const signData = await signRes.json().catch(() => null);
+      if (!signRes.ok) {
+        const message =
+          signData?.error ?? "Unable to prepare upload. Please try again.";
+        updateUpload(uploadId, {
+          status: "error",
+          error: message,
+          progress: null,
+        });
+        setUploadError(message);
+        return;
+      }
+
+      const signedUrl =
+        signData && typeof signData.signedUrl === "string"
+          ? signData.signedUrl
+          : "";
+      const storageBucket =
+        signData && typeof signData.bucket === "string" ? signData.bucket : "";
+      const storagePath =
+        signData && typeof signData.path === "string" ? signData.path : "";
+
+      if (!signedUrl || !storageBucket || !storagePath) {
+        const message = "Upload configuration is invalid.";
+        updateUpload(uploadId, {
+          status: "error",
+          error: message,
+          progress: null,
+        });
+        setUploadError(message);
+        return;
+      }
+
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/api/upload");
+        xhr.open("PUT", signedUrl);
+        if (file.type) {
+          try {
+            xhr.setRequestHeader("Content-Type", file.type);
+          } catch {
+            // ignore header issues (CORS/preflight handled by storage provider)
+          }
+        }
         xhr.upload.onprogress = (event) => {
           if (!event.lengthComputable) return;
           const pct = Math.min(
@@ -882,19 +922,20 @@ export default function IntakePage() {
           updateUpload(uploadId, { progress: pct });
         };
         xhr.onload = () => {
-          const payload = parseResponse(xhr.responseText);
-          if (xhr.status >= 200 && xhr.status < 300 && payload?.fileId) {
+          if (xhr.status >= 200 && xhr.status < 300) {
             updateUpload(uploadId, {
               status: "uploaded",
               progress: 100,
-              fileId: payload.fileId,
+              storageBucket,
+              storagePath,
+              mime: file.type,
             });
             resolve();
             return;
           }
-          const message =
-            payload?.error ??
-            (xhr.status ? `Upload failed (${xhr.status})` : "Upload failed");
+          const message = xhr.status
+            ? `Upload failed (${xhr.status})`
+            : "Upload failed";
           updateUpload(uploadId, {
             status: "error",
             error: message,
@@ -913,7 +954,7 @@ export default function IntakePage() {
           setUploadError(message);
           reject(new Error(message));
         };
-        xhr.send(payload);
+        xhr.send(file);
       });
     } catch {
       // error already handled in state
@@ -921,7 +962,7 @@ export default function IntakePage() {
   };
 
   const handleTranscribeUpload = async (upload: UploadEntry) => {
-    if (!upload.fileId) return;
+    if (!upload.storagePath && !upload.fileId) return;
     setTranscribeError(null);
     updateUpload(upload.id, {
       status: "processing",
@@ -929,11 +970,20 @@ export default function IntakePage() {
       error: undefined,
     });
     try {
-      const res = await fetch("/api/transcribe-local", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileId: upload.fileId }),
-      });
+      const res = upload.storagePath
+        ? await fetch("/api/transcribe-storage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              bucket: upload.storageBucket ?? "candidate-documents",
+              path: upload.storagePath,
+            }),
+          })
+        : await fetch("/api/transcribe-local", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileId: upload.fileId }),
+          });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data?.error ?? "Transcription failed");
