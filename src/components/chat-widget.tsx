@@ -479,7 +479,7 @@ function AvatarThumb({
       <div
         className={`${classes} shrink-0 rounded-full border border-white/80 bg-slate-200 bg-cover bg-center shadow-sm`}
         style={{ backgroundImage: `url("${avatarUrl}")` }}
-        aria-label={resolveDisplayName(member)}
+        aria-label={resolveDisplayName(member ?? { name: null, email: null })}
       />
     );
   }

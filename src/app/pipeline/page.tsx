@@ -1307,7 +1307,7 @@ export default function PipelinePage() {
     ) => {
       const shouldSync = (key: keyof Candidate) =>
         !changedKeys || changedKeys.has(key);
-      const promises: Promise<unknown>[] = [];
+      const promises: PromiseLike<unknown>[] = [];
       const candidateId = candidate.id;
 
       if (shouldSync("tasks")) {
@@ -2697,12 +2697,6 @@ export default function PipelinePage() {
     setCandidates((prev) =>
       prev.filter((candidate) => candidate.pipeline_id !== activePipeline.id)
     );
-    setNotes((prev) =>
-      prev.filter((note) => !removeIds.has(note.candidate_id))
-    );
-    setActivity((prev) =>
-      prev.filter((event) => !removeIds.has(event.candidate_id))
-    );
     setPipelines((prev) =>
       prev.filter((pipeline) => pipeline.id !== activePipeline.id)
     );
@@ -2719,32 +2713,28 @@ export default function PipelinePage() {
     const name = typeof window !== "undefined" ? window.prompt("Stage name") : "";
     const trimmed = name?.trim();
     if (!trimmed) return;
-    let createdStage: Stage | null = null;
+    const existing = new Set(activePipeline.stages.map((stage) => stage.id));
+    const id = buildUniqueId(trimmed, existing);
+    const nextStage: Stage = {
+      id,
+      name: trimmed.toUpperCase(),
+      order: activePipeline.stages.length,
+    };
     setPipelines((prev) =>
       prev.map((pipeline) => {
         if (pipeline.id !== activePipeline.id) return pipeline;
-        const existing = new Set(pipeline.stages.map((stage) => stage.id));
-        const id = buildUniqueId(trimmed, existing);
-        const nextStage: Stage = {
-          id,
-          name: trimmed.toUpperCase(),
-          order: pipeline.stages.length,
-        };
-        createdStage = nextStage;
         return {
           ...pipeline,
           stages: [...pipeline.stages, nextStage],
         };
       })
     );
-    if (createdStage) {
-      await supabase.from("pipeline_stages").insert({
-        pipeline_id: activePipeline.id,
-        id: createdStage.id,
-        name: createdStage.name,
-        order: createdStage.order,
-      });
-    }
+    await supabase.from("pipeline_stages").insert({
+      pipeline_id: activePipeline.id,
+      id: nextStage.id,
+      name: nextStage.name,
+      order: nextStage.order,
+    });
   };
 
   if (!hydrated) {
