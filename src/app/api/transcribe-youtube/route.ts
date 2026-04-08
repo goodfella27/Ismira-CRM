@@ -82,7 +82,8 @@ export async function POST(request: Request) {
         { status: 413 }
       );
     }
-    const pythonPath = path.join(process.cwd(), ".venv", "bin", "python");
+    const pythonPath =
+      (process.env.TRANSCRIBE_PYTHON_PATH ?? "").trim() || "python3";
     const scriptPath = path.join(process.cwd(), "scripts", "transcribe_local.py");
 
     await fs.mkdir(cacheRoot, { recursive: true });

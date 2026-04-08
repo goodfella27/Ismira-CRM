@@ -25,8 +25,10 @@ const stripWarnings = (text: string) =>
     .trim();
 
 function getPythonPath() {
-  const venvPython = path.join(process.cwd(), ".venv", "bin", "python");
-  return venvPython;
+  const envPython = (process.env.TRANSCRIBE_PYTHON_PATH ?? "").trim();
+  if (envPython) return envPython;
+  // Prefer a system python. Vercel/most Node hosts won't have a project venv.
+  return "python3";
 }
 
 function getScriptPath() {

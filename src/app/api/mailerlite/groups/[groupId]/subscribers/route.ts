@@ -3,15 +3,16 @@ import { mailerliteFetch } from "@/lib/mailerlite";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
+    const { groupId } = await params;
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get("limit") ?? "25";
     const cursor = searchParams.get("cursor");
 
     const url = new URL(
-      `https://connect.mailerlite.com/api/groups/${params.groupId}/subscribers`
+      `https://connect.mailerlite.com/api/groups/${groupId}/subscribers`
     );
     url.searchParams.set("limit", limit);
     if (cursor) url.searchParams.set("cursor", cursor);

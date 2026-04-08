@@ -3,11 +3,12 @@ import { mailerliteFetch } from "@/lib/mailerlite";
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { subscriberId: string } }
+  { params }: { params: Promise<{ subscriberId: string }> }
 ) {
   try {
+    const { subscriberId } = await params;
     const res = await mailerliteFetch(
-      `https://connect.mailerlite.com/api/subscribers/${params.subscriberId}`,
+      `https://connect.mailerlite.com/api/subscribers/${subscriberId}`,
       { method: "DELETE" }
     );
 
