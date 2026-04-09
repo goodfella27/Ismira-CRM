@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { AppSidebar, MobileTopNav } from "@/components/app-sidebar";
 import { ChatWidget } from "@/components/chat-widget";
 import { TaskNotificationBell } from "@/components/task-notification-bell";
+import { BrandingTitleSync } from "@/components/branding-title-sync";
 
 const AUTH_ROUTES = ["/login", "/register", "/auth", "/form", "/cv"];
 
@@ -16,11 +17,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   if (isAuthRoute) {
-    return <main className="min-h-screen bg-transparent">{children}</main>;
+    return (
+      <main className="min-h-screen bg-transparent">
+        <BrandingTitleSync fallbackTitle="LinAs CRM" />
+        {children}
+      </main>
+    );
   }
 
   return (
     <div className="flex min-h-screen w-full bg-slate-950">
+      <BrandingTitleSync fallbackTitle="LinAs CRM" />
       <AppSidebar />
       <div className="flex min-h-screen min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
         <div className="relative flex min-h-full w-full flex-col overflow-hidden rounded-3xl bg-white shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)] ring-1 ring-slate-200/70">

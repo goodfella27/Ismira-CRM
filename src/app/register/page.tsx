@@ -26,12 +26,16 @@ export default function RegisterPage() {
     setMessage(null);
 
     const origin = window.location.origin;
+    const nextPath = "/login?confirmed=1";
+    const emailRedirectTo = `${origin}/auth/callback?next=${encodeURIComponent(
+      nextPath
+    )}`;
     const fullName = `${firstName} ${lastName}`.trim();
     const { data, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${origin}/auth/callback?next=/pipeline`,
+        emailRedirectTo,
         data: {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
@@ -52,7 +56,7 @@ export default function RegisterPage() {
       return;
     }
 
-    setMessage("Check your inbox to confirm your email before signing in.");
+    setMessage("Check your inbox to confirm your email. Then you can log in.");
   };
 
   return (

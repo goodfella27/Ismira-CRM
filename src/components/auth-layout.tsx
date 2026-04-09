@@ -7,7 +7,10 @@ import profileOne from "@/images/profile/profile_one.jpg";
 import profileTwo from "@/images/profile/profile_two.jpg";
 import profileThree from "@/images/profile/profile_three.jpg";
 import { useEffect, useState } from "react";
-import { getCompanyBranding } from "@/lib/company-branding-client";
+import {
+  getCompanyBranding,
+  invalidateCompanyBrandingCache,
+} from "@/lib/company-branding-client";
 
 export function AuthLayout({
   title,
@@ -34,6 +37,7 @@ export function AuthLayout({
       }
     };
     const onBrandingUpdated = () => {
+      invalidateCompanyBrandingCache();
       run();
     };
     run();
