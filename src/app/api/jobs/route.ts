@@ -40,6 +40,7 @@ type BreezyPosition = {
   state?: string;
   friendly_id?: string;
   org_type?: string;
+  department?: unknown;
 };
 
 function asString(value: unknown) {
@@ -402,6 +403,7 @@ export async function GET(request: Request) {
         friendly_id: asString(pos.friendly_id).trim() || undefined,
         org_type: normalizeOrgType(pos.org_type) || undefined,
         company: inferCompanyFromPositionName(pos.name ?? "") || undefined,
+        department: asString(pos.department).trim() || undefined,
       }))
       .filter((pos) => pos.id)
       .filter((pos) => (pos.state ? pos.state === "published" : true));

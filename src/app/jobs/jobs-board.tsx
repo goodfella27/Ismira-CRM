@@ -26,7 +26,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 
-import { LogoStackSlider } from "@/components/logo-stack-slider";
+import { LogoStackSlider, type LogoStackItem } from "@/components/logo-stack-slider";
 import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
 import { pickPositionDescription } from "@/lib/breezy-position-description";
 import jobBanner from "@/images/job_abnner.png";
@@ -221,7 +221,7 @@ function sanitizeHtml(input: string) {
   }
 }
 
-function buildDescriptionPreview(details: unknown, maxChars = 220) {
+function buildDescriptionPreview(details: Record<string, unknown> | null | undefined, maxChars = 220) {
   const raw = pickPositionDescription(details);
   if (!raw.trim()) return "";
 
@@ -967,6 +967,7 @@ export default function JobsBoard() {
   const [searchCaretAtEnd, setSearchCaretAtEnd] = useState(true);
   const searchRootRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const suppressNextSuggestOpenRef = useRef(false);
 
   const deferredFilter = useDeferredValue(filter);
 
@@ -1468,36 +1469,39 @@ export default function JobsBoard() {
     if (cached) setHeroLogos(cached);
   }, [readHeroLogosCache]);
 
-	  useEffect(() => {
-	    let ignore = false;
-	    const load = async () => {
-	      try {
-        const res = await fetch("/api/jobs/hero-logos", { cache: "no-store" });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) return;
-        const list = Array.isArray(data?.logos) ? data.logos : [];
-        const parsed = list
-          .map((item) => ({
-            id: typeof item?.id === "string" ? item.id : "",
-            label: typeof item?.label === "string" ? item.label : "",
-            logoUrl: typeof item?.logoUrl === "string" ? item.logoUrl : "",
-          }))
-          .filter((item) => item.id && item.logoUrl);
-        if (!ignore) {
-          setHeroLogos(parsed);
-          if (parsed.length > 0) writeHeroLogosCache(parsed);
-        }
-      } catch {
-        // ignore
+		  useEffect(() => {
+		    let ignore = false;
+		    const load = async () => {
+		      try {
+	        const res = await fetch("/api/jobs/hero-logos", { cache: "no-store" });
+	        const data = await res.json().catch(() => null);
+	        if (!res.ok) return;
+	        const list: unknown[] = Array.isArray(data?.logos) ? (data.logos as unknown[]) : [];
+	        const parsed = list
+	          .map((item) => {
+	            const row = isRecord(item) ? item : {};
+	            return {
+	              id: typeof row.id === "string" ? row.id : "",
+	              label: typeof row.label === "string" ? row.label : "",
+	              logoUrl: typeof row.logoUrl === "string" ? row.logoUrl : "",
+	            };
+	          })
+	          .filter((item) => item.id && item.logoUrl);
+	        if (!ignore) {
+	          setHeroLogos(parsed);
+	          if (parsed.length > 0) writeHeroLogosCache(parsed);
+	        }
+	      } catch {
+	        // ignore
       }
     };
     void load();
 	    return () => {
 	      ignore = true;
 	    };
-	  }, [writeHeroLogosCache]);
+		  }, [writeHeroLogosCache]);
 
-  const heroSliderItems = useMemo(() => {
+  const heroSliderItems = useMemo<LogoStackItem[] | null>(() => {
     if (heroLogos.length === 0) return null;
     return heroLogos.map((logo, index) => ({
       id: logo.id,
@@ -1515,7 +1519,9 @@ export default function JobsBoard() {
     let cancelled = false;
     setHeroAssetsReady(false);
 
-    const sources = heroSliderItems.map((item) => item.src).filter(Boolean);
+    const sources = heroSliderItems
+      .map((item) => item.src)
+      .filter((src): src is string => typeof src === "string" && src.length > 0);
     if (sources.length === 0) return;
 
     const preload = (src: string) =>
@@ -1834,10 +1840,10 @@ export default function JobsBoard() {
         });
       });
 
-      const titleSeen = new Set<string>();
-      for (const job of [...searchSuggestionPool].sort((a, b) => b.__updatedAtMs - a.__updatedAtMs)) {
-        const title = asString(job.name).trim();
-        if (!title) continue;
+	      const titleSeen = new Set<string>();
+	      for (const job of [...searchSuggestionPool].sort((a, b) => b.__updatedAtMs - a.__updatedAtMs)) {
+	        const title = asString(job.name).trim();
+	        if (!title) continue;
         const key = title.toLowerCase();
         if (titleSeen.has(key)) continue;
         titleSeen.add(key);
@@ -1850,17 +1856,20 @@ export default function JobsBoard() {
               Title
             </span>
           ),
-          onSelect: () => {
-            setFilter(title);
-            setSearchSuggestOpen(false);
-            setSearchActiveIndex(-1);
-            setVisibleCount(JOBS_PAGE_SIZE);
-            setTimeout(() => searchInputRef.current?.focus(), 0);
-          },
-        });
-        if (titleSeen.size >= 5) break;
-      }
-    } else {
+	          onSelect: () => {
+	            setFilter(title);
+	            setSearchSuggestOpen(false);
+	            setSearchActiveIndex(-1);
+	            setVisibleCount(JOBS_PAGE_SIZE);
+	            requestAnimationFrame(() => {
+	              suppressNextSuggestOpenRef.current = true;
+	              searchInputRef.current?.focus();
+	            });
+	          },
+	        });
+	        if (titleSeen.size >= 5) break;
+	      }
+	    } else {
       const titleSeen = new Set<string>();
       for (const job of [...searchSuggestionPool].sort((a, b) => b.__updatedAtMs - a.__updatedAtMs)) {
         const title = asString(job.name).trim();
@@ -2026,6 +2035,7 @@ export default function JobsBoard() {
       requestAnimationFrame(() => {
         const input = searchInputRef.current;
         if (!input) return;
+        suppressNextSuggestOpenRef.current = true;
         input.focus();
         try {
           input.setSelectionRange(nextValue.length, nextValue.length);
@@ -2295,15 +2305,20 @@ export default function JobsBoard() {
                   className="relative h-10 w-full border-none bg-transparent text-sm leading-10 text-slate-800 outline-none placeholder:text-slate-400"
                   placeholder="Jobs title or keywords"
                   value={filter}
-                  onFocus={() => {
-                    setSearchSuggestOpen(true);
-                    requestAnimationFrame(() => syncSearchCaret());
-                  }}
-                  onChange={(event) => {
-                    setFilter(event.target.value);
-                    setSearchSuggestOpen(true);
-                    requestAnimationFrame(() => syncSearchCaret());
-                  }}
+	                  onFocus={() => {
+	                    if (suppressNextSuggestOpenRef.current) {
+	                      suppressNextSuggestOpenRef.current = false;
+	                      requestAnimationFrame(() => syncSearchCaret());
+	                      return;
+	                    }
+	                    setSearchSuggestOpen(true);
+	                    requestAnimationFrame(() => syncSearchCaret());
+	                  }}
+	                  onChange={(event) => {
+	                    setFilter(event.target.value);
+	                    setSearchSuggestOpen(true);
+	                    requestAnimationFrame(() => syncSearchCaret());
+	                  }}
                   onSelect={() => requestAnimationFrame(() => syncSearchCaret())}
                   onMouseDown={(event) => {
                     if (!inlineAutocomplete) return;
@@ -2323,7 +2338,7 @@ export default function JobsBoard() {
                   }}
                   onClick={() => requestAnimationFrame(() => syncSearchCaret())}
                   onKeyUp={() => requestAnimationFrame(() => syncSearchCaret())}
-                  onKeyDown={(event) => {
+	                  onKeyDown={(event) => {
                     if ((event.key === "Tab" || event.key === "ArrowRight") && inlineAutocomplete) {
                       event.preventDefault();
                       acceptInlineAutocomplete(inlineAutocomplete.full);
@@ -2356,13 +2371,13 @@ export default function JobsBoard() {
                       });
                       return;
                     }
-                    if (event.key === "Enter" && searchActiveIndex >= 0) {
-                      event.preventDefault();
-                      const item = searchSuggestions[searchActiveIndex];
-                      if (item) item.onSelect();
-                    }
-                  }}
-                />
+	                    if (event.key === "Enter" && searchActiveIndex >= 0) {
+	                      event.preventDefault();
+	                      const item = searchSuggestions[searchActiveIndex];
+	                      if (item) item.onSelect();
+	                    }
+	                  }}
+	                />
               </div>
               <button
                 type="submit"
@@ -2375,33 +2390,43 @@ export default function JobsBoard() {
             {searchSuggestOpen && searchSuggestions.length > 0 ? (
               <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
                 <div className="hide-scrollbar max-h-72 overflow-auto p-1">
-                  {searchSuggestions.map((item, idx) => {
-                    const active = idx === searchActiveIndex;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className={[
-                          "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm",
-                          active
-                            ? "bg-emerald-50 text-emerald-950"
-                            : "text-slate-700 hover:bg-slate-50",
-                        ].join(" ")}
-                        onMouseEnter={() => setSearchActiveIndex(idx)}
-                        onClick={() => item.onSelect()}
-                      >
-                        <span className="flex min-w-0 items-center gap-2">
-                          {item.prefix ? <span className="flex-none">{item.prefix}</span> : null}
-                          <span className="min-w-0 truncate">{item.label}</span>
-                        </span>
-                        {item.suffix ? (
-                          <span className="flex-none text-xs font-semibold text-slate-500">
-                            {item.suffix}
-                          </span>
-                        ) : null}
-                      </button>
-                    );
-                  })}
+	                  {searchSuggestions.map((item, idx) => {
+	                    const active = idx === searchActiveIndex;
+	                    return (
+	                      <button
+	                        key={item.id}
+	                        type="button"
+	                        className={[
+	                          "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm",
+	                          active
+	                            ? "bg-emerald-50 text-emerald-950"
+	                            : "text-slate-700 hover:bg-slate-50",
+	                        ].join(" ")}
+	                        onMouseEnter={() => setSearchActiveIndex(idx)}
+	                        onMouseDown={(event) => {
+	                          // Keep focus in the input (prevents immediate re-open on focus).
+	                          event.preventDefault();
+	                          suppressNextSuggestOpenRef.current = true;
+	                          item.onSelect();
+	                        }}
+	                        onClick={() => {
+	                          // Keyboard activation fallback.
+	                          suppressNextSuggestOpenRef.current = true;
+	                          item.onSelect();
+	                        }}
+	                      >
+	                        <span className="flex min-w-0 items-center gap-2">
+	                          {item.prefix ? <span className="flex-none">{item.prefix}</span> : null}
+	                          <span className="min-w-0 truncate">{item.label}</span>
+	                        </span>
+	                        {item.suffix ? (
+	                          <span className="flex-none text-xs font-semibold text-slate-500">
+	                            {item.suffix}
+	                          </span>
+	                        ) : null}
+	                      </button>
+	                    );
+	                  })}
                 </div>
               </div>
             ) : null}

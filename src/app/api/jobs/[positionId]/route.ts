@@ -521,17 +521,17 @@ export async function GET(
       }
     }
 
-    let enriched = body;
-    try {
-      if (isRecord(body)) {
-        const admin = createSupabaseAdminClient();
-        const primaryCompanyId = await getPrimaryCompanyId(admin);
-        try {
-          const record = body as Record<string, unknown>;
-          const now = new Date().toISOString();
-          await admin.from("breezy_positions").upsert(
-            [
-              {
+	    let enriched = body;
+	    try {
+	      if (isRecord(body)) {
+	        const admin = createSupabaseAdminClient();
+	        const primaryCompanyId = await getPrimaryCompanyId(admin);
+	        const record = body as Record<string, unknown>;
+	        try {
+	          const now = new Date().toISOString();
+	          await admin.from("breezy_positions").upsert(
+	            [
+	              {
                 company_id: primaryCompanyId,
                 breezy_company_id: companyId,
                 breezy_position_id: positionId,
@@ -576,12 +576,12 @@ export async function GET(
 	        }
 	
 		        const countries =
-		          (await fetchNationalityCountries({
-	            admin,
-	            primaryCompanyId,
-	            breezyCompanyId: companyId,
-	            positionId,
-	          })) ?? computeNationalityCountries(record);
+			          (await fetchNationalityCountries({
+		            admin,
+		            primaryCompanyId,
+		            breezyCompanyId: companyId,
+		            positionId,
+		          })) ?? computeNationalityCountries(record);
 
 	        if (countries && isRecord(enriched)) {
 	          enriched = {
@@ -590,9 +590,9 @@ export async function GET(
 	          };
 	        }
 	      }
-	    } catch {
-	      enriched = body;
-	    }
+		  } catch {
+		    enriched = body;
+		  }
 
     responseCache.set(cacheKey, {
       expiresAt: Date.now() + 5 * 60_000,

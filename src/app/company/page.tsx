@@ -66,6 +66,10 @@ type JobsHeroLogoAdminItem = {
   sortOrder: number;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 type PipelineRow = {
   id: string;
   name: string;
@@ -545,19 +549,23 @@ export default function CompanyPage() {
       if (!res.ok) {
         throw new Error(data?.error ?? "Failed to load job companies.");
       }
-      const list = Array.isArray(data?.companies) ? data.companies : [];
+      const list: unknown[] = Array.isArray(data?.companies) ? (data.companies as unknown[]) : [];
       setJobCompanies(
-        list.map((item) => ({
-          id: typeof item?.id === "string" ? item.id : "",
-          name: typeof item?.name === "string" ? item.name : "Company",
-          slug: typeof item?.slug === "string" ? item.slug : "",
-          website: typeof item?.website === "string" ? item.website : null,
-          logoUrl: typeof item?.logoUrl === "string" ? item.logoUrl : null,
-          positionsCount:
-            typeof item?.positionsCount === "number" && Number.isFinite(item.positionsCount)
-              ? item.positionsCount
-              : 0,
-        }))
+        list.map((item) => {
+          const row = isRecord(item) ? item : {};
+          const positionsCount = row.positionsCount;
+          return {
+            id: typeof row.id === "string" ? row.id : "",
+            name: typeof row.name === "string" ? row.name : "Company",
+            slug: typeof row.slug === "string" ? row.slug : "",
+            website: typeof row.website === "string" ? row.website : null,
+            logoUrl: typeof row.logoUrl === "string" ? row.logoUrl : null,
+            positionsCount:
+              typeof positionsCount === "number" && Number.isFinite(positionsCount)
+                ? positionsCount
+                : 0,
+          } satisfies JobCompanyAdminItem;
+        })
       );
     } catch (err) {
       setJobCompaniesError(
@@ -577,17 +585,19 @@ export default function CompanyPage() {
       if (!res.ok) {
         throw new Error(getApiErrorMessage(data, "Failed to load jobs hero logos."));
       }
-      const list = Array.isArray(data?.logos) ? data.logos : [];
+      const list: unknown[] = Array.isArray(data?.logos) ? (data.logos as unknown[]) : [];
       setJobsHeroLogos(
-        list.map((item) => ({
-          id: typeof item?.id === "string" ? item.id : "",
-          label: typeof item?.label === "string" ? item.label : "",
-          logoUrl: typeof item?.logoUrl === "string" ? item.logoUrl : null,
-          sortOrder:
-            typeof item?.sortOrder === "number" && Number.isFinite(item.sortOrder)
-              ? item.sortOrder
-              : 0,
-        }))
+        list.map((item) => {
+          const row = isRecord(item) ? item : {};
+          const sortOrder = row.sortOrder;
+          return {
+            id: typeof row.id === "string" ? row.id : "",
+            label: typeof row.label === "string" ? row.label : "",
+            logoUrl: typeof row.logoUrl === "string" ? row.logoUrl : null,
+            sortOrder:
+              typeof sortOrder === "number" && Number.isFinite(sortOrder) ? sortOrder : 0,
+          } satisfies JobsHeroLogoAdminItem;
+        })
       );
     } catch (err) {
       setJobsHeroLogosError(

@@ -500,7 +500,7 @@ export default function BreezyCandidatesPage() {
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? "Search failed.");
 
-      const list = Array.isArray(data?.candidates) ? data.candidates : [];
+      const list: unknown[] = Array.isArray(data?.candidates) ? (data.candidates as unknown[]) : [];
       setSearchResults(
         list
           .map((row) => {

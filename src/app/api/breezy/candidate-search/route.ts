@@ -222,9 +222,13 @@ export async function GET(request: Request) {
       const positions = await loadPositions();
       const toScan = positions.slice(0, Math.min(positions.length, locateMaxPositions));
 
-      let best: LocatedCandidatePosition | null = null;
-
-      await mapWithConcurrency(toScan, locateConcurrency, async (pos) => {
+      type ScanResult = LocatedCandidatePosition & { ok: boolean; docsCount: number };
+      const scanned = await mapWithConcurrency<{
+        id: string;
+        name: string;
+        state?: string;
+        org_type?: string;
+      }, ScanResult>(toScan, locateConcurrency, async (pos) => {
         const docsUrl = `https://api.breezy.hr/v3/company/${encodeURIComponent(
           companyId
         )}/position/${encodeURIComponent(pos.id)}/candidate/${encodeURIComponent(
@@ -232,38 +236,37 @@ export async function GET(request: Request) {
         )}/documents`;
         const res = await fetchJson(docsUrl);
         const docs = res.res.ok ? normalizeBreezyDocuments(res.body) : [];
-        const count = docs.length;
-        if (!best) {
-          best = {
-            positionId: pos.id,
-            positionName: pos.name,
-            docs,
-            status: res.res.status,
-          };
-          return;
-        }
-        if (res.res.ok && count > (best.docs?.length ?? 0)) {
-          best = {
-            positionId: pos.id,
-            positionName: pos.name,
-            docs,
-            status: res.res.status,
-          };
-        }
-        // If we found a position with enough docs, prefer it.
-        if (res.res.ok && count >= minDocs && (best.docs?.length ?? 0) < count) {
-          best = {
-            positionId: pos.id,
-            positionName: pos.name,
-            docs,
-            status: res.res.status,
-          };
-        }
+        return {
+          positionId: pos.id,
+          positionName: pos.name,
+          docs,
+          status: res.res.status,
+          ok: res.res.ok,
+          docsCount: docs.length,
+        };
       });
 
-      const snapshot = best;
-      if (!snapshot) return null;
-      return snapshot.status === 200 ? snapshot : null;
+      let best: ScanResult | null = null;
+      for (const result of scanned) {
+        if (!best) {
+          best = result;
+          continue;
+        }
+
+        if (result.ok && result.docsCount > best.docsCount) {
+          best = result;
+          continue;
+        }
+
+        if (result.ok && result.docsCount >= minDocs && best.docsCount < result.docsCount) {
+          best = result;
+        }
+      }
+
+      if (!best) return null;
+      return best.status === 200
+        ? { positionId: best.positionId, positionName: best.positionName, docs: best.docs, status: best.status }
+        : null;
     };
 
     const results: Array<{
