@@ -75,10 +75,53 @@ function normalizeFilterKey(value: unknown) {
 const COUNTRY_DISPLAY_NAMES =
   typeof Intl !== "undefined" ? new Intl.DisplayNames(["en"], { type: "region" }) : null;
 
+const HERO_LOGOS_CACHE_KEY = "jobs:hero_logos:v1";
+const HERO_LOGOS_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
+
 function countryLabelFromCode(code: string) {
   const upper = (code ?? "").trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(upper)) return upper || "—";
   return COUNTRY_DISPLAY_NAMES?.of(upper) ?? upper;
+}
+
+function HeroLogoStackSkeleton({ size = 124, className }: { size?: number; className?: string }) {
+  const stackOffsetPx = 14;
+  const wrapperHeight = size + stackOffsetPx * 2 + 8;
+  return (
+    <div
+      className={["relative isolate select-none", className ?? ""].join(" ")}
+      style={{ width: size, height: wrapperHeight }}
+      aria-label="Loading logos"
+    >
+      {[2, 1, 0].map((level) => {
+        const isActive = level === 0;
+        const opacity = isActive ? 1 : level === 1 ? 0.55 : 0.32;
+        const scale = isActive ? 1 : level === 1 ? 0.93 : 0.86;
+        const translateY = isActive ? 0 : level === 1 ? -stackOffsetPx : -stackOffsetPx * 2;
+        const zIndex = isActive ? 30 : level === 1 ? 20 : 10;
+        return (
+          <div
+            key={level}
+            className={[
+              "absolute left-0 bottom-0 overflow-hidden rounded-[28px] ring-1 ring-black/5",
+              "bg-white/40 shadow-[0_26px_60px_-30px_rgba(0,0,0,0.25)]",
+              "animate-pulse",
+            ].join(" ")}
+            style={{
+              width: size,
+              height: size,
+              zIndex,
+              opacity,
+              transform: `translate3d(0, ${translateY}px, 0) scale(${scale})`,
+            }}
+            aria-hidden="true"
+          >
+            <div className="h-full w-full bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.85),rgba(255,255,255,0.35),rgba(255,255,255,0.15))]" />
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -904,6 +947,7 @@ export default function JobsBoard() {
   const [heroLogos, setHeroLogos] = useState<Array<{ id: string; label: string; logoUrl: string }>>(
     []
   );
+  const [heroAssetsReady, setHeroAssetsReady] = useState(false);
   const [filter, setFilter] = useState("");
   const [companyFilters, setCompanyFilters] = useState<string[]>([]);
   const [departmentFilters, setDepartmentFilters] = useState<string[]>([]);
@@ -998,6 +1042,52 @@ export default function JobsBoard() {
   useEffect(() => {
     jobsRef.current = jobs;
   }, [jobs]);
+
+  const readHeroLogosCache = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = window.localStorage.getItem(HERO_LOGOS_CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as unknown;
+      if (!parsed || typeof parsed !== "object") return null;
+      const savedAt = Number((parsed as { savedAt?: unknown }).savedAt);
+      if (!Number.isFinite(savedAt)) return null;
+      if (Date.now() - savedAt > HERO_LOGOS_CACHE_TTL_MS) return null;
+      const list = (parsed as { logos?: unknown }).logos;
+      if (!Array.isArray(list)) return null;
+      const logos = list
+        .map((item) => ({
+          id: typeof (item as { id?: unknown })?.id === "string" ? (item as { id: string }).id : "",
+          label:
+            typeof (item as { label?: unknown })?.label === "string"
+              ? (item as { label: string }).label
+              : "",
+          logoUrl:
+            typeof (item as { logoUrl?: unknown })?.logoUrl === "string"
+              ? (item as { logoUrl: string }).logoUrl
+              : "",
+        }))
+        .filter((item) => item.id && item.logoUrl);
+      return logos.length > 0 ? logos : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const writeHeroLogosCache = useCallback(
+    (logos: Array<{ id: string; label: string; logoUrl: string }>) => {
+      if (typeof window === "undefined") return;
+      try {
+        window.localStorage.setItem(
+          HERO_LOGOS_CACHE_KEY,
+          JSON.stringify({ savedAt: Date.now(), logos })
+        );
+      } catch {
+        // ignore
+      }
+    },
+    []
+  );
 
   const applyCachedJobs = useCallback((cache: JobsBoardCache) => {
     if (Date.now() - cache.savedAt > JOBS_CACHE_MAX_AGE_MS) return;
@@ -1343,6 +1433,11 @@ export default function JobsBoard() {
   }, [applyCachedJobs, loadJobs]);
 
   useEffect(() => {
+    const cached = readHeroLogosCache();
+    if (cached) setHeroLogos(cached);
+  }, [readHeroLogosCache]);
+
+  useEffect(() => {
     let ignore = false;
     const load = async () => {
       try {
@@ -1357,7 +1452,10 @@ export default function JobsBoard() {
             logoUrl: typeof item?.logoUrl === "string" ? item.logoUrl : "",
           }))
           .filter((item) => item.id && item.logoUrl);
-        if (!ignore) setHeroLogos(parsed);
+        if (!ignore) {
+          setHeroLogos(parsed);
+          if (parsed.length > 0) writeHeroLogosCache(parsed);
+        }
       } catch {
         // ignore
       }
@@ -1376,6 +1474,41 @@ export default function JobsBoard() {
       src: logo.logoUrl,
     }));
   }, [heroLogos]);
+
+  useEffect(() => {
+    if (!heroSliderItems || heroSliderItems.length === 0) {
+      setHeroAssetsReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    setHeroAssetsReady(false);
+
+    const sources = heroSliderItems.map((item) => item.src).filter(Boolean);
+    if (sources.length === 0) return;
+
+    const preload = (src: string) =>
+      new Promise<void>((resolve) => {
+        const img = new window.Image();
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = src;
+      });
+
+    const timer = window.setTimeout(() => {
+      if (!cancelled) setHeroAssetsReady(true);
+    }, 3500);
+
+    void Promise.all(sources.map(preload)).then(() => {
+      window.clearTimeout(timer);
+      if (!cancelled) setHeroAssetsReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [heroSliderItems]);
 
   useEffect(() => {
     setVisibleCount(JOBS_PAGE_SIZE);
@@ -2093,13 +2226,13 @@ export default function JobsBoard() {
 	              Browse open positions and view full job details.
 	            </p>
 
-	            <LogoStackSlider
-                className="mx-auto mt-10"
-                size={124}
-                items={heroSliderItems ?? undefined}
-              />
-	          </div>
-	        </section>
+		            {heroAssetsReady && heroSliderItems && heroSliderItems.length > 0 ? (
+		              <LogoStackSlider className="mx-auto mt-10" size={124} items={heroSliderItems} />
+		            ) : (
+		              <HeroLogoStackSkeleton className="mx-auto mt-10" size={124} />
+		            )}
+		          </div>
+		        </section>
 
         <form
           className="relative z-10 mx-auto -mt-10 w-full max-w-[820px] rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)] sm:-mt-12 sm:p-5"

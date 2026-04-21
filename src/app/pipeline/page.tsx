@@ -34,7 +34,7 @@ import {
   Stage,
   TaskItem,
 } from "./types";
-import { FORM_FIELD_KEYS, FORM_FILE_FIELDS } from "@/lib/form-fields";
+import { FORM_FIELD_KEYS, FORM_FILE_FIELDS, type FormFieldKey } from "@/lib/form-fields";
 import {
   canonicalizeCountry,
   getCountryCode,
@@ -677,7 +677,7 @@ function applyFormSubmission(candidate: Candidate, form: IntakeFormSubmission) {
     }
   }
 
-  if (Object.keys(payload).some((key) => FORM_FILE_FIELDS.has(key as any))) {
+  if (Object.keys(payload).some((key) => FORM_FILE_FIELDS.has(key as FormFieldKey))) {
     const existingAttachments = candidate.attachments ?? [];
     const existingUrls = new Set(
       existingAttachments.map((attachment) => attachment.url).filter(Boolean)
@@ -688,7 +688,7 @@ function applyFormSubmission(candidate: Candidate, form: IntakeFormSubmission) {
     const nextAttachments = [...existingAttachments];
 
     Object.entries(payload).forEach(([key, value]) => {
-      if (!FORM_FILE_FIELDS.has(key as any)) return;
+      if (!FORM_FILE_FIELDS.has(key as FormFieldKey)) return;
       if (!isRecord(value)) return;
       const url = typeof value.url === "string" ? value.url : null;
       const path = typeof value.path === "string" ? value.path : null;
