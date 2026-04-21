@@ -8,15 +8,15 @@ import { ChatWidget } from "@/components/chat-widget";
 import { TaskNotificationBell } from "@/components/task-notification-bell";
 import { BrandingTitleSync } from "@/components/branding-title-sync";
 
-const AUTH_ROUTES = ["/login", "/register", "/auth", "/form", "/cv", "/jobs"];
+const PUBLIC_SHELL_ROUTES = ["/login", "/register", "/auth", "/form", "/cv", "/jobs", "/_not-found"];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isAuthRoute = AUTH_ROUTES.some(
+  const isPublicShellRoute = PUBLIC_SHELL_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
 
-  if (isAuthRoute) {
+  if (isPublicShellRoute) {
     return (
       <main className="min-h-screen bg-transparent">
         <BrandingTitleSync fallbackTitle="LinAs CRM" />
