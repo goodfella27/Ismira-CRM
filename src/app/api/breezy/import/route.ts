@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 import {
+  type BreezyCsvRow,
   mapBreezyRowToCandidate,
   mapBreezyRowToSupabase,
   parseBreezyCsv,
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     const now = new Date().toISOString();
     const seenEmails = new Set<string>();
-    const deduped = [];
+    const deduped: BreezyCsvRow[] = [];
     let skipped = 0;
 
     for (const row of rows) {

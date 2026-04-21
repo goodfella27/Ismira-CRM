@@ -897,9 +897,9 @@ export default function PipelinePage() {
         if (attachmentResult.error)
           throw new Error(attachmentResult.error.message);
 
-        noteCountMap = (noteResult.data ?? []).reduce<Record<string, number>>(
-          (acc, row) => {
-            const id = (row as { candidate_id?: string }).candidate_id;
+        noteCountMap = ((noteResult.data ?? []) as Array<{ candidate_id?: string }>).reduce(
+          (acc: Record<string, number>, row) => {
+            const id = row.candidate_id;
             if (!id) return acc;
             acc[id] = (acc[id] ?? 0) + 1;
             return acc;
@@ -907,10 +907,10 @@ export default function PipelinePage() {
           {}
         );
 
-        attachmentCountMap = (
-          attachmentResult.data ?? []
-        ).reduce<Record<string, number>>((acc, row) => {
-          const id = (row as { candidate_id?: string }).candidate_id;
+        attachmentCountMap = ((attachmentResult.data ?? []) as Array<{
+          candidate_id?: string;
+        }>).reduce((acc: Record<string, number>, row) => {
+          const id = row.candidate_id;
           if (!id) return acc;
           acc[id] = (acc[id] ?? 0) + 1;
           return acc;

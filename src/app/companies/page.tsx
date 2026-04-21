@@ -475,7 +475,7 @@ export default function CompaniesPage() {
           counts[id] = 0;
         });
 
-        (data ?? []).forEach((row) => {
+        (data ?? []).forEach((row: unknown) => {
           const payload =
             row && typeof row === "object" && "data" in row
               ? ((row as { data?: unknown }).data as unknown)

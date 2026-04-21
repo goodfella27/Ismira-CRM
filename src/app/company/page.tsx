@@ -989,13 +989,24 @@ export default function CompanyPage() {
             setQuestionnaires(DEFAULT_QUESTIONNAIRES);
           }
         } else if (!ignore) {
-          const normalized: Questionnaire[] = data.map((item) => {
+          const normalized: Questionnaire[] = data.map((item: unknown) => {
+            const record =
+              item && typeof item === "object" && !Array.isArray(item)
+                ? (item as {
+                    id?: unknown;
+                    name?: unknown;
+                    status?: unknown;
+                  })
+                : {};
             const status: QuestionnaireStatus =
-              item.status === "Active" ? "Active" : "Draft";
+              record.status === "Active" ? "Active" : "Draft";
             return {
-              id: typeof item.id === "string" ? item.id : String(item.id ?? ""),
+              id:
+                typeof record.id === "string" ? record.id : String(record.id ?? ""),
               name:
-                typeof item.name === "string" ? item.name : String(item.name ?? ""),
+                typeof record.name === "string"
+                  ? record.name
+                  : String(record.name ?? ""),
               status,
             };
           });
