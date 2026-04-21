@@ -209,16 +209,20 @@ export async function GET(request: Request) {
       return list;
     };
 
-    const locateCandidatePosition = async (candidateId: string) => {
+    type LocatedCandidatePosition = {
+      positionId: string;
+      positionName?: string;
+      docs: Record<string, unknown>[];
+      status: number;
+    };
+
+    const locateCandidatePosition = async (
+      candidateId: string
+    ): Promise<LocatedCandidatePosition | null> => {
       const positions = await loadPositions();
       const toScan = positions.slice(0, Math.min(positions.length, locateMaxPositions));
 
-      let best: {
-        positionId: string;
-        positionName?: string;
-        docs: Record<string, unknown>[];
-        status: number;
-      } | null = null;
+      let best: LocatedCandidatePosition | null = null;
 
       await mapWithConcurrency(toScan, locateConcurrency, async (pos) => {
         const docsUrl = `https://api.breezy.hr/v3/company/${encodeURIComponent(
@@ -257,7 +261,9 @@ export async function GET(request: Request) {
         }
       });
 
-      return best && best.status === 200 ? best : null;
+      const snapshot = best;
+      if (!snapshot) return null;
+      return snapshot.status === 200 ? snapshot : null;
     };
 
     const results: Array<{

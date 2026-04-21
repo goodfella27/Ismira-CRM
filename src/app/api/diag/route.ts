@@ -58,7 +58,7 @@ export async function GET() {
             .select("company_id,role", { count: "exact" })
             .eq("user_id", userId)
             .limit(50)
-        : Promise.resolve({ data: null, error: null }),
+        : Promise.resolve({ data: null, error: null, count: null }),
     ]);
 
     const [pipelines, stages, companies, members] = checks;
