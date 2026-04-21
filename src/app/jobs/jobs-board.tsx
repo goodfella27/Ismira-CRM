@@ -916,6 +916,7 @@ export default function JobsBoard() {
   const [departmentModalOpen, setDepartmentModalOpen] = useState(false);
   const [searchSuggestOpen, setSearchSuggestOpen] = useState(false);
   const [searchActiveIndex, setSearchActiveIndex] = useState<number>(-1);
+  const [searchCaretAtEnd, setSearchCaretAtEnd] = useState(true);
   const searchRootRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1832,23 +1833,72 @@ export default function JobsBoard() {
     setSearchActiveIndex(-1);
   }, [searchSuggestOpen, filter]);
 
+  const syncSearchCaret = useCallback(() => {
+    const el = searchInputRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    setSearchCaretAtEnd(start === end && end === el.value.length);
+  }, []);
+
   const inlineAutocomplete = useMemo(() => {
     if (!searchSuggestOpen) return null;
+    if (!searchCaretAtEnd) return null;
     const typed = filter;
-    const q = typed.trim();
-    if (q.length < 2) return null;
-    const lower = q.toLowerCase();
-    const candidate = searchSuggestions.find(
-      (item) =>
-        item.kind === "title" &&
-        item.label.toLowerCase().startsWith(lower) &&
-        item.label.length > q.length
+    if (!typed.trim()) return null;
+    if (/\s$/.test(typed)) return null;
+
+    const tokenMatch = typed.match(/(\S+)$/);
+    if (!tokenMatch) return null;
+    const token = tokenMatch[1] ?? "";
+    if (token.length < 2) return null;
+    const tokenLower = token.toLowerCase();
+    const prefix = typed.slice(0, typed.length - token.length);
+
+    const pickBest = (labels: string[]) => {
+      const matches = labels
+        .map((label) => label.trim())
+        .filter(Boolean)
+        .filter((label) => label.toLowerCase().startsWith(tokenLower))
+        .filter((label) => label.length > token.length);
+      if (matches.length === 0) return "";
+      return matches.sort((a, b) => a.length - b.length || a.localeCompare(b))[0] ?? "";
+    };
+
+    const departmentLabel = pickBest(departmentOptions.map((opt) => opt.label));
+    const countryLabel = pickBest(countryOptions.map((opt) => opt.label));
+    const companyLabel = pickBest(companyOptions.map((opt) => opt.label));
+    const priorityLabel = pickBest(
+      ["Hot", "Urgent"].filter((label) => {
+        if (label === "Hot") return priorityCounts.hot > 0;
+        if (label === "Urgent") return priorityCounts.urgent > 0;
+        return true;
+      })
     );
+    const titleLabel = pickBest(
+      [...searchSuggestionPool]
+        .sort((a, b) => b.__updatedAtMs - a.__updatedAtMs)
+        .map((job) => asString(job.name))
+    );
+
+    const candidate =
+      departmentLabel || countryLabel || companyLabel || priorityLabel || titleLabel;
     if (!candidate) return null;
-    const tail = candidate.label.slice(q.length);
+
+    const tail = candidate.slice(token.length);
     if (!tail) return null;
-    return { full: candidate.label, tail };
-  }, [filter, searchSuggestOpen, searchSuggestions]);
+    return { full: `${prefix}${candidate}`, tail };
+  }, [
+    companyOptions,
+    countryOptions,
+    departmentOptions,
+    filter,
+    priorityCounts.hot,
+    priorityCounts.urgent,
+    searchSuggestionPool,
+    searchCaretAtEnd,
+    searchSuggestOpen,
+  ]);
 
   const hasAnyFilter =
     filter.trim().length > 0 ||
@@ -2036,32 +2086,38 @@ export default function JobsBoard() {
                 {inlineAutocomplete ? (
                   <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 flex items-center text-sm"
+                    className="pointer-events-none absolute inset-0 h-10 w-full overflow-hidden whitespace-nowrap text-sm leading-10 text-slate-800"
                   >
-                    <div className="h-10 w-full whitespace-nowrap text-slate-800">
-                      <span className="text-transparent">{filter}</span>
-                      <span className="text-slate-300">{inlineAutocomplete.tail}</span>
-                    </div>
+                    <span className="text-transparent">{filter}</span>
+                    <span className="text-slate-300">{inlineAutocomplete.tail}</span>
                   </div>
                 ) : null}
                 <input
                   ref={searchInputRef}
                   autoComplete="off"
-                  className="relative h-10 w-full border-none bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+                  className="relative h-10 w-full border-none bg-transparent text-sm leading-10 text-slate-800 outline-none placeholder:text-slate-400"
                   placeholder="Jobs title or keywords"
                   value={filter}
-                  onFocus={() => setSearchSuggestOpen(true)}
+                  onFocus={() => {
+                    setSearchSuggestOpen(true);
+                    requestAnimationFrame(() => syncSearchCaret());
+                  }}
                   onChange={(event) => {
                     setFilter(event.target.value);
                     setSearchSuggestOpen(true);
+                    requestAnimationFrame(() => syncSearchCaret());
                   }}
+                  onSelect={() => requestAnimationFrame(() => syncSearchCaret())}
+                  onClick={() => requestAnimationFrame(() => syncSearchCaret())}
+                  onKeyUp={() => requestAnimationFrame(() => syncSearchCaret())}
                   onKeyDown={(event) => {
-                    if (event.key === "Tab" && inlineAutocomplete) {
+                    if ((event.key === "Tab" || event.key === "ArrowRight") && inlineAutocomplete) {
                       event.preventDefault();
                       setFilter(inlineAutocomplete.full);
                       setSearchSuggestOpen(false);
                       setSearchActiveIndex(-1);
                       setVisibleCount(JOBS_PAGE_SIZE);
+                      requestAnimationFrame(() => syncSearchCaret());
                       return;
                     }
 
