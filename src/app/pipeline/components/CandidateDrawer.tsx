@@ -285,6 +285,35 @@ const formatTimestamp = (value?: string | null) => {
   });
 };
 
+const looksLikeBreezyEventToken = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (trimmed.length > 80) return false;
+  if (trimmed.includes(" ")) return false;
+  if (!/^[A-Za-z0-9_-]+$/.test(trimmed)) return false;
+  return /[a-z0-9][A-Z]/.test(trimmed) || /[_-]/.test(trimmed);
+};
+
+const humanizeBreezyEventToken = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const normalized = trimmed.replace(/[_-]+/g, " ");
+  const spaced = normalized
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .trim();
+  if (!spaced) return trimmed;
+  const words = spaced.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return trimmed;
+  return words
+    .map((word, idx) => {
+      const lower = word.toLowerCase();
+      if (idx === 0) return lower.charAt(0).toUpperCase() + lower.slice(1);
+      return lower;
+    })
+    .join(" ");
+};
+
 type DaySeparatedTimelineRow =
   | { kind: "divider"; key: string; label: string }
   | { kind: "item"; key: string; item: ActivityEvent | Note };
@@ -974,6 +1003,8 @@ export default function CandidateDrawer({
   const [activeDocumentMime, setActiveDocumentMime] = useState<string | null>(null);
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
   const [documentUploading, setDocumentUploading] = useState(false);
+  const [renamingDocumentId, setRenamingDocumentId] = useState<string | null>(null);
+  const [renameDocumentDraft, setRenameDocumentDraft] = useState("");
   const [documentUploadError, setDocumentUploadError] = useState<string | null>(
     null
   );
@@ -1005,6 +1036,18 @@ export default function CandidateDrawer({
     {}
   );
   const [signingDocId, setSigningDocId] = useState<string | null>(null);
+  const [breezyDocsSyncing, setBreezyDocsSyncing] = useState(false);
+  const [breezyDocsSyncError, setBreezyDocsSyncError] = useState<string | null>(
+    null
+  );
+  const breezyDocsSyncedCandidateRef = useRef<string | null>(null);
+  const [breezyProfileSyncing, setBreezyProfileSyncing] = useState(false);
+  const [breezyProfileSyncError, setBreezyProfileSyncError] = useState<string | null>(
+    null
+  );
+  const breezyProfileSyncedCandidateRef = useRef<string | null>(null);
+  const [breezyAutoRepairNeeded, setBreezyAutoRepairNeeded] = useState(false);
+  const breezyAutoRepairAttemptedRef = useRef<string | null>(null);
   const [leftTab, setLeftTab] = useState<
     "overview" | "experience" | "resume" | "documents" | "questionnaires" | "more"
   >(
@@ -1017,6 +1060,26 @@ export default function CandidateDrawer({
   const [workStart, setWorkStart] = useState("");
   const [workEnd, setWorkEnd] = useState("");
   const [workDetails, setWorkDetails] = useState("");
+
+  useEffect(() => {
+    setRenamingDocumentId(null);
+    setRenameDocumentDraft("");
+    setBreezyAutoRepairNeeded(false);
+    breezyAutoRepairAttemptedRef.current = null;
+  }, [candidate?.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!renamingDocumentId) return;
+    const id = window.setTimeout(() => {
+      const input = document.getElementById(
+        `candidate-document-rename-input-${renamingDocumentId}`
+      ) as HTMLInputElement | null;
+      input?.focus();
+      input?.select();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [renamingDocumentId]);
   const [showWorkForm, setShowWorkForm] = useState(false);
   const [editingWorkId, setEditingWorkId] = useState<string | null>(null);
   const [eduProgram, setEduProgram] = useState("");
@@ -1094,10 +1157,16 @@ export default function CandidateDrawer({
 
   useEffect(() => {
     if (!refreshing) return;
-    if (!timelineLoading && !formLoading && !cvLoading && !snapshotLoading) {
+    if (
+      !timelineLoading &&
+      !formLoading &&
+      !cvLoading &&
+      !snapshotLoading &&
+      !breezyProfileSyncing
+    ) {
       setRefreshing(false);
     }
-  }, [refreshing, timelineLoading, formLoading, cvLoading, snapshotLoading]);
+  }, [refreshing, timelineLoading, formLoading, cvLoading, snapshotLoading, breezyProfileSyncing]);
 
   useEffect(() => {
     if (open) return;
@@ -1170,11 +1239,143 @@ export default function CandidateDrawer({
     candidate?.meeting_rsvp_updated_at,
   ]);
 
+  const isBreezyCandidate = useMemo(() => {
+    const id = candidate?.id ?? "";
+    if (id.startsWith("breezy_")) return true;
+    const source = (candidate?.source ?? "").toLowerCase();
+    if (source.includes("breezy")) return true;
+    const breezyValue = (candidate as unknown as { breezy?: unknown })?.breezy;
+    return (
+      typeof breezyValue === "object" &&
+      breezyValue !== null &&
+      ("company_id" in (breezyValue as Record<string, unknown>) ||
+        "candidate_id" in (breezyValue as Record<string, unknown>))
+    );
+  }, [candidate?.id, candidate?.source, candidate?.breezy]);
+
   const handleRefresh = () => {
     if (!candidate?.id) return;
     setRefreshing(true);
+    setBreezyProfileSyncError(null);
+    if (isBreezyCandidate) {
+      void (async () => {
+        setBreezyProfileSyncing(true);
+        try {
+          const res = await fetch("/api/breezy/candidate-full-sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ candidateId: candidate.id }),
+          });
+          const payload = await res.json().catch(() => null);
+          if (!res.ok) {
+            throw new Error(payload?.error ?? "Failed to sync Breezy candidate.");
+          }
+        } catch (err) {
+          setBreezyProfileSyncError(
+            err instanceof Error ? err.message : "Failed to sync Breezy candidate."
+          );
+        } finally {
+          setBreezyProfileSyncing(false);
+          setRefreshCounter((prev) => prev + 1);
+        }
+      })();
+      return;
+    }
     setRefreshCounter((prev) => prev + 1);
   };
+
+  useEffect(() => {
+    if (!open || !candidate?.id) return;
+    if (!isBreezyCandidate) return;
+    if (breezyProfileSyncing) return;
+    if (breezyProfileSyncedCandidateRef.current === candidate.id) return;
+
+    const breezyRaw = (candidate as unknown as { breezy?: unknown })?.breezy;
+    const lastSyncedAt =
+      breezyRaw &&
+      typeof breezyRaw === "object" &&
+      breezyRaw !== null &&
+      "last_synced_at" in (breezyRaw as Record<string, unknown>)
+        ? String((breezyRaw as Record<string, unknown>).last_synced_at ?? "")
+        : "";
+
+    if (lastSyncedAt) {
+      const ms = new Date(lastSyncedAt).getTime();
+      if (!Number.isNaN(ms) && Date.now() - ms < 6 * 60 * 60 * 1000) {
+        return;
+      }
+    }
+
+    breezyProfileSyncedCandidateRef.current = candidate.id;
+    setBreezyProfileSyncError(null);
+    setBreezyProfileSyncing(true);
+    let ignore = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/breezy/candidate-full-sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ candidateId: candidate.id }),
+        });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(payload?.error ?? "Failed to sync Breezy candidate.");
+        }
+        if (!ignore) setRefreshCounter((prev) => prev + 1);
+      } catch (err) {
+        if (!ignore) {
+          setBreezyProfileSyncError(
+            err instanceof Error ? err.message : "Failed to sync Breezy candidate."
+          );
+        }
+      } finally {
+        if (!ignore) setBreezyProfileSyncing(false);
+      }
+    })();
+
+    return () => {
+      ignore = true;
+    };
+  }, [breezyProfileSyncing, candidate?.id, isBreezyCandidate, open]);
+
+  useEffect(() => {
+    if (!open || !candidate?.id) return;
+    if (!isBreezyCandidate) return;
+    if (!breezyAutoRepairNeeded) return;
+    if (breezyProfileSyncing) return;
+    if (breezyAutoRepairAttemptedRef.current === candidate.id) return;
+
+    breezyAutoRepairAttemptedRef.current = candidate.id;
+    setBreezyProfileSyncError(null);
+    setBreezyProfileSyncing(true);
+    let ignore = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/breezy/candidate-full-sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ candidateId: candidate.id }),
+        });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(payload?.error ?? "Failed to sync Breezy candidate.");
+        }
+        if (!ignore) setRefreshCounter((prev) => prev + 1);
+      } catch (err) {
+        if (!ignore) {
+          setBreezyProfileSyncError(
+            err instanceof Error ? err.message : "Failed to sync Breezy candidate."
+          );
+        }
+      } finally {
+        if (!ignore) setBreezyProfileSyncing(false);
+      }
+    })();
+
+    return () => {
+      ignore = true;
+    };
+  }, [breezyAutoRepairNeeded, breezyProfileSyncing, candidate?.id, isBreezyCandidate, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -1905,6 +2106,30 @@ export default function CandidateDrawer({
           ? mapScorecardRow(scorecardResult.data as ScorecardRow)
           : undefined;
 
+        if (isBreezyCandidate) {
+          const hasWorkPlaceholders = workHistory.some(
+            (item) =>
+              !item.company ||
+              item.company.trim() === "" ||
+              item.company === "Company" ||
+              (!item.start && !item.end)
+          );
+          const hasEducationPlaceholders = education.some(
+            (item) =>
+              !item.institution ||
+              item.institution.trim() === "" ||
+              item.institution === "Institution" ||
+              (!item.start && !item.end)
+          );
+          setBreezyAutoRepairNeeded(
+            (workHistory.length === 0 && education.length === 0) ||
+              hasWorkPlaceholders ||
+              hasEducationPlaceholders
+          );
+        } else {
+          setBreezyAutoRepairNeeded(false);
+        }
+
         onHydrateCandidate(candidate.id, {
           tasks,
           work_history: workHistory,
@@ -2272,7 +2497,11 @@ export default function CandidateDrawer({
   }, [teamUsers]);
 
   const discussionItems = useMemo(() => {
-    const items: Note[] = [...notes];
+    const items = notes.filter((note) => {
+      if (note.author_id) return true;
+      const authorMissing = !note.author_name && !note.author_email;
+      return authorMissing ? !looksLikeBreezyEventToken(note.body) : false;
+    });
     items.sort(
       (a, b) =>
         new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -2837,6 +3066,66 @@ export default function CandidateDrawer({
     (item) => item.kind === "document"
   );
 
+  const hasUnresolvedBreezyDocuments = useMemo(() => {
+    if (!isBreezyCandidate) return false;
+    return documentAttachments.some((doc) => !doc.path && !doc.url);
+  }, [documentAttachments, isBreezyCandidate]);
+
+  useEffect(() => {
+    if (!open || !candidate?.id) return;
+    if (!hasUnresolvedBreezyDocuments) return;
+    if (breezyDocsSyncing) return;
+    if (breezyDocsSyncedCandidateRef.current === candidate.id) return;
+
+    let ignore = false;
+    breezyDocsSyncedCandidateRef.current = candidate.id;
+    setBreezyDocsSyncing(true);
+    setBreezyDocsSyncError(null);
+    (async () => {
+      try {
+        const res = await fetch("/api/breezy/candidate-documents-sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ candidateId: candidate.id }),
+        });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(payload?.error ?? "Failed to sync Breezy documents.");
+        }
+
+        const { data, error } = await supabase
+          .from("candidate_attachments")
+          .select("candidate_id,id,name,mime,url,path,kind,created_at,created_by")
+          .eq("candidate_id", candidate.id);
+        if (error) throw new Error(error.message);
+        if (ignore) return;
+        const attachments = (data ?? []).map((row) =>
+          mapAttachmentRow(row as AttachmentRow)
+        );
+        onHydrateCandidate(candidate.id, { attachments });
+      } catch (err) {
+        if (!ignore) {
+          setBreezyDocsSyncError(
+            err instanceof Error ? err.message : "Failed to sync Breezy documents."
+          );
+        }
+      } finally {
+        if (!ignore) setBreezyDocsSyncing(false);
+      }
+    })();
+
+    return () => {
+      ignore = true;
+    };
+  }, [
+    breezyDocsSyncing,
+    candidate?.id,
+    hasUnresolvedBreezyDocuments,
+    onHydrateCandidate,
+    open,
+    supabase,
+  ]);
+
   const documentEntries = documentAttachments.map((doc) => ({
     doc,
     path: doc.path ?? extractStoragePath(doc.url),
@@ -2846,11 +3135,26 @@ export default function CandidateDrawer({
     .map((entry) => entry.path)
     .filter((path): path is string => typeof path === "string");
 
-  const isPdfFile = (mime?: string | null, url?: string | null) =>
-    Boolean(mime?.toLowerCase().includes("pdf")) ||
-    Boolean(url?.toLowerCase().includes(".pdf"));
+  const isPdfFile = (
+    mime?: string | null,
+    url?: string | null,
+    name?: string | null
+  ) => {
+    const extension = getExtension(name ?? undefined, mime ?? undefined);
+    if (extension === "pdf") return true;
+    return (
+      Boolean(mime?.toLowerCase().includes("pdf")) ||
+      Boolean(url?.toLowerCase().includes(".pdf"))
+    );
+  };
 
-  const isImageFile = (mime?: string | null, url?: string | null) => {
+  const isImageFile = (
+    mime?: string | null,
+    url?: string | null,
+    name?: string | null
+  ) => {
+    const extension = getExtension(name ?? undefined, mime ?? undefined);
+    if (["png", "jpg", "jpeg", "gif", "webp"].includes(extension)) return true;
     if (mime?.toLowerCase().startsWith("image/")) return true;
     return Boolean(url?.toLowerCase().match(/\.(png|jpe?g|gif|webp)$/));
   };
@@ -2923,6 +3227,48 @@ export default function CandidateDrawer({
     }
   };
 
+  const normalizeRenamedFileName = (
+    draft: string,
+    originalName?: string | null
+  ) => {
+    const cleaned = draft.replace(/\s+/g, " ").trim();
+    if (!cleaned) return (originalName ?? "Document").trim() || "Document";
+
+    const hasExtension = /\.[a-z0-9]{1,10}$/i.test(cleaned);
+    if (hasExtension) return cleaned.slice(0, 180);
+
+    const original = (originalName ?? "").trim();
+    const extMatch = original.match(/\.([a-z0-9]{1,10})$/i);
+    if (!extMatch) return cleaned.slice(0, 180);
+
+    const ext = extMatch[1] ?? "";
+    return `${cleaned}.${ext}`.slice(0, 180);
+  };
+
+  const startRenameDocument = (docId: string, currentName?: string | null) => {
+    setRenamingDocumentId(docId);
+    setRenameDocumentDraft((currentName ?? "").trim());
+  };
+
+  const saveRenameDocument = (docId: string) => {
+    if (!candidate?.id) return;
+    const attachments = Array.isArray(candidate.attachments)
+      ? candidate.attachments
+      : [];
+    const existing = attachments.find((item) => item?.id === docId) ?? null;
+    if (!existing) return;
+
+    const nextName = normalizeRenamedFileName(renameDocumentDraft, existing.name);
+    const nextAttachments = attachments.map((item) =>
+      item?.id === docId ? { ...item, name: nextName } : item
+    );
+
+    onUpdateCandidate(candidate.id, { attachments: nextAttachments });
+    if (activeDocumentId === docId) setActiveDocumentName(nextName);
+    setRenamingDocumentId(null);
+    setRenameDocumentDraft("");
+  };
+
   const handleDocumentUpload = async (file: File | null) => {
     if (!file || !candidate) return;
     setDocumentUploading(true);
@@ -2957,6 +3303,7 @@ export default function CandidateDrawer({
       onUpdateCandidate(candidate.id, {
         attachments: [...(candidate.attachments ?? []), newAttachment],
       });
+      startRenameDocument(newAttachment.id, newAttachment.name);
     } catch (err) {
       setDocumentUploadError(
         err instanceof Error ? err.message : "Upload failed"
@@ -3014,7 +3361,7 @@ export default function CandidateDrawer({
     const safeLastSeenMs =
       lastSeenMs !== null && !Number.isNaN(lastSeenMs) ? lastSeenMs : null;
     const currentEmail = currentUser?.email?.toLowerCase() ?? "";
-    return notes.reduce((count, note) => {
+    return discussionItems.reduce((count, note) => {
       if (note.author_id && note.author_id === currentUser.id) return count;
       if (
         currentEmail &&
@@ -3028,13 +3375,13 @@ export default function CandidateDrawer({
       if (safeLastSeenMs === null) return count + 1;
       return createdMs > safeLastSeenMs ? count + 1 : count;
     }, 0);
-  }, [currentUser?.email, currentUser?.id, discussionLastSeenAt, notes]);
+  }, [currentUser?.email, currentUser?.id, discussionItems, discussionLastSeenAt]);
 
   useEffect(() => {
     if (!open || !candidate?.id || !currentUser?.id) return;
     if (rightTab !== "discussion") return;
     if (discussionUnreadCount === 0) return;
-    const seenIso = maxCreatedAtIso(notes) ?? new Date().toISOString();
+    const seenIso = maxCreatedAtIso(discussionItems) ?? new Date().toISOString();
     setDiscussionLastSeenAt(seenIso);
     writeLocalLastSeen("discussion", currentUser.id, candidate.id, seenIso);
     void supabase.from("candidate_note_reads").upsert(
@@ -3050,7 +3397,7 @@ export default function CandidateDrawer({
     currentUser?.id,
     discussionUnreadCount,
     maxCreatedAtIso,
-    notes,
+    discussionItems,
     open,
     rightTab,
     supabase,
@@ -3218,6 +3565,18 @@ export default function CandidateDrawer({
   const tags = Array.isArray(candidate.tags)
     ? candidate.tags.filter((item) => typeof item === "string" && item.trim())
     : [];
+
+  const breezyMetadata = (() => {
+    const breezyValue = (candidate as unknown as { breezy?: unknown })?.breezy;
+    if (!breezyValue || typeof breezyValue !== "object" || Array.isArray(breezyValue)) {
+      return null;
+    }
+    const record = breezyValue as Record<string, unknown>;
+    const raw = record.raw ?? null;
+    const meta = record.meta ?? null;
+    const customAttributes = record.custom_attributes ?? null;
+    return { raw, meta, custom_attributes: customAttributes };
+  })();
 
   const handleAddTag = () => {
     const next = normalizeTag(tagDraft);
@@ -3956,7 +4315,8 @@ export default function CandidateDrawer({
                   timelineLoading ||
                   formLoading ||
                   cvLoading ||
-                  snapshotLoading
+                  snapshotLoading ||
+                  breezyProfileSyncing
                 }
               >
                 <RefreshCw
@@ -3974,6 +4334,20 @@ export default function CandidateDrawer({
               </button>
             </div>
           </div>
+
+          {isBreezyCandidate && (breezyProfileSyncing || breezyProfileSyncError) ? (
+            <div className="px-6 pb-3">
+              {breezyProfileSyncing ? (
+                <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-xs text-sky-700">
+                  Syncing Breezy candidate data…
+                </div>
+              ) : breezyProfileSyncError ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700">
+                  {breezyProfileSyncError}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
 		          <div
 		            className={`grid h-full min-h-0 flex-1 overflow-hidden ${
@@ -4365,15 +4739,25 @@ export default function CandidateDrawer({
                               className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600"
                             >
                               <div className="flex items-center justify-between gap-2">
-                                <div>
-                                  <div className="font-semibold text-slate-800">
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-sm font-semibold text-slate-900">
                                     {item.role}
                                   </div>
-                                  <div className="text-[11px] text-slate-500">
-                                    {item.company}{" "}
-                                    {item.start || item.end
-                                      ? `• ${item.start ?? ""} ${item.end ? `- ${item.end}` : ""}`
-                                      : ""}
+                                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    <div
+                                      className={`truncate text-sm font-semibold ${
+                                        item.company && item.company !== "Company"
+                                          ? "text-slate-800"
+                                          : "text-slate-400"
+                                      }`}
+                                    >
+                                      {item.company && item.company !== "Company" ? item.company : "—"}
+                                    </div>
+                                    {item.start || item.end ? (
+                                      <div className="text-xs text-slate-500">
+                                        {`${item.start ?? ""}${item.end ? ` - ${item.end}` : ""}`.trim()}
+                                      </div>
+                                    ) : null}
                                   </div>
                                 </div>
                                 <button
@@ -4393,7 +4777,7 @@ export default function CandidateDrawer({
                                 </button>
                               </div>
                               {item.details ? (
-                                <div className="mt-2 text-xs text-slate-600">
+                                <div className="mt-2 whitespace-pre-wrap text-xs leading-5 text-slate-600">
                                   {item.details}
                                 </div>
                               ) : null}
@@ -4509,15 +4893,27 @@ export default function CandidateDrawer({
                               className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600"
                             >
                               <div className="flex items-center justify-between gap-2">
-                                <div>
-                                  <div className="font-semibold text-slate-800">
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-sm font-semibold text-slate-900">
                                     {item.program}
                                   </div>
-                                  <div className="text-[11px] text-slate-500">
-                                    {item.institution}{" "}
-                                    {item.start || item.end
-                                      ? `• ${item.start ?? ""} ${item.end ? `- ${item.end}` : ""}`
-                                      : ""}
+                                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    <div
+                                      className={`truncate text-sm font-semibold ${
+                                        item.institution && item.institution !== "Institution"
+                                          ? "text-slate-800"
+                                          : "text-slate-400"
+                                      }`}
+                                    >
+                                      {item.institution && item.institution !== "Institution"
+                                        ? item.institution
+                                        : "—"}
+                                    </div>
+                                    {item.start || item.end ? (
+                                      <div className="text-xs text-slate-500">
+                                        {`${item.start ?? ""}${item.end ? ` - ${item.end}` : ""}`.trim()}
+                                      </div>
+                                    ) : null}
                                   </div>
                                 </div>
                                 <button
@@ -4537,7 +4933,7 @@ export default function CandidateDrawer({
                                 </button>
                               </div>
                               {item.details ? (
-                                <div className="mt-2 text-xs text-slate-600">
+                                <div className="mt-2 whitespace-pre-wrap text-xs leading-5 text-slate-600">
                                   {item.details}
                                 </div>
                               ) : null}
@@ -4788,6 +5184,16 @@ export default function CandidateDrawer({
                         </div>
                       </div>
                     ) : null}
+                    {breezyDocsSyncing ? (
+                      <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-700">
+                        Syncing Breezy documents…
+                      </div>
+                    ) : null}
+                    {breezyDocsSyncError ? (
+                      <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+                        {breezyDocsSyncError}
+                      </div>
+                    ) : null}
                     <div className="mt-3 flex-1 overflow-y-auto">
                       {documentAttachments.length === 0 ? (
                         <div className="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-xs text-slate-400">
@@ -4801,6 +5207,7 @@ export default function CandidateDrawer({
                             const docUrl = signedUrl ?? fallbackUrl;
                             const canOpen = Boolean(path || docUrl);
                             const isActive = activeDocumentId === doc.id;
+                            const isRenaming = renamingDocumentId === doc.id;
                             const displayTimestamp = formatTimestamp(
                               resolveAttachmentTimestamp(
                                 doc.created_at,
@@ -4829,6 +5236,7 @@ export default function CandidateDrawer({
                                 }`}
                                 onClick={(event) => {
                                   event.preventDefault();
+                                  if (isRenaming) return;
                                   if (!canOpen) return;
                                   void handleSelectDocument(
                                     doc.id,
@@ -4840,6 +5248,7 @@ export default function CandidateDrawer({
                                 }}
                                 onKeyDown={(event) => {
                                   if (!canOpen) return;
+                                  if (isRenaming) return;
                                   if (event.key === "Enter" || event.key === " ") {
                                     event.preventDefault();
                                     void handleSelectDocument(
@@ -4861,36 +5270,100 @@ export default function CandidateDrawer({
                                     />
                                   </div>
                                   <div className="min-w-0">
-                                    <div className="truncate font-medium">
-                                      {doc.name ?? "Document"}
-                                    </div>
+                                    {isRenaming ? (
+                                      <input
+                                        id={`candidate-document-rename-input-${doc.id}`}
+                                        className="h-9 w-full min-w-[240px] rounded-lg border border-emerald-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                                        value={renameDocumentDraft}
+                                        onChange={(event) =>
+                                          setRenameDocumentDraft(event.target.value)
+                                        }
+                                        onClick={(event) => event.stopPropagation()}
+                                        onKeyDown={(event) => {
+                                          event.stopPropagation();
+                                          if (event.key === "Escape") {
+                                            setRenamingDocumentId(null);
+                                            setRenameDocumentDraft("");
+                                            return;
+                                          }
+                                          if (event.key === "Enter") {
+                                            saveRenameDocument(doc.id);
+                                          }
+                                        }}
+                                        placeholder="Rename document…"
+                                      />
+                                    ) : (
+                                      <div className="truncate font-medium">
+                                        {doc.name ?? "Document"}
+                                      </div>
+                                    )}
                                     <div className="mt-1 text-[11px] text-slate-400">
                                       Added {displayTimestamp} • {displayBy}
                                     </div>
                                   </div>
                                 </div>
-                                <button
-                                  type="button"
-                                  disabled={!canOpen}
-                                  className={`ml-3 rounded-full px-3 py-1 text-[11px] font-semibold ${
-                                    !canOpen
-                                      ? "bg-slate-200 text-slate-500"
-                                      : "bg-slate-900 text-white hover:bg-black"
-                                  }`}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    if (!canOpen) return;
-                                    void handleSelectDocument(
-                                      doc.id,
-                                      doc.name ?? null,
-                                      doc.mime ?? null,
-                                      path,
-                                      fallbackUrl ?? null
-                                    );
-                                  }}
-                                >
-                                  {signingDocId === doc.id ? "Opening..." : "Open"}
-                                </button>
+                                <div className="ml-3 flex shrink-0 items-center gap-2">
+                                  {isRenaming ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          saveRenameDocument(doc.id);
+                                        }}
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          setRenamingDocumentId(null);
+                                          setRenameDocumentDraft("");
+                                        }}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          startRenameDocument(doc.id, doc.name ?? null);
+                                        }}
+                                      >
+                                        Rename
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={!canOpen}
+                                        className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                                          !canOpen
+                                            ? "bg-slate-200 text-slate-500"
+                                            : "bg-slate-900 text-white hover:bg-black"
+                                        }`}
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          if (!canOpen) return;
+                                          void handleSelectDocument(
+                                            doc.id,
+                                            doc.name ?? null,
+                                            doc.mime ?? null,
+                                            path,
+                                            fallbackUrl ?? null
+                                          );
+                                        }}
+                                      >
+                                        {signingDocId === doc.id ? "Opening..." : "Open"}
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}
@@ -4999,6 +5472,16 @@ export default function CandidateDrawer({
                       <div>Email: {candidate.email || "—"}</div>
                       <div>Phone: {candidate.phone ?? "—"}</div>
                     </div>
+                    {isBreezyCandidate && breezyMetadata ? (
+                      <details className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
+                        <summary className="cursor-pointer text-xs font-semibold text-slate-700">
+                          Breezy metadata (JSON)
+                        </summary>
+                        <pre className="mt-3 max-h-[320px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-slate-700">
+                          {JSON.stringify(breezyMetadata, null, 2)}
+                        </pre>
+                      </details>
+                    ) : null}
                   </>
                 )}
               </div>
@@ -5325,6 +5808,10 @@ export default function CandidateDrawer({
                               isMeetingSystem &&
                               typeof item.body === "string" &&
                               !item.body.includes("•");
+                            const displayBody =
+                              isSystemEvent && looksLikeBreezyEventToken(item.body)
+                                ? humanizeBreezyEventToken(item.body)
+                                : item.body;
                             let meetingMeta = "";
                             if (candidate?.meeting_start) {
                               const startLabel = formatTimestamp(
@@ -5404,7 +5891,7 @@ export default function CandidateDrawer({
 	                                      })()
 	                                    ) : (
 	                                      renderMentionedBody(
-	                                        item.body,
+	                                        displayBody,
 	                                        mentionLabels,
 	                                        isMine && !isSystemEvent
 	                                      )
@@ -7069,19 +7556,19 @@ export default function CandidateDrawer({
               </div>
             </div>
             <div className="flex-1 overflow-hidden bg-slate-50">
-              {activeDocumentUrl ? (
-                isPdfFile(activeDocumentMime, activeDocumentUrl) ? (
-                  <iframe
-                    title={activeDocumentName ?? "Document"}
-                    className="h-full w-full"
-                    src={`${activeDocumentUrl}#zoom=100`}
-                  />
-                ) : isImageFile(activeDocumentMime, activeDocumentUrl) ? (
-                  <img
-                    src={activeDocumentUrl}
-                    alt={activeDocumentName ?? "Document"}
-                    className="h-full w-full object-contain"
-                  />
+                  {activeDocumentUrl ? (
+                    isPdfFile(activeDocumentMime, activeDocumentUrl, activeDocumentName) ? (
+                      <iframe
+                        title={activeDocumentName ?? "Document"}
+                        className="h-full w-full"
+                        src={`${activeDocumentUrl}#zoom=100`}
+                      />
+                    ) : isImageFile(activeDocumentMime, activeDocumentUrl, activeDocumentName) ? (
+                      <img
+                        src={activeDocumentUrl}
+                        alt={activeDocumentName ?? "Document"}
+                        className="h-full w-full object-contain"
+                      />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
                     Preview not available. Use “Open in new tab.”

@@ -40,6 +40,7 @@ import {
   getCountryDisplay,
 } from "@/lib/country";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { ensureCompanyBootstrap } from "@/lib/company/bootstrap-client";
 
 const MAILERLITE_STAGE_ID = "consultation";
 const MAILERLITE_PIPELINE_ID = "mailerlite";
@@ -821,57 +822,61 @@ export default function PipelinePage() {
       }
       setRemoteError(null);
       try {
-      const { data: pipelineRows, error: pipelineError } = await supabase
-        .from("pipelines")
-        .select("id,name,created_at,updated_at");
-      if (pipelineError) throw new Error(pipelineError.message);
-
-      const { data: stageRows, error: stageError } = await supabase
-        .from("pipeline_stages")
-        .select("pipeline_id,id,name,order,created_at");
-      if (stageError) throw new Error(stageError.message);
-
-      const pipelinesFromDb = buildPipelinesFromRows(
-        (pipelineRows ?? []) as PipelineRow[],
-        (stageRows ?? []) as StageRow[]
-      );
-
-      if (pipelinesFromDb.length === 0) {
-        await seedRemotePipelines();
-        const { data: seededPipelines } = await supabase
+        await ensureCompanyBootstrap();
+        const { data: pipelineRows, error: pipelineError } = await supabase
           .from("pipelines")
           .select("id,name,created_at,updated_at");
-        const { data: seededStages } = await supabase
+        if (pipelineError) throw new Error(pipelineError.message);
+
+        const { data: stageRows, error: stageError } = await supabase
           .from("pipeline_stages")
           .select("pipeline_id,id,name,order,created_at");
-        const seeded = buildPipelinesFromRows(
-          (seededPipelines ?? []) as PipelineRow[],
-          (seededStages ?? []) as StageRow[]
-        );
-        setPipelines(seeded);
-      } else {
-        setPipelines(pipelinesFromDb);
-      }
+        if (stageError) throw new Error(stageError.message);
 
-      const { data: candidateRows, error: candidateError } = await supabase
-        .from("candidates")
-        .select("id,pipeline_id,stage_id,pool_id,status,order,created_at,updated_at,data");
-      if (candidateError) throw new Error(candidateError.message);
-      const candidateRowList = (candidateRows ?? []) as CandidateRow[];
-      const candidateIds = candidateRowList.map((row) => row.id);
+        const pipelinesFromDb = buildPipelinesFromRows(
+          (pipelineRows ?? []) as PipelineRow[],
+          (stageRows ?? []) as StageRow[]
+        );
+
+        if (pipelinesFromDb.length === 0) {
+          await seedRemotePipelines();
+          const { data: seededPipelines } = await supabase
+            .from("pipelines")
+            .select("id,name,created_at,updated_at");
+          const { data: seededStages } = await supabase
+            .from("pipeline_stages")
+            .select("pipeline_id,id,name,order,created_at");
+          const seeded = buildPipelinesFromRows(
+            (seededPipelines ?? []) as PipelineRow[],
+            (seededStages ?? []) as StageRow[]
+          );
+          setPipelines(seeded);
+        } else {
+          setPipelines(pipelinesFromDb);
+        }
+
+        const { data: candidateRows, error: candidateError } = await supabase
+          .from("candidates")
+          .select(
+            "id,pipeline_id,stage_id,pool_id,status,order,created_at,updated_at,data"
+          );
+        if (candidateError) throw new Error(candidateError.message);
+        const candidateRowList = (candidateRows ?? []) as CandidateRow[];
+        const candidateIds = candidateRowList.map((row) => row.id);
 
       let noteCountMap: Record<string, number> = {};
       let attachmentCountMap: Record<string, number> = {};
 
       if (candidateIds.length > 0) {
-        const [noteResult, attachmentResult] = await Promise.all([
-          supabase
-            .from("candidate_notes")
-            .select("candidate_id")
-            .in("candidate_id", candidateIds),
-          supabase
-            .from("candidate_attachments")
-            .select("candidate_id")
+	        const [noteResult, attachmentResult] = await Promise.all([
+	          supabase
+	            .from("candidate_notes")
+	            .select("candidate_id")
+	            .not("author_id", "is", null)
+	            .in("candidate_id", candidateIds),
+	          supabase
+	            .from("candidate_attachments")
+	            .select("candidate_id")
             .in("candidate_id", candidateIds),
         ]);
 
@@ -1619,6 +1624,29 @@ export default function PipelinePage() {
       (candidate) => candidate.pipeline_id === selectedPipelineId
     ).length;
   }, [candidates, selectedPipelineId]);
+
+  const pipelineStatsById = useMemo(() => {
+    const stats: Record<
+      string,
+      { total: number; withNotes: number; withDocs: number; with2PlusDocs: number }
+    > = {};
+
+    for (const candidate of candidates) {
+      const pipelineId = candidate.pipeline_id;
+      if (!pipelineId) continue;
+      const entry =
+        stats[pipelineId] ??
+        (stats[pipelineId] = { total: 0, withNotes: 0, withDocs: 0, with2PlusDocs: 0 });
+      entry.total += 1;
+      const notes = noteCounts[candidate.id] ?? 0;
+      if (notes > 0) entry.withNotes += 1;
+      const docs = attachmentCounts[candidate.id] ?? 0;
+      if (docs > 0) entry.withDocs += 1;
+      if (docs > 1) entry.with2PlusDocs += 1;
+    }
+
+    return stats;
+  }, [attachmentCounts, candidates, noteCounts]);
 
   const activePipeline = useMemo(() => {
     return (
@@ -2996,6 +3024,11 @@ export default function PipelinePage() {
                 {pipelines.map((pipeline) => (
                   <option key={pipeline.id} value={pipeline.id}>
                     {pipeline.name}
+                    {pipelineStatsById[pipeline.id]
+                      ? ` (${pipelineStatsById[pipeline.id]!.total}) • docs≥2: ${
+                          pipelineStatsById[pipeline.id]!.with2PlusDocs
+                        } • notes: ${pipelineStatsById[pipeline.id]!.withNotes}`
+                      : ""}
                   </option>
                 ))}
               </select>

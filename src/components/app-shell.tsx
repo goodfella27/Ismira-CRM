@@ -7,7 +7,7 @@ import { AppSidebar, MobileTopNav } from "@/components/app-sidebar";
 import { ChatWidget } from "@/components/chat-widget";
 import { TaskNotificationBell } from "@/components/task-notification-bell";
 
-const AUTH_ROUTES = ["/login", "/register", "/auth", "/form", "/cv"];
+const AUTH_ROUTES = ["/login", "/register", "/auth", "/form", "/cv", "/jobs"];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();

@@ -295,8 +295,22 @@ Rules:
     const sleep = (ms: number) =>
       new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+    type GeminiResponse = {
+      error?: { message?: string; status?: string };
+      message?: string;
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            text?: string;
+            inlineData?: { data?: unknown };
+          }>;
+        };
+      }>;
+      usageMetadata?: unknown;
+    };
+
     let res: Response | null = null;
-    let data: any = null;
+    let data: GeminiResponse | null = null;
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       res = await fetch(endpoint, {
@@ -308,7 +322,7 @@ Rules:
         body: requestBody,
       });
 
-      data = await res.json().catch(() => null);
+      data = (await res.json().catch(() => null)) as GeminiResponse | null;
 
       if (res.ok) break;
       const retryable = res.status === 429 || res.status === 500 || res.status === 503;

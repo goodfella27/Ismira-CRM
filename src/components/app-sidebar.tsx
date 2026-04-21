@@ -12,6 +12,7 @@ import {
   UserCircle,
   Users2,
   Building2,
+  Briefcase,
 } from "lucide-react";
 
 import ismiraLogo from "@/images/ismira_logo.png";
@@ -26,6 +27,12 @@ const navItems = [
     href: "/leads",
     description: "Mailing list intake",
     icon: Users2,
+  },
+  {
+    label: "Breezy HR",
+    href: "/breezy",
+    description: "ATS connection",
+    icon: Briefcase,
   },
   {
     label: "Companies",

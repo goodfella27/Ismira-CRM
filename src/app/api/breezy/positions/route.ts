@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import { breezyFetch, requireBreezyIds } from "@/lib/breezy";
+import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const { companyId } = requireBreezyIds();
-    const url = `https://api.breezy.hr/v3/company/${companyId}/positions`;
+    const { searchParams } = new URL(request.url);
+    const companyParam = (searchParams.get("companyId") ?? "").trim();
+    const companyId = companyParam || requireBreezyCompanyId().companyId;
+
+    const url = `https://api.breezy.hr/v3/company/${encodeURIComponent(companyId)}/positions`;
 
     const res = await breezyFetch(url);
     const contentType = res.headers.get("content-type") ?? "";

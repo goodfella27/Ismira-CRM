@@ -38,15 +38,18 @@ function getPythonPath() {
   const envPython = (process.env.TRANSCRIBE_PYTHON_PATH ?? "").trim();
   if (envPython) return envPython;
 
-  const venvCandidates = [
-    path.join(process.cwd(), ".venv", "bin", "python3"),
-    path.join(process.cwd(), ".venv", "bin", "python"),
-  ];
-  for (const candidate of venvCandidates) {
-    if (fsSync.existsSync(candidate)) return candidate;
+  const venvRoot = (process.env.TRANSCRIBE_VENV_PATH ?? process.env.VIRTUAL_ENV ?? "").trim();
+  if (venvRoot) {
+    const venvCandidates = [
+      path.join(venvRoot, "bin", "python3"),
+      path.join(venvRoot, "bin", "python"),
+    ];
+    for (const candidate of venvCandidates) {
+      if (fsSync.existsSync(candidate)) return candidate;
+    }
   }
 
-  return "python3";
+  return process.platform === "win32" ? "python" : "python3";
 }
 
 export async function POST(request: Request) {

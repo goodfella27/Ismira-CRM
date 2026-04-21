@@ -12,19 +12,22 @@ export const ensureCompanyMembership = async (
 ): Promise<CompanyMembership> => {
   const companyId = await getPrimaryCompanyId(admin);
 
-  const { data: existing, error: existingError } = await admin
+  const { data: existingRows, error: existingError } = await admin
     .from("company_members")
     .select("role")
     .eq("company_id", companyId)
     .eq("user_id", userId)
-    .maybeSingle();
+    .limit(1);
 
   if (existingError) {
     throw new Error(existingError.message ?? "Failed to load membership");
   }
 
+  type MemberRow = { role: string | null };
+  const list = Array.isArray(existingRows) ? (existingRows as unknown as MemberRow[]) : [];
+  const existing = list[0] ?? null;
   if (existing) {
-    return { companyId, role: (existing.role as string | null) ?? "Member" };
+    return { companyId, role: existing.role ?? "Member" };
   }
 
   const { count, error: countError } = await admin
@@ -49,4 +52,3 @@ export const ensureCompanyMembership = async (
 
   return { companyId, role };
 };
-

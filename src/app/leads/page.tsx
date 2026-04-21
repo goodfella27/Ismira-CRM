@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Skeleton from "@/components/Skeleton";
+import { ensureCompanyBootstrap } from "@/lib/company/bootstrap-client";
 
 const PAGE_LIMIT = 25;
 const PIPELINE_STAGE_ID = "consultation";
@@ -1015,6 +1016,7 @@ export default function LeadsPage() {
     setPipelineMessage(null);
     setPipelineActionLoading((prev) => ({ ...prev, [subscriber.id]: true }));
     try {
+      await ensureCompanyBootstrap();
       const email = subscriber.email?.toLowerCase() ?? "";
       const pipelineId = `ml-${subscriber.id}`;
       const exists =
@@ -1054,6 +1056,7 @@ export default function LeadsPage() {
     setPipelineMessage(null);
     (async () => {
       try {
+        await ensureCompanyBootstrap();
         const minOrder = await fetchStageMinOrder();
         let orderOffset = 1;
         const lookup = new Map<string, MailerLiteSubscriber>();

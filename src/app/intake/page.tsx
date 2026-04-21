@@ -14,6 +14,7 @@ import Markdown from "@/components/Markdown";
 import uploadIcon from "@/images/upload_icon.png";
 import Image from "next/image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { ensureCompanyBootstrap } from "@/lib/company/bootstrap-client";
 
 const stripMarkdown = (value: string) =>
   value
@@ -489,6 +490,7 @@ export default function IntakePage() {
     setPipelineMessage(null);
 
     try {
+      await ensureCompanyBootstrap();
       const draft = editDraft ?? buildDraft(selectedCandidate);
       const fields =
         (selectedCandidate.profile.fields as Record<string, unknown> | undefined) ??

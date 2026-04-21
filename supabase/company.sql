@@ -43,7 +43,7 @@ as $$
   select exists(
     select 1
     from public.company_members
-    where user_id = auth.uid()
+    where user_id::text = auth.uid()::text
   );
 $$;
 
@@ -58,7 +58,7 @@ as $$
   select exists(
     select 1
     from public.company_members
-    where user_id = auth.uid()
+    where user_id::text = auth.uid()::text
       and lower(role) = 'admin'
   );
 $$;
@@ -88,7 +88,7 @@ drop policy if exists "company_members_delete" on public.company_members;
 create policy "company_members_select" on public.company_members
   for select to authenticated
   using (
-    user_id = auth.uid()
+    user_id::text = auth.uid()::text
     or public.is_company_admin()
   );
 create policy "company_members_insert" on public.company_members
@@ -127,7 +127,7 @@ begin
     select 1
     from public.company_members cm
     where cm.company_id = new.company_id
-      and cm.user_id = new.user_id
+      and cm.user_id::text = new.user_id::text
       and lower(cm.role) = 'admin'
   ) then
     raise exception 'Only admin users can be task watchers';

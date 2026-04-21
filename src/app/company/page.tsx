@@ -20,6 +20,7 @@ import {
   type QuestionnaireStatus,
 } from "@/lib/questionnaires";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { ensureCompanyBootstrap } from "@/lib/company/bootstrap-client";
 import {
   getCompanyBranding,
   invalidateCompanyBrandingCache,
@@ -47,6 +48,22 @@ type CompanyUser = {
   avatar_url: string | null;
   status: CompanyUserStatus;
   created_at?: string | null;
+};
+
+type JobCompanyAdminItem = {
+  id: string;
+  name: string;
+  slug: string;
+  website: string | null;
+  logoUrl: string | null;
+  positionsCount: number;
+};
+
+type JobsHeroLogoAdminItem = {
+  id: string;
+  label: string;
+  logoUrl: string | null;
+  sortOrder: number;
 };
 
 type PipelineRow = {
@@ -195,6 +212,25 @@ const buildPipelinesFromRows = (
   }));
 };
 
+const getApiErrorMessage = (payload: unknown, fallback: string) => {
+  if (typeof payload === "string" && payload.trim()) return payload.trim();
+  if (!payload || typeof payload !== "object") return fallback;
+
+  const record = payload as Record<string, unknown>;
+  const directMessage = record.message;
+  if (typeof directMessage === "string" && directMessage.trim()) return directMessage.trim();
+
+  const errorValue = record.error;
+  if (typeof errorValue === "string" && errorValue.trim()) return errorValue.trim();
+  if (errorValue && typeof errorValue === "object") {
+    const nested = errorValue as Record<string, unknown>;
+    if (typeof nested.message === "string" && nested.message.trim()) return nested.message.trim();
+    if (typeof nested.error === "string" && nested.error.trim()) return nested.error.trim();
+  }
+
+  return fallback;
+};
+
 
 export default function CompanyPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -207,6 +243,16 @@ export default function CompanyPage() {
   );
   const [brandingSaving, setBrandingSaving] = useState(false);
   const [brandingError, setBrandingError] = useState<string | null>(null);
+  const [jobsHeroLogos, setJobsHeroLogos] = useState<JobsHeroLogoAdminItem[]>([]);
+  const [jobsHeroLogosLoading, setJobsHeroLogosLoading] = useState(false);
+  const [jobsHeroLogosError, setJobsHeroLogosError] = useState<string | null>(null);
+  const [jobsHeroLogosActionId, setJobsHeroLogosActionId] = useState<string | null>(null);
+  const [jobsHeroLogosReordering, setJobsHeroLogosReordering] = useState(false);
+  const [jobCompanies, setJobCompanies] = useState<JobCompanyAdminItem[]>([]);
+  const [jobCompaniesLoading, setJobCompaniesLoading] = useState(false);
+  const [jobCompaniesSyncing, setJobCompaniesSyncing] = useState(false);
+  const [jobCompaniesError, setJobCompaniesError] = useState<string | null>(null);
+  const [jobCompaniesActionId, setJobCompaniesActionId] = useState<string | null>(null);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [pipelineName, setPipelineName] = useState("");
   const [pipelineError, setPipelineError] = useState<string | null>(null);
@@ -490,6 +536,252 @@ export default function CompanyPage() {
     }
   }, [brandingTitle, loadBranding]);
 
+  const loadJobCompanies = useCallback(async () => {
+    setJobCompaniesLoading(true);
+    setJobCompaniesError(null);
+    try {
+      const res = await fetch("/api/company/job-companies", { cache: "no-store" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to load job companies.");
+      }
+      const list = Array.isArray(data?.companies) ? data.companies : [];
+      setJobCompanies(
+        list.map((item) => ({
+          id: typeof item?.id === "string" ? item.id : "",
+          name: typeof item?.name === "string" ? item.name : "Company",
+          slug: typeof item?.slug === "string" ? item.slug : "",
+          website: typeof item?.website === "string" ? item.website : null,
+          logoUrl: typeof item?.logoUrl === "string" ? item.logoUrl : null,
+          positionsCount:
+            typeof item?.positionsCount === "number" && Number.isFinite(item.positionsCount)
+              ? item.positionsCount
+              : 0,
+        }))
+      );
+    } catch (err) {
+      setJobCompaniesError(
+        err instanceof Error ? err.message : "Failed to load job companies."
+      );
+    } finally {
+      setJobCompaniesLoading(false);
+    }
+  }, []);
+
+  const loadJobsHeroLogos = useCallback(async () => {
+    setJobsHeroLogosLoading(true);
+    setJobsHeroLogosError(null);
+    try {
+      const res = await fetch("/api/company/jobs-hero-logos", { cache: "no-store" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(getApiErrorMessage(data, "Failed to load jobs hero logos."));
+      }
+      const list = Array.isArray(data?.logos) ? data.logos : [];
+      setJobsHeroLogos(
+        list.map((item) => ({
+          id: typeof item?.id === "string" ? item.id : "",
+          label: typeof item?.label === "string" ? item.label : "",
+          logoUrl: typeof item?.logoUrl === "string" ? item.logoUrl : null,
+          sortOrder:
+            typeof item?.sortOrder === "number" && Number.isFinite(item.sortOrder)
+              ? item.sortOrder
+              : 0,
+        }))
+      );
+    } catch (err) {
+      setJobsHeroLogosError(
+        err instanceof Error ? err.message : "Failed to load jobs hero logos."
+      );
+    } finally {
+      setJobsHeroLogosLoading(false);
+    }
+  }, []);
+
+  const handleAddJobsHeroLogo = useCallback(async () => {
+    setJobsHeroLogosError(null);
+    setJobsHeroLogosReordering(false);
+    try {
+      const res = await fetch("/api/company/jobs-hero-logos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: "" }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(getApiErrorMessage(data, "Failed to add hero logo."));
+      }
+      await loadJobsHeroLogos();
+    } catch (err) {
+      setJobsHeroLogosError(
+        err instanceof Error ? err.message : "Failed to add hero logo."
+      );
+    }
+  }, [loadJobsHeroLogos]);
+
+  const handleUpdateJobsHeroLogo = useCallback(
+    async (heroLogoId: string, options: { file?: File | null; removeLogo?: boolean; label?: string }) => {
+      if (!heroLogoId) return;
+      if (!options.file && !options.removeLogo && options.label === undefined) return;
+
+      setJobsHeroLogosActionId(heroLogoId);
+      setJobsHeroLogosError(null);
+      try {
+        const form = new FormData();
+        if (options.file) form.set("logo", options.file);
+        if (options.removeLogo) form.set("removeLogo", "1");
+        if (options.label !== undefined) form.set("label", options.label);
+
+        const res = await fetch(
+          `/api/company/jobs-hero-logos/${encodeURIComponent(heroLogoId)}`,
+          { method: "POST", body: form }
+        );
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(getApiErrorMessage(data, "Failed to update hero logo."));
+        }
+        await loadJobsHeroLogos();
+      } catch (err) {
+        setJobsHeroLogosError(
+          err instanceof Error ? err.message : "Failed to update hero logo."
+        );
+      } finally {
+        setJobsHeroLogosActionId(null);
+      }
+    },
+    [loadJobsHeroLogos]
+  );
+
+  const handleDeleteJobsHeroLogo = useCallback(
+    async (heroLogoId: string) => {
+      if (!heroLogoId) return;
+      setJobsHeroLogosActionId(heroLogoId);
+      setJobsHeroLogosError(null);
+      try {
+        const res = await fetch(
+          `/api/company/jobs-hero-logos/${encodeURIComponent(heroLogoId)}`,
+          { method: "DELETE" }
+        );
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(getApiErrorMessage(data, "Failed to delete hero logo."));
+        }
+        await loadJobsHeroLogos();
+      } catch (err) {
+        setJobsHeroLogosError(
+          err instanceof Error ? err.message : "Failed to delete hero logo."
+        );
+      } finally {
+        setJobsHeroLogosActionId(null);
+      }
+    },
+    [loadJobsHeroLogos]
+  );
+
+  const handleReorderJobsHeroLogos = useCallback(
+    async (nextIds: string[]) => {
+      setJobsHeroLogosReordering(true);
+      setJobsHeroLogosError(null);
+      try {
+        const res = await fetch("/api/company/jobs-hero-logos/reorder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: nextIds }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(getApiErrorMessage(data, "Failed to reorder hero logos."));
+        }
+        await loadJobsHeroLogos();
+      } catch (err) {
+        setJobsHeroLogosError(
+          err instanceof Error ? err.message : "Failed to reorder hero logos."
+        );
+        await loadJobsHeroLogos();
+      } finally {
+        setJobsHeroLogosReordering(false);
+      }
+    },
+    [loadJobsHeroLogos]
+  );
+
+  const handleSyncJobCompanies = useCallback(async () => {
+    setJobCompaniesSyncing(true);
+    setJobCompaniesError(null);
+    try {
+      const res = await fetch("/api/company/job-companies/sync", {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to sync job companies.");
+      }
+      await loadJobCompanies();
+    } catch (err) {
+      setJobCompaniesError(
+        err instanceof Error ? err.message : "Failed to sync job companies."
+      );
+    } finally {
+      setJobCompaniesSyncing(false);
+    }
+  }, [loadJobCompanies]);
+
+  const handleUploadJobCompanyLogo = useCallback(
+    async (jobCompanyId: string, file: File | null) => {
+      if (!jobCompanyId || !file) return;
+      setJobCompaniesActionId(jobCompanyId);
+      setJobCompaniesError(null);
+      try {
+        const form = new FormData();
+        form.set("logo", file);
+        const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
+          method: "POST",
+          body: form,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(data?.error ?? "Failed to upload job company logo.");
+        }
+        await loadJobCompanies();
+      } catch (err) {
+        setJobCompaniesError(
+          err instanceof Error ? err.message : "Failed to upload job company logo."
+        );
+      } finally {
+        setJobCompaniesActionId(null);
+      }
+    },
+    [loadJobCompanies]
+  );
+
+  const handleRemoveJobCompanyLogo = useCallback(
+    async (jobCompanyId: string) => {
+      if (!jobCompanyId) return;
+      setJobCompaniesActionId(jobCompanyId);
+      setJobCompaniesError(null);
+      try {
+        const form = new FormData();
+        form.set("removeLogo", "1");
+        const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
+          method: "POST",
+          body: form,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(data?.error ?? "Failed to remove job company logo.");
+        }
+        await loadJobCompanies();
+      } catch (err) {
+        setJobCompaniesError(
+          err instanceof Error ? err.message : "Failed to remove job company logo."
+        );
+      } finally {
+        setJobCompaniesActionId(null);
+      }
+    },
+    [loadJobCompanies]
+  );
+
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
@@ -497,6 +789,15 @@ export default function CompanyPage() {
   useEffect(() => {
     loadBranding();
   }, [loadBranding]);
+
+  useEffect(() => {
+    loadJobCompanies();
+  }, [loadJobCompanies]);
+
+  useEffect(() => {
+    if (activeSection !== "integrations") return;
+    loadJobsHeroLogos();
+  }, [activeSection, loadJobsHeroLogos]);
 
   useEffect(() => {
     if (!brandingLogoFile) {
@@ -612,6 +913,7 @@ export default function CompanyPage() {
     setPipelinesLoading(true);
     setPipelinesError(null);
     try {
+      await ensureCompanyBootstrap();
       const { data: pipelineRows, error: pipelineError } = await supabase
         .from("pipelines")
         .select("id,name,created_at,updated_at");
@@ -1191,6 +1493,7 @@ export default function CompanyPage() {
                   </div>
                 </div>
               </div>
+
 
               <div className="grid gap-4 sm:grid-cols-2">
                 {[
@@ -2147,6 +2450,268 @@ export default function CompanyPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 px-4 py-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">
+                      Jobs hero logos
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      Upload and reorder logos shown in the Jobs page hero slider.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="h-9 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white disabled:opacity-60"
+                    onClick={() => void handleAddJobsHeroLogo()}
+                    disabled={jobsHeroLogosReordering || jobsHeroLogosActionId !== null}
+                  >
+                    Add logo
+                  </button>
+                </div>
+
+                {jobsHeroLogosError ? (
+                  <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-600">
+                    {jobsHeroLogosError}
+                  </div>
+                ) : null}
+
+                {jobsHeroLogosLoading ? (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                    Loading hero logos...
+                  </div>
+                ) : jobsHeroLogos.length === 0 ? (
+                  <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                    No hero logos yet. Click Add logo to create your first item, then upload an image.
+                  </div>
+                ) : (
+                  <div className="mt-4 grid gap-3">
+                    {jobsHeroLogos.map((item, index) => {
+                      const isBusy = jobsHeroLogosActionId === item.id || jobsHeroLogosReordering;
+                      const canMoveUp = index > 0;
+                      const canMoveDown = index < jobsHeroLogos.length - 1;
+
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                              {item.logoUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={item.logoUrl}
+                                  alt={item.label || "Hero logo"}
+                                  className="h-full w-full object-contain"
+                                />
+                              ) : (
+                                <span className="text-sm font-semibold text-slate-400">
+                                  {item.label ? item.label.slice(0, 1).toUpperCase() : "—"}
+                                </span>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Label
+                              </div>
+                              <input
+                                className="mt-1 h-9 w-full min-w-[220px] max-w-[420px] rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none"
+                                placeholder="e.g. Dropbox"
+                                value={item.label}
+                                disabled={isBusy}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setJobsHeroLogos((prev) =>
+                                    prev.map((row) =>
+                                      row.id === item.id ? { ...row, label: value } : row
+                                    )
+                                  );
+                                }}
+                                onBlur={(event) => {
+                                  const value = event.target.value.trim();
+                                  void handleUpdateJobsHeroLogo(item.id, { label: value });
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="inline-flex h-9 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={isBusy}
+                                onChange={(event) => {
+                                  const file = event.target.files?.[0] ?? null;
+                                  void handleUpdateJobsHeroLogo(item.id, { file });
+                                  event.currentTarget.value = "";
+                                }}
+                              />
+                              {isBusy ? "Uploading..." : item.logoUrl ? "Replace" : "Upload"}
+                            </label>
+                            {item.logoUrl ? (
+                              <button
+                                type="button"
+                                className="h-9 rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                                onClick={() =>
+                                  void handleUpdateJobsHeroLogo(item.id, { removeLogo: true })
+                                }
+                                disabled={isBusy}
+                              >
+                                Remove
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="h-9 rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                              onClick={() => void handleDeleteJobsHeroLogo(item.id)}
+                              disabled={isBusy}
+                            >
+                              Delete
+                            </button>
+                            <div className="ml-1 flex items-center gap-1">
+                              <button
+                                type="button"
+                                className="h-9 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                                disabled={!canMoveUp || isBusy}
+                                onClick={() => {
+                                  const next = [...jobsHeroLogos];
+                                  const a = next[index - 1]!;
+                                  next[index - 1] = next[index]!;
+                                  next[index] = a;
+                                  setJobsHeroLogos(next);
+                                  void handleReorderJobsHeroLogos(next.map((row) => row.id));
+                                }}
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                className="h-9 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                                disabled={!canMoveDown || isBusy}
+                                onClick={() => {
+                                  const next = [...jobsHeroLogos];
+                                  const a = next[index + 1]!;
+                                  next[index + 1] = next[index]!;
+                                  next[index] = a;
+                                  setJobsHeroLogos(next);
+                                  void handleReorderJobsHeroLogos(next.map((row) => row.id));
+                                }}
+                              >
+                                ↓
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 px-4 py-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">
+                      Job companies
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      Extract companies from Breezy positions and manage their logos.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="h-9 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white disabled:opacity-60"
+                    onClick={handleSyncJobCompanies}
+                    disabled={jobCompaniesSyncing}
+                  >
+                    {jobCompaniesSyncing ? "Syncing..." : "Sync companies"}
+                  </button>
+                </div>
+
+                {jobCompaniesError ? (
+                  <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-600">
+                    {jobCompaniesError}
+                  </div>
+                ) : null}
+
+                {jobCompaniesLoading ? (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                    Loading companies...
+                  </div>
+                ) : jobCompanies.length === 0 ? (
+                  <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                    No extracted job companies yet. Run Sync companies after Breezy positions are cached.
+                  </div>
+                ) : (
+                  <div className="mt-4 grid gap-3">
+                    {jobCompanies.map((item) => {
+                      const isBusy = jobCompaniesActionId === item.id;
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                              {item.logoUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={item.logoUrl}
+                                  alt={item.name}
+                                  className="h-full w-full object-contain"
+                                />
+                              ) : (
+                                <span className="text-sm font-semibold text-slate-400">
+                                  {item.name.slice(0, 1).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold text-slate-900">
+                                {item.name}
+                              </div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                {item.positionsCount} {item.positionsCount === 1 ? "position" : "positions"}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="inline-flex h-9 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={isBusy}
+                                onChange={(event) => {
+                                  const file = event.target.files?.[0] ?? null;
+                                  void handleUploadJobCompanyLogo(item.id, file);
+                                  event.currentTarget.value = "";
+                                }}
+                              />
+                              {isBusy ? "Uploading..." : "Upload logo"}
+                            </label>
+                            {item.logoUrl ? (
+                              <button
+                                type="button"
+                                className="h-9 rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                                onClick={() => void handleRemoveJobCompanyLogo(item.id)}
+                                disabled={isBusy}
+                              >
+                                Remove logo
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           ) : null}

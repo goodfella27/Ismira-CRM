@@ -167,6 +167,14 @@ export function requireBreezyIds() {
   return { companyId, positionId };
 }
 
+export function requireBreezyCompanyId() {
+  const { companyId } = getBreezyEnv();
+  if (!companyId) {
+    throw new Error("Missing BREEZY_COMPANY_ID");
+  }
+  return { companyId };
+}
+
 type BreezySearchResult = {
   candidates: Record<string, unknown>[];
   candidateId: string | null;

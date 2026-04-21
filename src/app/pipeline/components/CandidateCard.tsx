@@ -200,13 +200,38 @@ export default function CandidateCard({
           </div>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1">
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border bg-white px-2 py-1 ${
+              noteCount > 0
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-slate-200"
+            }`}
+          >
             <MessageCircle className="h-3.5 w-3.5" />
-            {noteCount}
+            <span className={noteCount > 0 ? "font-semibold" : undefined}>
+              {noteCount}
+            </span>
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1">
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border bg-white px-2 py-1 ${
+              attachmentCount > 1
+                ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                : attachmentCount > 0
+                ? "border-slate-200 text-slate-600"
+                : "border-slate-200"
+            }`}
+            title={
+              attachmentCount > 1
+                ? `${attachmentCount} documents attached`
+                : attachmentCount === 1
+                ? "1 document attached"
+                : "No documents attached"
+            }
+          >
             <Paperclip className="h-3.5 w-3.5" />
-            {attachmentCount}
+            <span className={attachmentCount > 1 ? "font-semibold" : undefined}>
+              {attachmentCount}
+            </span>
           </span>
           {candidate.meeting_start || candidate.meeting_link ? (
             <span
