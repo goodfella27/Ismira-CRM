@@ -1841,6 +1841,39 @@ export default function JobsBoard() {
     setSearchCaretAtEnd(start === end && end === el.value.length);
   }, []);
 
+  const measureInputTextWidth = useCallback((input: HTMLInputElement, text: string) => {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return 0;
+    const styles = window.getComputedStyle(input);
+    ctx.font = styles.font || `${styles.fontWeight} ${styles.fontSize} ${styles.fontFamily}`;
+    // Approximate letter-spacing by adding it per character.
+    const letterSpacing = Number.parseFloat(styles.letterSpacing || "0") || 0;
+    const base = ctx.measureText(text).width;
+    return base + Math.max(0, text.length - 1) * letterSpacing;
+  }, []);
+
+  const acceptInlineAutocomplete = useCallback(
+    (nextValue: string) => {
+      setFilter(nextValue);
+      setSearchSuggestOpen(false);
+      setSearchActiveIndex(-1);
+      setVisibleCount(JOBS_PAGE_SIZE);
+      requestAnimationFrame(() => {
+        const input = searchInputRef.current;
+        if (!input) return;
+        input.focus();
+        try {
+          input.setSelectionRange(nextValue.length, nextValue.length);
+        } catch {
+          // ignore
+        }
+        syncSearchCaret();
+      });
+    },
+    [syncSearchCaret]
+  );
+
   const inlineAutocomplete = useMemo(() => {
     if (!searchSuggestOpen) return null;
     if (!searchCaretAtEnd) return null;
@@ -2108,16 +2141,28 @@ export default function JobsBoard() {
                     requestAnimationFrame(() => syncSearchCaret());
                   }}
                   onSelect={() => requestAnimationFrame(() => syncSearchCaret())}
+                  onMouseDown={(event) => {
+                    if (!inlineAutocomplete) return;
+                    if (!searchCaretAtEnd) return;
+                    const input = event.currentTarget;
+                    const rect = input.getBoundingClientRect();
+                    const styles = window.getComputedStyle(input);
+                    const paddingLeft = Number.parseFloat(styles.paddingLeft || "0") || 0;
+                    const clickX = event.clientX - rect.left;
+                    const typedWidth = measureInputTextWidth(input, filter);
+                    if (clickX > paddingLeft + typedWidth + 2) {
+                      event.preventDefault();
+                      acceptInlineAutocomplete(inlineAutocomplete.full);
+                      return;
+                    }
+                    requestAnimationFrame(() => syncSearchCaret());
+                  }}
                   onClick={() => requestAnimationFrame(() => syncSearchCaret())}
                   onKeyUp={() => requestAnimationFrame(() => syncSearchCaret())}
                   onKeyDown={(event) => {
                     if ((event.key === "Tab" || event.key === "ArrowRight") && inlineAutocomplete) {
                       event.preventDefault();
-                      setFilter(inlineAutocomplete.full);
-                      setSearchSuggestOpen(false);
-                      setSearchActiveIndex(-1);
-                      setVisibleCount(JOBS_PAGE_SIZE);
-                      requestAnimationFrame(() => syncSearchCaret());
+                      acceptInlineAutocomplete(inlineAutocomplete.full);
                       return;
                     }
 

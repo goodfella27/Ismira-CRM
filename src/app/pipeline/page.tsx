@@ -32,6 +32,7 @@ import {
   Candidate,
   Pipeline,
   Stage,
+  TaskItem,
 } from "./types";
 import { FORM_FIELD_KEYS, FORM_FILE_FIELDS } from "@/lib/form-fields";
 import {
@@ -78,14 +79,14 @@ const getCandidateShareKey = (candidateId: string) => {
   const cleaned = candidateId.replace(/[^a-fA-F0-9]/g, "").toLowerCase();
   if (!cleaned) return "00000000";
 
-  let hash = 0n;
+  let hash = 0;
   for (const char of cleaned) {
     const digit = Number.parseInt(char, 16);
     if (Number.isNaN(digit)) continue;
-    hash = (hash * 16n + BigInt(digit)) % 100000000n;
+    hash = (hash * 16 + digit) % 100000000;
   }
 
-  return hash.toString().padStart(8, "0");
+  return String(hash).padStart(8, "0");
 };
 
 const getCandidateLastNameSlug = (name?: string) => {
@@ -329,8 +330,18 @@ const buildPipelinesFromRows = (
 
 const mapCandidateRow = (row: CandidateRow): Candidate => {
   const data = (row.data ?? {}) as Partial<Candidate>;
+  const email =
+    typeof data.email === "string" && data.email.trim()
+      ? data.email.trim()
+      : `unknown-${row.id}@intake.local`;
+  const name =
+    typeof data.name === "string" && data.name.trim()
+      ? data.name.trim()
+      : email.split("@")[0] ?? "Unknown";
   return {
     ...data,
+    name,
+    email,
     id: row.id,
     pipeline_id:
       row.pipeline_id ??
@@ -451,7 +462,9 @@ const buildTaskRows = (candidate: Candidate): TaskRow[] => {
       status: normalizeTaskStatus(task.status),
       created_at: task.created_at ?? new Date().toISOString(),
       watcher_ids: Array.isArray(task.watcher_ids)
-        ? task.watcher_ids.filter((id): id is string => typeof id === "string" && id)
+        ? task.watcher_ids.filter(
+            (id): id is string => typeof id === "string" && id.length > 0
+          )
         : [],
       assigned_to: typeof task.assigned_to === "string" ? task.assigned_to : null,
       due_at: typeof task.due_at === "string" ? task.due_at : null,
@@ -664,7 +677,7 @@ function applyFormSubmission(candidate: Candidate, form: IntakeFormSubmission) {
     }
   }
 
-  if (Object.keys(payload).some((key) => FORM_FILE_FIELDS.has(key))) {
+  if (Object.keys(payload).some((key) => FORM_FILE_FIELDS.has(key as any))) {
     const existingAttachments = candidate.attachments ?? [];
     const existingUrls = new Set(
       existingAttachments.map((attachment) => attachment.url).filter(Boolean)
@@ -675,7 +688,7 @@ function applyFormSubmission(candidate: Candidate, form: IntakeFormSubmission) {
     const nextAttachments = [...existingAttachments];
 
     Object.entries(payload).forEach(([key, value]) => {
-      if (!FORM_FILE_FIELDS.has(key)) return;
+      if (!FORM_FILE_FIELDS.has(key as any)) return;
       if (!isRecord(value)) return;
       const url = typeof value.url === "string" ? value.url : null;
       const path = typeof value.path === "string" ? value.path : null;
@@ -689,7 +702,7 @@ function applyFormSubmission(candidate: Candidate, form: IntakeFormSubmission) {
             ? value.name
             : key,
         mime: typeof value.mime === "string" ? value.mime : undefined,
-        url,
+        url: url ?? undefined,
         path: path ?? undefined,
         kind: "document",
         created_at: form.submitted_at ?? new Date().toISOString(),
@@ -707,7 +720,7 @@ function applyFormSubmission(candidate: Candidate, form: IntakeFormSubmission) {
 
   if (candidate.tasks && candidate.tasks.length > 0) {
     const completedKeys = new Set(Object.keys(payload));
-    const nextTasks = candidate.tasks.map((task) => {
+    const nextTasks: TaskItem[] = candidate.tasks.map((task): TaskItem => {
       if (!task.id.startsWith("form_")) return task;
       const fieldKey = task.id.replace("form_", "");
       if (!completedKeys.has(fieldKey)) return task;
@@ -1015,7 +1028,7 @@ export default function PipelinePage() {
       setNoteCounts(noteCountMap);
       setAttachmentCounts(attachmentCountMap);
 
-      const migrations: Promise<unknown>[] = [];
+      const migrations: PromiseLike<unknown>[] = [];
       if (migrateTaskRows.length > 0) {
         migrations.push(
           supabase
@@ -1299,7 +1312,7 @@ export default function PipelinePage() {
     ) => {
       const shouldSync = (key: keyof Candidate) =>
         !changedKeys || changedKeys.has(key);
-      const promises: Promise<unknown>[] = [];
+      const promises: PromiseLike<unknown>[] = [];
       const candidateId = candidate.id;
 
       if (shouldSync("tasks")) {
@@ -2712,12 +2725,6 @@ export default function PipelinePage() {
     setCandidates((prev) =>
       prev.filter((candidate) => candidate.pipeline_id !== activePipeline.id)
     );
-    setNotes((prev) =>
-      prev.filter((note) => !removeIds.has(note.candidate_id))
-    );
-    setActivity((prev) =>
-      prev.filter((event) => !removeIds.has(event.candidate_id))
-    );
     setPipelines((prev) =>
       prev.filter((pipeline) => pipeline.id !== activePipeline.id)
     );
@@ -2734,32 +2741,28 @@ export default function PipelinePage() {
     const name = typeof window !== "undefined" ? window.prompt("Stage name") : "";
     const trimmed = name?.trim();
     if (!trimmed) return;
-    let createdStage: Stage | null = null;
+    const existing = new Set(activePipeline.stages.map((stage) => stage.id));
+    const id = buildUniqueId(trimmed, existing);
+    const nextStage: Stage = {
+      id,
+      name: trimmed.toUpperCase(),
+      order: activePipeline.stages.length,
+    };
     setPipelines((prev) =>
       prev.map((pipeline) => {
         if (pipeline.id !== activePipeline.id) return pipeline;
-        const existing = new Set(pipeline.stages.map((stage) => stage.id));
-        const id = buildUniqueId(trimmed, existing);
-        const nextStage: Stage = {
-          id,
-          name: trimmed.toUpperCase(),
-          order: pipeline.stages.length,
-        };
-        createdStage = nextStage;
         return {
           ...pipeline,
           stages: [...pipeline.stages, nextStage],
         };
       })
     );
-    if (createdStage) {
-      await supabase.from("pipeline_stages").insert({
-        pipeline_id: activePipeline.id,
-        id: createdStage.id,
-        name: createdStage.name,
-        order: createdStage.order,
-      });
-    }
+    await supabase.from("pipeline_stages").insert({
+      pipeline_id: activePipeline.id,
+      id: nextStage.id,
+      name: nextStage.name,
+      order: nextStage.order,
+    });
   };
 
   if (!hydrated) {

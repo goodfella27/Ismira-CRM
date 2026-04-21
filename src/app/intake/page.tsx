@@ -132,6 +132,9 @@ type UploadEntry = {
   sizeBytes?: number;
   sourceUrl?: string;
   fileId?: string;
+  storageBucket?: string;
+  storagePath?: string;
+  mime?: string;
 };
 
 const formatBytes = (value?: number) => {
@@ -860,62 +863,76 @@ export default function IntakePage() {
       sizeBytes: file.size,
     });
 
-    const payload = new FormData();
-    payload.append("file", file);
-
-    const parseResponse = (text: string) => {
-      try {
-        return JSON.parse(text) as { fileId?: string; error?: string };
-      } catch {
-        return null;
-      }
-    };
-
     try {
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/api/upload");
-        xhr.upload.onprogress = (event) => {
-          if (!event.lengthComputable) return;
-          const pct = Math.min(
-            100,
-            Math.round((event.loaded / event.total) * 100)
-          );
-          updateUpload(uploadId, { progress: pct });
-        };
-        xhr.onload = () => {
-          const payload = parseResponse(xhr.responseText);
-          if (xhr.status >= 200 && xhr.status < 300 && payload?.fileId) {
-            updateUpload(uploadId, {
-              status: "uploaded",
-              progress: 100,
-              fileId: payload.fileId,
-            });
-            resolve();
-            return;
-          }
-          const message =
-            payload?.error ??
-            (xhr.status ? `Upload failed (${xhr.status})` : "Upload failed");
-          updateUpload(uploadId, {
-            status: "error",
-            error: message,
-            progress: null,
-          });
-          setUploadError(message);
-          reject(new Error(message));
-        };
-        xhr.onerror = () => {
-          const message = "Upload failed";
-          updateUpload(uploadId, {
-            status: "error",
-            error: message,
-            progress: null,
-          });
-          setUploadError(message);
-          reject(new Error(message));
-        };
-        xhr.send(payload);
+      const signRes = await fetch("/api/storage/signed-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name,
+          contentType: file.type,
+        }),
+      });
+      const signData = await signRes.json().catch(() => null);
+      if (!signRes.ok) {
+        const message =
+          signData?.error ?? "Unable to prepare upload. Please try again.";
+        updateUpload(uploadId, {
+          status: "error",
+          error: message,
+          progress: null,
+        });
+        setUploadError(message);
+        return;
+      }
+
+      const storageBucket =
+        signData && typeof signData.bucket === "string" ? signData.bucket : "";
+      const storagePath =
+        signData && typeof signData.path === "string" ? signData.path : "";
+      const uploadToken =
+        signData && typeof signData.token === "string" ? signData.token : "";
+
+      if (!storageBucket || !storagePath || !uploadToken) {
+        const message = "Upload configuration is invalid.";
+        updateUpload(uploadId, {
+          status: "error",
+          error: message,
+          progress: null,
+        });
+        setUploadError(message);
+        return;
+      }
+
+      updateUpload(uploadId, { progress: null });
+      const { error: uploadError } = await supabase.storage
+        .from(storageBucket)
+        .uploadToSignedUrl(storagePath, uploadToken, file, {
+          upsert: false,
+          cacheControl: "3600",
+          contentType: file.type || undefined,
+        });
+
+      if (uploadError) {
+        const extra =
+          "status" in uploadError && typeof uploadError.status === "number"
+            ? ` (${uploadError.status})`
+            : "";
+        const message = `${uploadError.message ?? "Upload failed"}${extra}`;
+        updateUpload(uploadId, {
+          status: "error",
+          error: message,
+          progress: null,
+        });
+        setUploadError(message);
+        return;
+      }
+
+      updateUpload(uploadId, {
+        status: "uploaded",
+        progress: 100,
+        storageBucket,
+        storagePath,
+        mime: file.type,
       });
     } catch {
       // error already handled in state
@@ -923,7 +940,7 @@ export default function IntakePage() {
   };
 
   const handleTranscribeUpload = async (upload: UploadEntry) => {
-    if (!upload.fileId) return;
+    if (!upload.storagePath && !upload.fileId) return;
     setTranscribeError(null);
     updateUpload(upload.id, {
       status: "processing",
@@ -931,11 +948,20 @@ export default function IntakePage() {
       error: undefined,
     });
     try {
-      const res = await fetch("/api/transcribe-local", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileId: upload.fileId }),
-      });
+      const res = upload.storagePath
+        ? await fetch("/api/transcribe-storage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              bucket: upload.storageBucket ?? "candidate-documents",
+              path: upload.storagePath,
+            }),
+          })
+        : await fetch("/api/transcribe-local", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileId: upload.fileId }),
+          });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data?.error ?? "Transcription failed");

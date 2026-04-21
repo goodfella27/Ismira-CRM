@@ -406,7 +406,7 @@ export default function CompanyPage() {
       const ids = Array.isArray(watcherRows)
         ? watcherRows
             .map((row) => (row as { user_id?: string | null }).user_id)
-            .filter((id): id is string => typeof id === "string" && id)
+            .filter((id): id is string => typeof id === "string" && id.length > 0)
         : [];
       setTaskWatcherIds(ids);
     } catch (err) {
@@ -979,11 +979,16 @@ export default function CompanyPage() {
             setQuestionnaires(DEFAULT_QUESTIONNAIRES);
           }
         } else if (!ignore) {
-          const normalized = data.map((item) => ({
-            id: item.id,
-            name: item.name,
-            status: item.status === "Active" ? "Active" : "Draft",
-          }));
+          const normalized: Questionnaire[] = data.map((item) => {
+            const status: QuestionnaireStatus =
+              item.status === "Active" ? "Active" : "Draft";
+            return {
+              id: typeof item.id === "string" ? item.id : String(item.id ?? ""),
+              name:
+                typeof item.name === "string" ? item.name : String(item.name ?? ""),
+              status,
+            };
+          });
           setQuestionnaires(normalized);
         }
       } catch {

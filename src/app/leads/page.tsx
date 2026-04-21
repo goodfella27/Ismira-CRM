@@ -951,7 +951,6 @@ export default function LeadsPage() {
           await sendToBreezyRequest(id);
           successCount += 1;
           setBreezyStatus((prev) => ({ ...prev, [id]: "exists" }));
-          setSentIds((prev) => new Set([...prev, id]));
         } catch {
           setBreezyStatus((prev) => ({ ...prev, [id]: "error" }));
         } finally {

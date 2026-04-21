@@ -37,7 +37,11 @@ export async function GET(request: Request) {
           ip: ip || null,
           user_agent: ua || null,
         });
-        await admin.rpc("increment_email_opens", { message_id: messageId }).catch(() => null);
+        try {
+          await admin.rpc("increment_email_opens", { message_id: messageId });
+        } catch {
+          // best-effort counter update
+        }
       }
     }
   } catch {

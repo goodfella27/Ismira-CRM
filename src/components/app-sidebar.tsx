@@ -18,7 +18,10 @@ import {
 import ismiraLogo from "@/images/ismira_logo.png";
 import { cn } from "@/lib/utils";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { getCompanyBranding } from "@/lib/company-branding-client";
+import {
+  getCompanyBranding,
+  invalidateCompanyBrandingCache,
+} from "@/lib/company-branding-client";
 import { TaskNotificationBell } from "@/components/task-notification-bell";
 
 const navItems = [
@@ -94,6 +97,7 @@ export function AppSidebar() {
       }
     };
     const onBrandingUpdated = () => {
+      invalidateCompanyBrandingCache();
       loadBranding();
     };
     const loadUser = async () => {

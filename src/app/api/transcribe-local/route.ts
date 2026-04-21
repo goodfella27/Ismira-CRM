@@ -28,6 +28,7 @@ const stripWarnings = (text: string) =>
 function getPythonPath() {
   const envPython = (process.env.TRANSCRIBE_PYTHON_PATH ?? "").trim();
   if (envPython) return envPython;
+<<<<<<< HEAD
 
   const venvRoot = (process.env.TRANSCRIBE_VENV_PATH ?? process.env.VIRTUAL_ENV ?? "").trim();
   if (venvRoot) {
@@ -41,6 +42,10 @@ function getPythonPath() {
   }
 
   return process.platform === "win32" ? "python" : "python3";
+=======
+  // Prefer a system python. Vercel/most Node hosts won't have a project venv.
+  return "python3";
+>>>>>>> 76b7efe7abad02f756d958ff4c23660f018a9c75
 }
 
 function getScriptPath() {

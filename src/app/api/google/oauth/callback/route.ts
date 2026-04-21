@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const expectedState = cookieStore.get("google_oauth_state")?.value;
   const rawNextPath = cookieStore.get("google_oauth_next")?.value ?? "/pipeline";
   const nextPath = rawNextPath.startsWith("/") ? rawNextPath : "/pipeline";

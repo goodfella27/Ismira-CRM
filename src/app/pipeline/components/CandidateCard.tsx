@@ -11,6 +11,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Candidate } from "../types";
 import { getCountryDisplay } from "@/lib/country";
+import { useLocalDayKey } from "@/lib/use-day-key";
 import { formatDateShort, formatEmailShort, formatRelative } from "../utils";
 
 const initials = (name?: string) => {
@@ -117,6 +118,10 @@ export default function CandidateCard({
 
   const avatarClass = getAvatarClass(candidate.name);
   const avatarBg = avatarClass.split(" ")[0] ?? "bg-emerald-100";
+  const localDayKey = useLocalDayKey();
+  const startDatePart = (candidate.start_date ?? "").trim().split("T")[0] ?? "";
+  const hasDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(startDatePart);
+  const isStarted = hasDateOnly ? startDatePart < localDayKey : false;
   const startDateLabel =
     candidate.pipeline_id !== "companies" ? formatDateShort(candidate.start_date) : "";
 
@@ -254,7 +259,7 @@ export default function CandidateCard({
           {startDateLabel ? (
             <>
               <CalendarDays className="h-3 w-3" />
-              Start {startDateLabel}
+              {isStarted ? "Started" : "Start"} {startDateLabel}
               <span className="px-0.5">•</span>
             </>
           ) : null}

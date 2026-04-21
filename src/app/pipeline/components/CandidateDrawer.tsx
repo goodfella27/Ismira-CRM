@@ -54,14 +54,14 @@ const getCandidateShareKey = (candidateId: string) => {
   const cleaned = candidateId.replace(/[^a-fA-F0-9]/g, "").toLowerCase();
   if (!cleaned) return "00000000";
 
-  let hash = 0n;
+  let hash = 0;
   for (const char of cleaned) {
     const digit = Number.parseInt(char, 16);
     if (Number.isNaN(digit)) continue;
-    hash = (hash * 16n + BigInt(digit)) % 100000000n;
+    hash = (hash * 16 + digit) % 100000000;
   }
 
-  return hash.toString().padStart(8, "0");
+  return String(hash).padStart(8, "0");
 };
 
 const getCandidateLastNameSlug = (name?: string) => {
@@ -403,7 +403,9 @@ const mapTaskRow = (row: TaskRow): TaskItem => ({
   status: row.status === "done" ? "done" : "open",
   created_at: row.created_at ?? new Date().toISOString(),
   watcher_ids: Array.isArray(row.watcher_ids)
-    ? row.watcher_ids.filter((id): id is string => typeof id === "string" && id)
+    ? row.watcher_ids.filter(
+        (id): id is string => typeof id === "string" && id.length > 0
+      )
     : [],
   completed_at: typeof row.completed_at === "string" ? row.completed_at : row.completed_at ?? null,
   completed_by: typeof row.completed_by === "string" ? row.completed_by : row.completed_by ?? null,
@@ -479,14 +481,26 @@ const mapScorecardRow = (row: ScorecardRow): Scorecard => ({
       : {},
 });
 
-const mapQuestionnaireRow = (row: QuestionnaireRow) => ({
-  id: row.id,
-  questionnaire_id: row.questionnaire_id ?? undefined,
-  name: row.name ?? "Questionnaire",
-  status: row.status === "Active" ? "Active" : "Draft",
-  sent_at: row.sent_at ?? new Date().toISOString(),
-  sent_by: row.sent_by ?? undefined,
-});
+const mapQuestionnaireRow = (
+  row: QuestionnaireRow
+): {
+  id: string;
+  questionnaire_id?: string;
+  name: string;
+  status: QuestionnaireStatus;
+  sent_at: string;
+  sent_by?: string;
+} => {
+  const status: QuestionnaireStatus = row.status === "Active" ? "Active" : "Draft";
+  return {
+    id: row.id,
+    questionnaire_id: row.questionnaire_id ?? undefined,
+    name: row.name ?? "Questionnaire",
+    status,
+    sent_at: row.sent_at ?? new Date().toISOString(),
+    sent_by: row.sent_by ?? undefined,
+  };
+};
 
 const parseTimestampFromPath = (value?: string | null) => {
   if (!value) return null;
@@ -1969,11 +1983,16 @@ export default function CandidateDrawer({
             setQuestionnaires(DEFAULT_QUESTIONNAIRES);
           }
         } else if (!ignore) {
-          const normalized = data.map((item) => ({
-            id: item.id,
-            name: item.name,
-            status: item.status === "Active" ? "Active" : "Draft",
-          }));
+          const normalized: Questionnaire[] = data.map((item) => {
+            const status: QuestionnaireStatus =
+              item.status === "Active" ? "Active" : "Draft";
+            return {
+              id: typeof item.id === "string" ? item.id : String(item.id ?? ""),
+              name:
+                typeof item.name === "string" ? item.name : String(item.name ?? ""),
+              status,
+            };
+          });
           setQuestionnaires(normalized);
         }
       } catch {
@@ -2161,32 +2180,34 @@ export default function CandidateDrawer({
 	      setDiscussionLastSeenAt(undefined);
 	      return;
 	    }
+	    const userId = currentUser.id;
+	    const candidateId = candidate.id;
 	    let ignore = false;
 	    const loadReadState = async () => {
 	      setDiscussionLastSeenAt(undefined);
 	      const { data, error } = await supabase
 	        .from("candidate_note_reads")
 	        .select("last_seen_at")
-	        .eq("user_id", currentUser.id)
-	        .eq("candidate_id", candidate.id)
+	        .eq("user_id", userId)
+	        .eq("candidate_id", candidateId)
 	        .maybeSingle();
 	      if (ignore) return;
 	      if (error) {
-	        const local = readLocalLastSeen("discussion", currentUser.id, candidate.id);
+	        const local = readLocalLastSeen("discussion", userId, candidateId);
 	        setDiscussionLastSeenAt(local ?? null);
 	        return;
 	      }
 	      const dbLastSeenAt =
 	        (data as { last_seen_at?: string | null } | null)?.last_seen_at ?? null;
-	      const localLastSeenAt = readLocalLastSeen("discussion", currentUser.id, candidate.id);
+	      const localLastSeenAt = readLocalLastSeen("discussion", userId, candidateId);
 	      const resolved = maxIsoTimestamp([dbLastSeenAt, localLastSeenAt]);
 	      setDiscussionLastSeenAt(resolved ?? null);
 
 	      if (localLastSeenAt && (!dbLastSeenAt || resolved !== dbLastSeenAt)) {
 	        void supabase.from("candidate_note_reads").upsert(
 	          {
-	            user_id: currentUser.id,
-	            candidate_id: candidate.id,
+	            user_id: userId,
+	            candidate_id: candidateId,
 	            last_seen_at: resolved,
 	          },
 	          { onConflict: "user_id,candidate_id" }
@@ -2204,32 +2225,34 @@ export default function CandidateDrawer({
 	      setNotesLastSeenAt(undefined);
 	      return;
 	    }
+	    const userId = currentUser.id;
+	    const candidateId = candidate.id;
 	    let ignore = false;
 	    const loadReadState = async () => {
 	      setNotesLastSeenAt(undefined);
 	      const { data, error } = await supabase
 	        .from("candidate_activity_reads")
 	        .select("last_seen_at")
-	        .eq("user_id", currentUser.id)
-	        .eq("candidate_id", candidate.id)
+	        .eq("user_id", userId)
+	        .eq("candidate_id", candidateId)
 	        .maybeSingle();
 	      if (ignore) return;
 	      if (error) {
-	        const local = readLocalLastSeen("notes", currentUser.id, candidate.id);
+	        const local = readLocalLastSeen("notes", userId, candidateId);
 	        setNotesLastSeenAt(local ?? null);
 	        return;
 	      }
 	      const dbLastSeenAt =
 	        (data as { last_seen_at?: string | null } | null)?.last_seen_at ?? null;
-	      const localLastSeenAt = readLocalLastSeen("notes", currentUser.id, candidate.id);
+	      const localLastSeenAt = readLocalLastSeen("notes", userId, candidateId);
 	      const resolved = maxIsoTimestamp([dbLastSeenAt, localLastSeenAt]);
 	      setNotesLastSeenAt(resolved ?? null);
 
 	      if (localLastSeenAt && (!dbLastSeenAt || resolved !== dbLastSeenAt)) {
 	        void supabase.from("candidate_activity_reads").upsert(
 	          {
-	            user_id: currentUser.id,
-	            candidate_id: candidate.id,
+	            user_id: userId,
+	            candidate_id: candidateId,
 	            last_seen_at: resolved,
 	          },
 	          { onConflict: "user_id,candidate_id" }
@@ -2377,19 +2400,20 @@ export default function CandidateDrawer({
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) return;
-        const list = Array.isArray(data?.members) ? data.members : [];
+        const list = Array.isArray(data?.members)
+          ? (data.members as Record<string, unknown>[])
+          : [];
         if (!ignore) {
-          setTeamUsers(
-            list
-              .map((user: Record<string, unknown>) => ({
-                id: (user.user_id as string) ?? "",
-                email: (user.email as string) ?? "",
-                name: (user.name as string) ?? "",
-                avatar_url: (user.avatar_url as string | null) ?? null,
-                avatar_path: (user.avatar_path as string | null) ?? null,
-              }))
-              .filter((item) => Boolean(item.id))
-          );
+          const mapped: TeamUser[] = list.map((user) => ({
+            id: typeof user.user_id === "string" ? user.user_id : "",
+            email: typeof user.email === "string" ? user.email : "",
+            name: typeof user.name === "string" ? user.name : "",
+            avatar_url:
+              typeof user.avatar_url === "string" ? user.avatar_url : null,
+            avatar_path:
+              typeof user.avatar_path === "string" ? user.avatar_path : null,
+          }));
+          setTeamUsers(mapped.filter((item) => item.id.length > 0));
         }
       } catch {
         // ignore - avatars are optional
@@ -2440,13 +2464,43 @@ export default function CandidateDrawer({
       ignore = true;
     };
   }, [teamUsers, avatarOverrides]);
-  const rawTasks = Array.isArray(candidate?.tasks)
-    ? candidate?.tasks.filter(
-        (item) =>
-          typeof item === "object" &&
-          item !== null &&
-          "title" in (item as Record<string, unknown>)
-      )
+  const rawTasks: TaskItem[] = Array.isArray(candidate?.tasks)
+    ? (candidate.tasks as unknown[])
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const record = item as Record<string, unknown>;
+          const id = typeof record.id === "string" ? record.id : "";
+          const title = typeof record.title === "string" ? record.title : "";
+          if (!id || !title) return null;
+
+          const row: TaskRow = {
+            candidate_id:
+              typeof record.candidate_id === "string" ? record.candidate_id : "",
+            id,
+            kind: typeof record.kind === "string" ? record.kind : (record.kind as string | null),
+            title,
+            status: typeof record.status === "string" ? record.status : "open",
+            created_at: typeof record.created_at === "string" ? record.created_at : null,
+            watcher_ids: Array.isArray(record.watcher_ids)
+              ? (record.watcher_ids as string[])
+              : null,
+            completed_at:
+              typeof record.completed_at === "string" ? record.completed_at : null,
+            completed_by:
+              typeof record.completed_by === "string" ? record.completed_by : null,
+            assigned_to:
+              typeof record.assigned_to === "string" ? record.assigned_to : null,
+            due_at: typeof record.due_at === "string" ? record.due_at : null,
+            reminder_minutes_before:
+              typeof record.reminder_minutes_before === "number"
+                ? record.reminder_minutes_before
+                : null,
+            notes: typeof record.notes === "string" ? record.notes : null,
+          };
+
+          return mapTaskRow(row);
+        })
+        .filter((task): task is TaskItem => task !== null)
     : [];
   const sentQuestionnaires = Array.isArray(candidate?.questionnaires_sent)
     ? candidate?.questionnaires_sent.filter(
@@ -3624,12 +3678,13 @@ export default function CandidateDrawer({
   const handleToggleTask = async (taskId: string) => {
     if (!candidate?.id || !taskId) return;
     setTaskActionError(null);
-    const prev = rawTasks;
+    const prev = rawTasks as TaskItem[];
     const target = prev.find((task) => task.id === taskId);
     if (!target) return;
-    const nextStatus = target.status === "done" ? "open" : "done";
-    const next = prev.map((task) =>
-      task.id === taskId ? { ...task, status: nextStatus } : task
+    const nextStatus: TaskItem["status"] =
+      target.status === "done" ? "open" : "done";
+    const next: TaskItem[] = prev.map((task) =>
+      task.id === taskId ? ({ ...task, status: nextStatus } as TaskItem) : task
     );
     onHydrateCandidate(candidate.id, {
       tasks: next.filter((task) => !isRequestInfoTask(task)),
@@ -7498,7 +7553,7 @@ export default function CandidateDrawer({
                 <button
                   type="button"
                   className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white"
-                  onClick={handleCreateMeeting}
+                  onClick={() => void handleCreateMeeting()}
                   disabled={meetingSubmitting}
                 >
                   {meetingSubmitting ? "Creating..." : "Create Google Meet"}
