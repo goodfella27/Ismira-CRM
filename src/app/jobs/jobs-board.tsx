@@ -948,6 +948,10 @@ export default function JobsBoard() {
     []
   );
   const [heroAssetsReady, setHeroAssetsReady] = useState(false);
+  const [pageAssetsReady, setPageAssetsReady] = useState(() => {
+    if (typeof document === "undefined") return false;
+    return document.readyState === "complete";
+  });
   const [filter, setFilter] = useState("");
   const [companyFilters, setCompanyFilters] = useState<string[]>([]);
   const [departmentFilters, setDepartmentFilters] = useState<string[]>([]);
@@ -990,6 +994,33 @@ export default function JobsBoard() {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const anyModalOpen = Boolean(selectedId) || companyModalOpen || departmentModalOpen;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (typeof document !== "undefined" && document.readyState === "complete") {
+      setPageAssetsReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    const onLoad = () => {
+      if (cancelled) return;
+      setPageAssetsReady(true);
+    };
+
+    window.addEventListener("load", onLoad, { once: true });
+
+    // Safety net: avoid leaving the hero in a skeleton state if the load event never fires.
+    const timer = window.setTimeout(() => {
+      if (!cancelled) setPageAssetsReady(true);
+    }, 2500);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("load", onLoad);
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1437,10 +1468,10 @@ export default function JobsBoard() {
     if (cached) setHeroLogos(cached);
   }, [readHeroLogosCache]);
 
-  useEffect(() => {
-    let ignore = false;
-    const load = async () => {
-      try {
+	  useEffect(() => {
+	    let ignore = false;
+	    const load = async () => {
+	      try {
         const res = await fetch("/api/jobs/hero-logos", { cache: "no-store" });
         const data = await res.json().catch(() => null);
         if (!res.ok) return;
@@ -1461,10 +1492,10 @@ export default function JobsBoard() {
       }
     };
     void load();
-    return () => {
-      ignore = true;
-    };
-  }, []);
+	    return () => {
+	      ignore = true;
+	    };
+	  }, [writeHeroLogosCache]);
 
   const heroSliderItems = useMemo(() => {
     if (heroLogos.length === 0) return null;
@@ -2226,11 +2257,11 @@ export default function JobsBoard() {
 	              Browse open positions and view full job details.
 	            </p>
 
-		            {heroAssetsReady && heroSliderItems && heroSliderItems.length > 0 ? (
-		              <LogoStackSlider className="mx-auto mt-10" size={124} items={heroSliderItems} />
-		            ) : (
-		              <HeroLogoStackSkeleton className="mx-auto mt-10" size={124} />
-		            )}
+			            {pageAssetsReady && heroAssetsReady && heroSliderItems && heroSliderItems.length > 0 ? (
+			              <LogoStackSlider className="mx-auto mt-10" size={124} items={heroSliderItems} />
+			            ) : (
+			              <HeroLogoStackSkeleton className="mx-auto mt-10" size={124} />
+			            )}
 		          </div>
 		        </section>
 
