@@ -14,7 +14,7 @@ import {
   Search,
   ChevronDown,
   Building2,
-  Layers,
+  UserRound,
   MapPin,
   X,
   Loader2,
@@ -1204,16 +1204,33 @@ export default function JobsBoard() {
   }, [baseJobs, companyFilters, hasPriorityFilter, prioritySelection]);
 
   const priorityCounts = useMemo(() => {
+    const query = deferredFilter.trim().toLowerCase();
     const companySet = new Set(companyFilters);
     const departmentSet = new Set(departmentFilters);
     const source =
       companySet.size > 0
         ? baseJobs.filter((job) => companySet.has(job.__companyKey))
         : baseJobs;
-    const narrowed =
+    const byDepartment =
       departmentSet.size > 0
         ? source.filter((job) => departmentSet.has(job.__departmentKey))
         : source;
+    const byCountry = countryFilter
+      ? byDepartment.filter((job) => {
+          const target = countryFilter.toUpperCase();
+          const blocked = Array.isArray(job.blocked_countries) ? job.blocked_countries : [];
+          if (blocked.map((c) => asString(c).toUpperCase()).includes(target)) return false;
+          const processable = Array.isArray(job.processable_countries)
+            ? job.processable_countries
+            : [];
+          const mentioned = Array.isArray(job.mentioned_countries) ? job.mentioned_countries : [];
+          const combined = [...processable, ...mentioned].map((c) => asString(c).toUpperCase());
+          return combined.includes(target);
+        })
+      : byDepartment;
+    const narrowed = !query
+      ? byCountry
+      : byCountry.filter((job) => job.__search.includes(query));
 
     let hot = 0;
     let urgent = 0;
@@ -1223,7 +1240,7 @@ export default function JobsBoard() {
     }
 
     return { hot, urgent };
-  }, [baseJobs, companyFilters, departmentFilters]);
+  }, [baseJobs, companyFilters, countryFilter, deferredFilter, departmentFilters]);
 
   useEffect(() => {
     if (companyFilters.length === 0) return;
@@ -1805,7 +1822,7 @@ export default function JobsBoard() {
           id: `department:${opt.key}`,
           kind: "department",
           label: opt.label,
-          prefix: <Layers className="h-4 w-4 text-fuchsia-600" />,
+          prefix: <UserRound className="h-4 w-4 text-amber-600" />,
           suffix: opt.count ? String(opt.count) : "",
           onSelect: () => {
             setDepartmentFilters((prev) => (prev.includes(opt.key) ? prev : [...prev, opt.key]));
@@ -1906,7 +1923,7 @@ export default function JobsBoard() {
             id: `department:${opt.key}`,
             kind: "department",
             label: opt.label,
-            prefix: <Layers className="h-4 w-4 text-fuchsia-600" />,
+            prefix: <UserRound className="h-4 w-4 text-amber-600" />,
             suffix: opt.count ? String(opt.count) : "",
             onSelect: () => {
               setDepartmentFilters((prev) => (prev.includes(opt.key) ? prev : [...prev, opt.key]));
@@ -2254,7 +2271,7 @@ export default function JobsBoard() {
     <div className="min-h-screen bg-slate-50 px-3 py-10 text-slate-900 sm:px-5 lg:px-8">
       <div className="mx-auto w-full max-w-[1280px]">
         <section className="relative overflow-hidden rounded-[36px] px-6 pb-16 pt-12 text-center shadow-[0_30px_80px_-55px_rgba(0,0,0,0.75)] sm:px-10 sm:pb-20 sm:pt-14">
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 via-amber-300 to-orange-500" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#ff9f2f] via-[#58d0d8] to-[#3ea4e6]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_40%,rgba(255,255,255,0.30),transparent_56%)] opacity-95" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_52%_20%,rgba(255,255,255,0.22),transparent_52%)] opacity-95" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_88%_30%,rgba(0,0,0,0.18),transparent_58%)] opacity-90" />
@@ -2286,7 +2303,7 @@ export default function JobsBoard() {
         >
           <div ref={searchRootRef} className="relative">
             <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sky-50 text-sky-700 ring-1 ring-sky-100">
                 <Search className="h-4 w-4" />
               </span>
               <div className="relative w-full">
@@ -2381,7 +2398,7 @@ export default function JobsBoard() {
               </div>
               <button
                 type="submit"
-                className="h-10 shrink-0 rounded-2xl bg-emerald-600 px-7 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500"
+                className="h-10 shrink-0 rounded-2xl bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-7 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(47,125,225,0.7)] transition hover:from-[#256fd2] hover:to-[#55bbff]"
               >
                 Search
               </button>
@@ -2824,8 +2841,8 @@ export default function JobsBoard() {
                                     className={[
                                       "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide shadow-sm",
                                       priorityLabel === "Hot"
-                                        ? "bg-gradient-to-r from-orange-400 to-rose-500 text-white shadow-orange-200/40"
-                                        : "bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white shadow-rose-200/40",
+                                        ? "bg-gradient-to-r from-[#ffbf5f] to-[#ff9d2e] text-white shadow-orange-200/40"
+                                        : "bg-gradient-to-r from-[#58d0d8] to-[#3ea4e6] text-white shadow-sky-200/50",
                                     ].join(" ")}
                                   >
                                     {priorityLabel}
@@ -2841,16 +2858,16 @@ export default function JobsBoard() {
                             </div>
 			                            <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold">
 			                              {department ? (
-			                                <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-gradient-to-r from-violet-100 to-fuchsia-100 px-2.5 py-1.5 text-violet-950 shadow-sm shadow-violet-200/40">
-			                                  <Layers className="h-3.5 w-3.5 text-fuchsia-600" />
+			                                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-gradient-to-r from-amber-100 to-[#ffc45c]/70 px-2.5 py-1.5 text-amber-950 shadow-sm shadow-amber-200/40">
+			                                  <UserRound className="h-3.5 w-3.5 text-amber-600" />
 		                                  <span className="max-w-[260px] truncate whitespace-nowrap">
 		                                    {department}
 		                                  </span>
 		                                </span>
 		                              ) : null}
 		                              {locationBadgeLabel ? (
-		                                <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-gradient-to-r from-cyan-100 to-emerald-100 px-2.5 py-1.5 text-cyan-950 shadow-sm shadow-emerald-200/40">
-		                                  <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+		                                <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-gradient-to-r from-cyan-100 to-sky-100 px-2.5 py-1.5 text-cyan-950 shadow-sm shadow-cyan-200/40">
+		                                  <MapPin className="h-3.5 w-3.5 text-cyan-600" />
 		                                  <span className="max-w-[320px] truncate whitespace-nowrap">
 		                                    {locationBadgeLabel}
 		                                  </span>
@@ -2914,7 +2931,7 @@ export default function JobsBoard() {
           >
 	            <div className="hide-scrollbar max-h-[80vh] overflow-auto">
 	              <div className="relative overflow-hidden">
-                <div className="h-40 w-full bg-gradient-to-br from-indigo-600 via-indigo-500 to-emerald-400 sm:h-56">
+                <div className="h-40 w-full bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6] sm:h-56">
                   {modalDescription.heroSrc ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -2998,8 +3015,8 @@ export default function JobsBoard() {
                             className={[
                               "inline-flex items-center rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide shadow-sm",
                               modalPriorityLabel === "Hot"
-                                ? "bg-gradient-to-r from-orange-400 to-rose-500 text-white shadow-orange-200/40"
-                                : "bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white shadow-rose-200/40",
+                                ? "bg-gradient-to-r from-[#ffbf5f] to-[#ff9d2e] text-white shadow-orange-200/40"
+                                : "bg-gradient-to-r from-[#58d0d8] to-[#3ea4e6] text-white shadow-sky-200/50",
                             ].join(" ")}
                           >
                             {modalPriorityLabel}
@@ -3037,14 +3054,14 @@ export default function JobsBoard() {
 	                                className={[
 	                                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-semibold shadow-sm",
 	                                  badge.key === "department"
-	                                    ? "border-violet-200 bg-gradient-to-r from-violet-100 to-fuchsia-100 text-violet-950 shadow-violet-200/40"
-	                                    : "border-cyan-200 bg-gradient-to-r from-cyan-100 to-emerald-100 text-cyan-950 shadow-emerald-200/40",
+	                                    ? "border-amber-200 bg-gradient-to-r from-amber-100 to-[#ffc45c]/70 text-amber-950 shadow-amber-200/40"
+	                                    : "border-cyan-200 bg-gradient-to-r from-cyan-100 to-sky-100 text-cyan-950 shadow-cyan-200/40",
 	                                ].join(" ")}
 	                              >
 	                                {badge.key === "department" ? (
-	                                  <Layers className="h-3.5 w-3.5 text-fuchsia-600" />
+	                                  <UserRound className="h-3.5 w-3.5 text-amber-600" />
 	                                ) : (
-	                                  <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+	                                  <MapPin className="h-3.5 w-3.5 text-cyan-600" />
 	                                )}
 	                                <span className="min-w-0 max-w-[320px] whitespace-nowrap truncate">
 	                                  {badge.label}
@@ -3059,7 +3076,7 @@ export default function JobsBoard() {
 
 			                  <button
 			                    type="button"
-			                    className="inline-flex h-16 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 px-10 text-base font-semibold text-white shadow-xl shadow-emerald-200/70 ring-1 ring-white/20 hover:from-emerald-400 hover:via-teal-400 hover:to-cyan-400 focus:outline-none focus:ring-2 focus:ring-emerald-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70 sm:justify-self-end"
+			                    className="inline-flex h-16 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-10 text-base font-semibold text-white shadow-xl shadow-sky-200/70 ring-1 ring-white/20 hover:from-[#256fd2] hover:to-[#55bbff] focus:outline-none focus:ring-2 focus:ring-sky-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70 sm:justify-self-end"
 			                    disabled={applyNavigating}
 			                    onClick={() => {
 			                      if (typeof window === "undefined") return;

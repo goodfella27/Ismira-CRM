@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCw, Search, Copy, Check } from "lucide-react";
+import {
+  RefreshCw,
+  Search,
+  Layers,
+  MapPin,
+  BriefcaseBusiness,
+  FolderKanban,
+} from "lucide-react";
 
 import { loadBreezyCompanyId, saveBreezyCompanyId } from "@/lib/breezy-storage";
 import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
@@ -39,6 +46,13 @@ type CachedPositionDetailsResponse = {
   overrides?: Record<string, unknown>;
   meta?: Record<string, unknown>;
   warning?: string;
+};
+
+type JobCompanyLogoResponse = {
+  companies?: Array<{
+    name?: string;
+    logoUrl?: string | null;
+  }>;
 };
 
 function asString(value: unknown) {
@@ -282,6 +296,27 @@ function formatPositionLocation(details: BreezyPositionDetails | null): string {
   return location || remote;
 }
 
+function normalizePositionType(value: string | undefined) {
+  return (value || "position").trim().toLowerCase() === "pool"
+    ? "pool"
+    : "position";
+}
+
+function buildPositionPreview(position: BreezyPosition) {
+  const company = asString(position.company).trim();
+  const department = asString(position.department).trim();
+  const state = asString(position.state).trim();
+  const segments = [
+    company ? `${company} actively recruiting` : "",
+    department ? `for ${department}` : "",
+    state ? `(${state})` : "",
+  ].filter(Boolean);
+  const sentence = segments.join(" ").trim();
+  if (sentence) return `${sentence}.`;
+  if (position.friendly_id) return position.friendly_id;
+  return "Browse cached Breezy details and open the full record for more information.";
+}
+
 export default function BreezyPositionsPage() {
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [loadingPositions, setLoadingPositions] = useState(false);
@@ -296,7 +331,6 @@ export default function BreezyPositionsPage() {
   );
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
   const [selectedPositionId, setSelectedPositionId] = useState<string | null>(
     null
   );
@@ -312,6 +346,9 @@ export default function BreezyPositionsPage() {
   const [showRawDetails, setShowRawDetails] = useState(false);
   const [editing, setEditing] = useState(false);
   const [savingEdits, setSavingEdits] = useState(false);
+  const [companyLogoByName, setCompanyLogoByName] = useState<Record<string, string>>(
+    {}
+  );
   const [editForm, setEditForm] = useState({
     name: "",
     company: "",
@@ -335,7 +372,7 @@ export default function BreezyPositionsPage() {
       typeFilter === "all"
         ? positions
         : positions.filter((pos) => {
-            const kind = (pos.org_type || "position").toLowerCase();
+            const kind = normalizePositionType(pos.org_type);
             return kind === typeFilter;
           });
 
@@ -346,6 +383,18 @@ export default function BreezyPositionsPage() {
       return haystack.includes(query);
     });
   }, [positions, filter, typeFilter]);
+
+  const typeCounts = useMemo(() => {
+    return positions.reduce(
+      (acc, pos) => {
+        const kind = normalizePositionType(pos.org_type);
+        acc[kind] += 1;
+        acc.all += 1;
+        return acc;
+      },
+      { all: 0, position: 0, pool: 0 }
+    );
+  }, [positions]);
 
   const loadCompanies = async () => {
     setLoadingCompanies(true);
@@ -625,6 +674,35 @@ export default function BreezyPositionsPage() {
   }, [companyId]);
 
   useEffect(() => {
+    let ignore = false;
+
+    const loadCompanyLogos = async () => {
+      try {
+        const res = await fetch("/api/company/job-companies", { cache: "no-store" });
+        const data = (await res.json().catch(() => null)) as JobCompanyLogoResponse | null;
+        if (!res.ok || !data?.companies || ignore) return;
+
+        const next = data.companies.reduce<Record<string, string>>((acc, company) => {
+          const name = asString(company?.name).trim().toLowerCase();
+          const logoUrl = asString(company?.logoUrl).trim();
+          if (!name || !logoUrl) return acc;
+          acc[name] = logoUrl;
+          return acc;
+        }, {});
+
+        if (!ignore) setCompanyLogoByName(next);
+      } catch {
+        if (!ignore) setCompanyLogoByName({});
+      }
+    };
+
+    void loadCompanyLogos();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!selectedPositionId) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -648,16 +726,6 @@ export default function BreezyPositionsPage() {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [selectedPositionId]);
-
-  const copy = async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(value);
-      window.setTimeout(() => setCopied(null), 1500);
-    } catch {
-      // ignore
-    }
-  };
 
   return (
     <div className="mx-auto w-full">
@@ -770,23 +838,57 @@ export default function BreezyPositionsPage() {
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Type
             </div>
-            <div className="mt-2">
-              <select
-                className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                value={typeFilter}
-                onChange={(event) =>
-                  setTypeFilter(
-                    (event.target.value as "all" | "position" | "pool") ?? "all"
-                  )
-                }
-              >
-                <option value="all">All</option>
-                <option value="position">Job openings (Positions)</option>
-                <option value="pool">Pools</option>
-              </select>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {[
+                {
+                  key: "all" as const,
+                  label: "All",
+                  count: typeCounts.all,
+                  icon: BriefcaseBusiness,
+                },
+                {
+                  key: "position" as const,
+                  label: "Positions",
+                  count: typeCounts.position,
+                  icon: BriefcaseBusiness,
+                },
+                {
+                  key: "pool" as const,
+                  label: "Pools",
+                  count: typeCounts.pool,
+                  icon: FolderKanban,
+                },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const active = typeFilter === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    className={[
+                      "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition",
+                      active
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                    ].join(" ")}
+                    onClick={() => setTypeFilter(tab.key)}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{tab.label}</span>
+                    <span
+                      className={[
+                        "rounded-full px-2 py-0.5 text-[10px] font-bold",
+                        active ? "bg-emerald-100 text-emerald-900" : "bg-slate-100 text-slate-600",
+                      ].join(" ")}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             <p className="mt-2 text-xs text-slate-500">
-              Breezy shows Positions and Pools together; Pools often have fewer details.
+              Separate Breezy job openings from candidate pools without mixing them in one list.
             </p>
           </div>
         </div>
@@ -803,123 +905,177 @@ export default function BreezyPositionsPage() {
           </div>
         ) : null}
 
-        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
-          <div className="grid grid-cols-12 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <div className="col-span-5">Position</div>
-            <div className="col-span-1">Type</div>
-            <div className="col-span-2">State</div>
-            <div className="col-span-2">ID</div>
-            <div className="col-span-2 text-right">Copy</div>
+        <div className="mt-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-slate-600">
+              <span className="font-semibold text-slate-900">
+                {filteredPositions.length.toLocaleString()}
+              </span>{" "}
+              {typeFilter === "pool"
+                ? "pools"
+                : typeFilter === "position"
+                ? "positions"
+                : "records"}
+            </div>
           </div>
 
-          {loadingPositions ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-500">
-              Loading positions…
-            </div>
-          ) : filteredPositions.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-500">
-              No positions found.
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-200">
-              {filteredPositions.map((pos, index) => {
+          <div className="mt-5 space-y-4">
+            {loadingPositions ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+                Loading positions…
+              </div>
+            ) : filteredPositions.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+                No {typeFilter === "all" ? "positions" : typeFilter} found.
+              </div>
+            ) : (
+              filteredPositions.map((pos, index) => {
                 const id = pos.id;
                 const name = pos.name || pos.friendly_id || id || "Position";
                 const active = Boolean(id && selectedPositionId === id);
-                const orgType = (pos.org_type || "position").toLowerCase();
+                const orgType = normalizePositionType(pos.org_type);
+                const company = asString(pos.company).trim();
+                const companyLogoUrl = companyLogoByName[company.toLowerCase()] ?? "";
+                const department = asString(pos.department).trim();
+                const priority = asString(pos.priority).trim().toLowerCase();
+                const priorityLabel =
+                  priority === "hot" ? "Hot" : priority === "urgent" ? "Urgent" : "";
+                const preview = buildPositionPreview(pos);
+                const avatarSeed = (company || name).trim() || "P";
+                const avatar = avatarSeed.slice(0, 1).toUpperCase();
                 return (
                   <div
                     key={id || `${name}-${index}`}
+                    role="button"
+                    tabIndex={id ? 0 : -1}
+                    aria-pressed={active}
                     className={[
-                      "grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm transition",
-                      id ? "cursor-pointer hover:bg-slate-50" : "",
-                      active ? "bg-emerald-50/70" : "",
+                      "group flex w-full items-start justify-between gap-4 rounded-3xl border bg-white p-5 text-left shadow-sm transition hover:shadow-md",
+                      id ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/25" : "",
+                      active
+                        ? "border-emerald-200 ring-2 ring-emerald-500/20"
+                        : "border-slate-200 hover:border-emerald-200",
                     ].join(" ")}
-                    onClick={() =>
-                      id ? void loadPositionDetails(id, name) : undefined
-                    }
-                  >
-                    <div className="col-span-5">
-                      <div className="flex items-center gap-2">
-                        <div className="font-semibold text-slate-900">{name}</div>
-                        {pos.edited ? (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
-                            Edited
-                          </span>
-                        ) : null}
-                        {(() => {
-                          const value = asString(pos.priority).trim().toLowerCase();
-                          if (value !== "hot" && value !== "urgent") return null;
-                          const label = value === "hot" ? "Hot" : "Urgent";
-                          const classes =
-                            value === "hot"
-                              ? "bg-orange-100 text-orange-800"
-                              : "bg-rose-100 text-rose-800";
-                          return (
-                            <span
-                              className={[
-                                "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                                classes,
-                              ].join(" ")}
-                            >
-                              {label}
-                            </span>
-                          );
-                        })()}
-                      </div>
-                      {pos.friendly_id ? (
-                        <div className="text-xs text-slate-500">
-                          {pos.friendly_id}
-                        </div>
-                      ) : null}
-                    </div>
-                    <div className="col-span-1">
-                      <span
-                        className={[
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                          orgType === "pool"
-                            ? "bg-indigo-100 text-indigo-800"
-                            : "bg-slate-100 text-slate-700",
-                        ].join(" ")}
-                        title={orgType === "pool" ? "Candidate pool" : "Job opening"}
+                    onClick={() => (id ? void loadPositionDetails(id, name) : undefined)}
+                    onKeyDown={(event) => {
+                      if (!id) return;
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      void loadPositionDetails(id, name);
+                    }}
                       >
-                        {orgType === "pool" ? "Pool" : "Position"}
-                      </span>
-                    </div>
-                    <div className="col-span-2 text-slate-700">
-                      {pos.state ?? "—"}
-                    </div>
-                    <div className="col-span-2 font-mono text-xs text-slate-700">
-                      {id || "—"}
-                    </div>
-                    <div className="col-span-2 flex justify-end">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          if (id) void copy(id);
-                        }}
-                        disabled={!id}
-                      >
-                        {copied === id ? (
-                          <>
-                            <Check className="h-3.5 w-3.5" />
-                            Copied
-                          </>
+                        <div className="flex min-w-0 items-start gap-4">
+                      <div className="mt-0.5 grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-white text-2xl font-bold text-slate-600 ring-1 ring-slate-200">
+                        {companyLogoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={companyLogoUrl}
+                            alt={company || name}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
                         ) : (
-                          <>
-                            <Copy className="h-3.5 w-3.5" />
-                            Copy ID
-                          </>
+                          avatar
                         )}
-                      </button>
+                      </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                  {priorityLabel ? (
+                                    <span
+                                      className={[
+                                        "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide shadow-sm",
+                                        priorityLabel === "Hot"
+                                          ? "bg-gradient-to-r from-[#ffbf5f] to-[#ff9d2e] text-white shadow-orange-200/40"
+                                          : "bg-gradient-to-r from-[#58d0d8] to-[#3ea4e6] text-white shadow-sky-200/50",
+                                      ].join(" ")}
+                                    >
+                                      {priorityLabel}
+                                    </span>
+                                  ) : null}
+                                  <div className="min-w-0 flex-1 break-words text-[18px] font-extrabold leading-snug text-slate-900">
+                                    {name}
+                                  </div>
+                                </div>
+                              </div>
+                              {pos.edited ? (
+                                <div className="flex shrink-0 justify-end">
+                                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-800 shadow-sm">
+                                    Edited
+                                  </span>
+                                </div>
+                              ) : null}
+                            </div>
+
+                        <div className="mt-1 text-xs leading-5 text-slate-600 [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical] overflow-hidden">
+                          {preview}
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold">
+                          <span
+                            className={[
+                              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 shadow-sm",
+                              orgType === "pool"
+                                ? "border-sky-200 bg-gradient-to-r from-cyan-100 to-sky-100 text-sky-950 shadow-sky-200/40"
+                                : "border-slate-200 bg-slate-100 text-slate-800 shadow-slate-200/40",
+                            ].join(" ")}
+                            title={orgType === "pool" ? "Candidate pool" : "Job opening"}
+                          >
+                            {orgType === "pool" ? (
+                              <FolderKanban className="h-3.5 w-3.5 text-indigo-600" />
+                            ) : (
+                              <BriefcaseBusiness className="h-3.5 w-3.5 text-slate-600" />
+                            )}
+                            <span>{orgType === "pool" ? "Pool" : "Position"}</span>
+                          </span>
+
+                          {department ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-gradient-to-r from-sky-100 to-cyan-100 px-2.5 py-1.5 text-sky-950 shadow-sm shadow-sky-200/40">
+                              <Layers className="h-3.5 w-3.5 text-sky-600" />
+                              <span className="max-w-[260px] truncate whitespace-nowrap">
+                                {department}
+                              </span>
+                            </span>
+                          ) : null}
+
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-gradient-to-r from-cyan-100 to-sky-100 px-2.5 py-1.5 text-cyan-950 shadow-sm shadow-cyan-200/40">
+                            <MapPin className="h-3.5 w-3.5 text-cyan-600" />
+                            <span className="max-w-[320px] truncate whitespace-nowrap">
+                              {asString(pos.state).trim() || "Published"}
+                            </span>
+                          </span>
+
+                          {company ? (
+                            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 shadow-sm shadow-slate-200/40">
+                              <span className="grid h-5 w-5 shrink-0 place-items-center overflow-hidden rounded-full bg-slate-100 text-[9px] font-bold uppercase text-slate-600 ring-1 ring-slate-200">
+                                {companyLogoUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={companyLogoUrl}
+                                    alt={company}
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  avatar
+                                )}
+                              </span>
+                              <span className="max-w-[220px] truncate whitespace-nowrap">
+                                {company}
+                              </span>
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
+
                   </div>
                 );
-              })}
-            </div>
-          )}
+              })
+            )}
+          </div>
         </div>
       </div>
 
