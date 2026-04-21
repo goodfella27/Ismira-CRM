@@ -6,6 +6,10 @@ import { getPrimaryCompanyId } from "@/lib/company/primary";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { applyPublicCacheControl } from "@/lib/http/public-api";
 import { inferCompanyFromPositionName } from "@/lib/breezy-position-fields";
+import {
+  DEFAULT_BREEZY_PRIORITY_TYPES,
+  dedupePriorityTypes,
+} from "@/lib/breezy-priority-types";
 import { buildBreezyPublicPositionUrl } from "@/lib/breezy-public";
 import {
   fetchJobCompaniesByNormalizedName,
@@ -31,6 +35,12 @@ type JobListItem = {
   processable_countries?: string[];
   blocked_countries?: string[];
   mentioned_countries?: string[];
+};
+
+type PriorityTypePayload = {
+  key: string;
+  label: string;
+  sortOrder: number;
 };
 
 type BreezyPosition = {
@@ -67,6 +77,13 @@ function normalizeOrgType(value: unknown) {
   const normalized = raw.toLowerCase();
   if (normalized === "pool" || normalized === "position") return normalized;
   return raw;
+}
+
+function parseHiddenOverride(value: unknown): boolean {
+  if (value === true) return true;
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  return ["1", "true", "yes", "y", "on"].includes(normalized);
 }
 
 function attachPublicApplyUrls(items: JobListItem[]) {
@@ -176,7 +193,43 @@ async function attachJobCompanyBranding(
   });
 }
 
-const responseCache = new Map<string, { expiresAt: number; payload: JobListItem[] }>();
+const responseCache = new Map<
+  string,
+  { expiresAt: number; payload: { jobs: JobListItem[]; priorityTypes: PriorityTypePayload[] } }
+>();
+
+const isMissingPriorityTypesTableError = (message: string) =>
+  /could not find the table/i.test(message) && /breezy_priority_types/i.test(message);
+
+async function loadPriorityTypes(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  companyId: string
+) {
+  const { data, error } = await admin
+    .from("breezy_priority_types")
+    .select("key,label,sort_order")
+    .eq("company_id", companyId)
+    .order("sort_order", { ascending: true })
+    .order("label", { ascending: true });
+
+  if (error) {
+    if (isMissingPriorityTypesTableError(error.message ?? "")) {
+      return DEFAULT_BREEZY_PRIORITY_TYPES;
+    }
+    throw error;
+  }
+
+  return dedupePriorityTypes(
+    (Array.isArray(data)
+      ? (data as Array<{ key: string | null; label: string | null; sort_order: number | null }>)
+      : []
+    ).map((row, index) => ({
+      key: row.key ?? "",
+      label: row.label ?? "",
+      sortOrder: Number.isFinite(row.sort_order) ? Number(row.sort_order) : index,
+    }))
+  );
+}
 
 // Cache aggressively at the CDN while keeping client-side revalidation cheap (ETag + 304).
 const LIST_CACHE_CONTROL =
@@ -316,6 +369,8 @@ export async function GET(request: Request) {
               row.overrides && typeof row.overrides === "object" && !Array.isArray(row.overrides)
                 ? (row.overrides as Record<string, unknown>)
                 : {};
+            const hidden = parseHiddenOverride(overrides.hidden);
+            if (hidden) return null;
             const overrideName = typeof overrides.name === "string" ? overrides.name.trim() : "";
             const overrideCompany =
               typeof overrides.company === "string" ? overrides.company.trim() : "";
@@ -341,6 +396,8 @@ export async function GET(request: Request) {
               updated_at: row.updated_at ?? undefined,
             } satisfies JobListItem;
           })
+          .filter(Boolean)
+          .map((item) => item as JobListItem)
           .filter((pos) => pos.id)
           .filter((pos) => (pos.org_type || "").toLowerCase() !== "pool");
 
@@ -366,11 +423,13 @@ export async function GET(request: Request) {
 
         enriched = attachPublicApplyUrls(enriched);
 
+        const priorityTypes = await loadPriorityTypes(admin, primaryCompanyId);
+        const payload = { jobs: enriched, priorityTypes };
         responseCache.set(cacheKey, {
           expiresAt: Date.now() + 60_000,
-          payload: enriched,
+          payload,
         });
-        return jsonResponse(request, enriched, { status: 200 });
+        return jsonResponse(request, payload, { status: 200 });
       }
     } catch {
       // Ignore and fall back to Breezy.
@@ -414,6 +473,7 @@ export async function GET(request: Request) {
     try {
       const admin = createSupabaseAdminClient();
       const primaryCompanyId = await getPrimaryCompanyId(admin);
+      let priorityTypes = DEFAULT_BREEZY_PRIORITY_TYPES;
       try {
         const now = new Date().toISOString();
         const baseRows = finalList.map((pos) => ({
@@ -455,17 +515,28 @@ export async function GET(request: Request) {
       } catch {
         // ignore
       }
+      try {
+        priorityTypes = await loadPriorityTypes(admin, primaryCompanyId);
+      } catch {
+        priorityTypes = DEFAULT_BREEZY_PRIORITY_TYPES;
+      }
+      const payload = { jobs: enriched, priorityTypes };
+      responseCache.set(cacheKey, {
+        expiresAt: Date.now() + 60_000,
+        payload,
+      });
+      return jsonResponse(request, payload, { status: 200 });
     } catch {
       enriched = attachPublicApplyUrls(finalList);
     }
 
     enriched = attachPublicApplyUrls(enriched);
-
+    const payload = { jobs: enriched, priorityTypes: DEFAULT_BREEZY_PRIORITY_TYPES };
     responseCache.set(cacheKey, {
       expiresAt: Date.now() + 60_000,
-      payload: enriched,
+      payload,
     });
-    return jsonResponse(request, enriched, { status: 200 });
+    return jsonResponse(request, payload, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return jsonResponse(request, { error: message }, { status: 500 });

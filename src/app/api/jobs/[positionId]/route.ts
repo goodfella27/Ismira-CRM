@@ -79,6 +79,14 @@ function applyOverrides(details: unknown, overrides: unknown) {
   const overrideObj = isRecord(overrides) ? overrides : {};
 
   for (const [key, value] of Object.entries(overrideObj)) {
+    if (key === "hidden") {
+      if (value === true) base.hidden = true;
+      if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        if (["1", "true", "yes", "y", "on"].includes(normalized)) base.hidden = true;
+      }
+      continue;
+    }
     if (typeof value !== "string") continue;
     const trimmed = value.trim();
     if (!trimmed) continue;
@@ -331,6 +339,35 @@ export async function GET(
 
         if (row.state && row.state !== "published") {
           return jsonResponse(request, { error: "Not found" }, { status: 404 });
+        }
+
+        if (row.overrides && typeof row.overrides === "object" && !Array.isArray(row.overrides)) {
+          const overrides = row.overrides as Record<string, unknown>;
+          const hidden =
+            overrides.hidden === true ||
+            (typeof overrides.hidden === "string" &&
+              ["1", "true", "yes", "y", "on"].includes(overrides.hidden.trim().toLowerCase()));
+          if (hidden) {
+            const title =
+              (row.details && isRecord(row.details)
+                ? (row.details as Record<string, unknown>).name ??
+                  (row.details as Record<string, unknown>).title
+                : null) ?? null;
+            const name = typeof title === "string" && title.trim() ? title.trim() : "Job opening";
+            const payload = {
+              hidden: true,
+              not_active: true,
+              message: "This ad is not active.",
+              name,
+              company: row.company ?? undefined,
+              department: row.department ?? undefined,
+            };
+            responseCache.set(cacheKey, {
+              expiresAt: Date.now() + 5 * 60_000,
+              payload,
+            });
+            return jsonResponse(request, payload, { status: 200 });
+          }
         }
 
         if (row.details) {

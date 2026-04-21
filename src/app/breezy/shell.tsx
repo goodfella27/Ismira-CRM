@@ -11,6 +11,7 @@ import {
   Workflow,
   SlidersHorizontal,
   Webhook,
+  FolderKanban,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -27,6 +28,12 @@ const items = [
     href: "/breezy/positions",
     icon: Briefcase,
     description: "Browse job openings",
+  },
+  {
+    label: "Pools",
+    href: "/breezy/pools",
+    icon: FolderKanban,
+    description: "Browse candidate pools",
   },
   {
     label: "Pipelines",

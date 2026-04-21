@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Ban, Copy, ExternalLink, Search } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useAppDialogs } from "@/components/app-dialogs";
 
 type MeetingRow = {
   id: string;
@@ -62,6 +63,7 @@ const monthLabel = (date: Date) =>
 const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function CalendarPage() {
+  const dialogs = useAppDialogs();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [items, setItems] = useState<MeetingItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -462,7 +464,13 @@ export default function CalendarPage() {
                 disabled={canceling}
                 onClick={async () => {
                   if (!selectedMeeting?.meetingLink) return;
-                  const confirmed = window.confirm("Cancel this meeting?");
+                  const confirmed = await dialogs.confirm({
+                    title: "Cancel meeting?",
+                    message: "This will cancel the scheduled meeting.",
+                    confirmText: "Cancel meeting",
+                    cancelText: "Keep",
+                    tone: "danger",
+                  });
                   if (!confirmed) return;
                   setCanceling(true);
                   try {

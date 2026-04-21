@@ -20,6 +20,7 @@ import {
   type QuestionnaireStatus,
 } from "@/lib/questionnaires";
 import Markdown from "@/components/Markdown";
+import { useAppDialogs } from "@/components/app-dialogs";
 import Image from "next/image";
 import {
   CalendarDays,
@@ -826,6 +827,7 @@ export default function CandidateDrawer({
   onHydrateCandidate,
   currentUser,
 }: CandidateDrawerProps) {
+  const dialogs = useAppDialogs();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const DRAWER_CLOSE_TRANSITION_MS = 170;
   const [shouldRender, setShouldRender] = useState(open);
@@ -1846,7 +1848,13 @@ export default function CandidateDrawer({
   const handleCancelMeeting = async () => {
     if (!candidate) return;
     setMeetingError(null);
-    const confirmed = window.confirm("Cancel this meeting?");
+    const confirmed = await dialogs.confirm({
+      title: "Cancel meeting?",
+      message: "This will cancel the scheduled meeting.",
+      confirmText: "Cancel meeting",
+      cancelText: "Keep",
+      tone: "danger",
+    });
     if (!confirmed) return;
     try {
       if (candidate.meeting_event_id) {

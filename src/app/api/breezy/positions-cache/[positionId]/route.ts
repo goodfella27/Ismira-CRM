@@ -19,6 +19,7 @@ const allowedOverrideKeys = new Set([
   "description",
   "requirements",
   "responsibilities",
+  "hidden",
 ]);
 
 const isMissingPositionsTableError = (message: string) =>
@@ -28,12 +29,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function parseHiddenOverride(value: unknown): boolean | null {
+  if (value === true) return true;
+  if (value === false) return false;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  if (["1", "true", "yes", "y", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "n", "off"].includes(normalized)) return false;
+  return null;
+}
+
 function applyOverrides(details: unknown, overrides: unknown) {
   const base = isRecord(details) ? { ...details } : {};
   const overrideObj = isRecord(overrides) ? overrides : {};
 
   for (const [key, value] of Object.entries(overrideObj)) {
     if (!allowedOverrideKeys.has(key)) continue;
+    if (key === "hidden") {
+      const parsed = parseHiddenOverride(value);
+      if (parsed === true) base.hidden = true;
+      else if (parsed === false) delete (base as Record<string, unknown>).hidden;
+      continue;
+    }
     if (typeof value !== "string") continue;
     const trimmed = value.trim();
     if (!trimmed) continue;
@@ -420,6 +438,12 @@ export async function PATCH(
     if (!reset) {
       for (const [key, value] of Object.entries(overridesInput as Record<string, unknown>)) {
         if (!allowedOverrideKeys.has(key)) continue;
+        if (key === "hidden") {
+          const parsed = parseHiddenOverride(value);
+          if (parsed === true) nextOverrides.hidden = true;
+          else delete nextOverrides.hidden;
+          continue;
+        }
         if (typeof value !== "string") {
           delete nextOverrides[key];
           continue;
@@ -464,6 +488,59 @@ export async function PATCH(
     }
 
     return NextResponse.json({ ok: true, overrides: nextOverrides }, { status: 200 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    const status = /not authenticated/i.test(message) ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ positionId: string }> }
+) {
+  try {
+    const user = await requireUser();
+
+    const { positionId } = await params;
+    const posId = (positionId ?? "").trim();
+    if (!posId) {
+      return NextResponse.json({ error: "Missing positionId" }, { status: 400 });
+    }
+
+    const breezyCompanyId = getBreezyCompanyIdFromRequest(request);
+    if (!breezyCompanyId) {
+      return NextResponse.json({ error: "Missing companyId" }, { status: 400 });
+    }
+
+    const admin = createSupabaseAdminClient();
+    const membership = await ensureCompanyMembership(admin, user.id);
+    const companyId = membership.companyId;
+    if (membership.role.toLowerCase() !== "admin") {
+      return NextResponse.json({ error: "Not authorized." }, { status: 403 });
+    }
+
+    const { error } = await admin
+      .from("breezy_positions")
+      .delete()
+      .eq("company_id", companyId)
+      .eq("breezy_company_id", breezyCompanyId)
+      .eq("breezy_position_id", posId);
+
+    if (error) {
+      if (isMissingPositionsTableError(error.message ?? "")) {
+        return NextResponse.json(
+          {
+            error:
+              "Database table `breezy_positions` is not set up. Apply `supabase/breezy_positions.sql` in your Supabase project.",
+          },
+          { status: 500 }
+        );
+      }
+      throw new Error(error.message ?? "Failed to delete record.");
+    }
+
+    return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     const status = /not authenticated/i.test(message) ? 401 : 500;

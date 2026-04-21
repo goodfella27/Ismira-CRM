@@ -7,6 +7,7 @@ import { AppSidebar, MobileTopNav } from "@/components/app-sidebar";
 import { ChatWidget } from "@/components/chat-widget";
 import { TaskNotificationBell } from "@/components/task-notification-bell";
 import { BrandingTitleSync } from "@/components/branding-title-sync";
+import { AppDialogsProvider } from "@/components/app-dialogs";
 import { hasSupabaseBrowserEnv } from "@/lib/supabase/client";
 
 const PUBLIC_SHELL_ROUTES = ["/login", "/register", "/auth", "/form", "/cv", "/jobs", "/_not-found"];
@@ -53,27 +54,31 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (isPublicShellRoute) {
     return (
-      <main className="min-h-screen bg-transparent">
-        <BrandingTitleSync fallbackTitle="LinAs CRM" />
-        {children}
-      </main>
+      <AppDialogsProvider>
+        <main className="min-h-screen bg-transparent">
+          <BrandingTitleSync fallbackTitle="LinAs CRM" />
+          {children}
+        </main>
+      </AppDialogsProvider>
     );
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-slate-950">
-      <BrandingTitleSync fallbackTitle="LinAs CRM" />
-      <AppSidebar />
-      <div className="flex min-h-screen min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
-        <div className="relative flex min-h-full w-full flex-col overflow-hidden rounded-3xl bg-white shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)] ring-1 ring-slate-200/70">
-          <MobileTopNav />
-          <div className="absolute right-4 top-4 z-30 hidden md:block">
-            <TaskNotificationBell />
+    <AppDialogsProvider>
+      <div className="flex min-h-screen w-full bg-slate-950">
+        <BrandingTitleSync fallbackTitle="LinAs CRM" />
+        <AppSidebar />
+        <div className="flex min-h-screen min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
+          <div className="relative flex min-h-full w-full flex-col overflow-hidden rounded-3xl bg-white shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)] ring-1 ring-slate-200/70">
+            <MobileTopNav />
+            <div className="absolute right-4 top-4 z-30 hidden md:block">
+              <TaskNotificationBell />
+            </div>
+            <main className="flex-1">{children}</main>
           </div>
-          <main className="flex-1">{children}</main>
         </div>
+        <ChatWidget />
       </div>
-      <ChatWidget />
-    </div>
+    </AppDialogsProvider>
   );
 }

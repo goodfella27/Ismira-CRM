@@ -26,9 +26,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 
+import DetailsModalShell from "@/components/details-modal-shell";
 import { LogoStackSlider, type LogoStackItem } from "@/components/logo-stack-slider";
 import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
 import { pickPositionDescription } from "@/lib/breezy-position-description";
+import {
+  DEFAULT_BREEZY_PRIORITY_TYPES,
+  getPriorityLabel,
+  normalizePriorityKey,
+  type BreezyPriorityType,
+} from "@/lib/breezy-priority-types";
 import jobBanner from "@/images/job_abnner.png";
 
 type JobListItem = {
@@ -58,10 +65,11 @@ type JobListItemIndexed = JobListItem & {
 };
 
 type JobsBoardCache = {
-  v: 1;
+  v: 2;
   savedAt: number;
   etag?: string;
   items: JobListItem[];
+  priorityTypes: BreezyPriorityType[];
 };
 
 function asString(value: unknown) {
@@ -70,6 +78,20 @@ function asString(value: unknown) {
 
 function normalizeFilterKey(value: unknown) {
   return asString(value).trim().toLowerCase();
+}
+
+const PRIORITY_BADGE_STYLES = [
+  "bg-gradient-to-r from-[#ff9d2e] to-[#ffbf5f] text-white shadow-orange-200/40",
+  "bg-gradient-to-r from-[#58d0d8] to-[#3ea4e6] text-white shadow-sky-200/50",
+  "bg-gradient-to-r from-[#8b5cf6] to-[#c084fc] text-white shadow-violet-200/40",
+  "bg-gradient-to-r from-[#22c55e] to-[#14b8a6] text-white shadow-emerald-200/40",
+];
+
+function getPriorityBadgeClass(key: string, types: BreezyPriorityType[]) {
+  const normalized = normalizePriorityKey(key);
+  if (!normalized) return "";
+  const index = types.findIndex((item) => normalizePriorityKey(item.key) === normalized);
+  return PRIORITY_BADGE_STYLES[(index >= 0 ? index : 0) % PRIORITY_BADGE_STYLES.length];
 }
 
 const COUNTRY_DISPLAY_NAMES =
@@ -869,11 +891,31 @@ function readJobsCache(): JobsBoardCache | null {
   try {
     const raw = window.localStorage.getItem(JOBS_CACHE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<JobsBoardCache> | null;
-    if (!parsed || parsed.v !== 1) return null;
-    if (typeof parsed.savedAt !== "number") return null;
-    if (!Array.isArray(parsed.items)) return null;
-    return parsed as JobsBoardCache;
+    const parsed = JSON.parse(raw) as
+      | (Partial<JobsBoardCache> & { v?: number; priorityTypes?: unknown })
+      | null;
+    if (!parsed || typeof parsed.savedAt !== "number" || !Array.isArray(parsed.items)) return null;
+    if (parsed.v === 2) {
+      return {
+        v: 2,
+        savedAt: parsed.savedAt,
+        etag: typeof parsed.etag === "string" ? parsed.etag : undefined,
+        items: parsed.items as JobListItem[],
+        priorityTypes: Array.isArray(parsed.priorityTypes)
+          ? (parsed.priorityTypes as BreezyPriorityType[])
+          : DEFAULT_BREEZY_PRIORITY_TYPES,
+      };
+    }
+    if (parsed.v === 1) {
+      return {
+        v: 2,
+        savedAt: parsed.savedAt,
+        etag: typeof parsed.etag === "string" ? parsed.etag : undefined,
+        items: parsed.items as JobListItem[],
+        priorityTypes: DEFAULT_BREEZY_PRIORITY_TYPES,
+      };
+    }
+    return null;
   } catch {
     return null;
   }
@@ -956,8 +998,10 @@ export default function JobsBoard() {
   const [companyFilters, setCompanyFilters] = useState<string[]>([]);
   const [departmentFilters, setDepartmentFilters] = useState<string[]>([]);
   const [countryFilter, setCountryFilter] = useState("");
-  const [priorityHot, setPriorityHot] = useState(false);
-  const [priorityUrgent, setPriorityUrgent] = useState(false);
+  const [priorityTypes, setPriorityTypes] = useState<BreezyPriorityType[]>(
+    DEFAULT_BREEZY_PRIORITY_TYPES
+  );
+  const [priorityFilters, setPriorityFilters] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [companyModalOpen, setCompanyModalOpen] = useState(false);
@@ -1127,6 +1171,7 @@ export default function JobsBoard() {
     const indexed = indexJobs(cache.items);
     jobsRef.current = indexed;
     setJobs(indexed);
+    setPriorityTypes(cache.priorityTypes);
     setLoading(false);
   }, []);
 
@@ -1134,28 +1179,51 @@ export default function JobsBoard() {
     return jobs.filter((job) => job.__search.includes(" org:pool ") === false);
   }, [jobs]);
 
-  const prioritySelection = useMemo(() => {
-    const selected: Array<"hot" | "urgent"> = [];
-    if (priorityHot) selected.push("hot");
-    if (priorityUrgent) selected.push("urgent");
-    return selected;
-  }, [priorityHot, priorityUrgent]);
+  const availablePriorityTypes = useMemo(() => priorityTypes, [priorityTypes]);
+
+  const priorityLabelByKey = useMemo(() => {
+    return new Map(
+      availablePriorityTypes.map((item) => [normalizePriorityKey(item.key), item.label] as const)
+    );
+  }, [availablePriorityTypes]);
+
+  const prioritySelection = useMemo(
+    () => priorityFilters.map((value) => normalizePriorityKey(value)).filter(Boolean),
+    [priorityFilters]
+  );
 
   const hasPriorityFilter = prioritySelection.length > 0;
 
   const companyOptions = useMemo(() => {
+    const query = deferredFilter.trim().toLowerCase();
     const departmentSet = new Set(departmentFilters);
     const source =
       departmentSet.size > 0
         ? baseJobs.filter((job) => departmentSet.has(job.__departmentKey))
         : baseJobs;
     const narrowed = hasPriorityFilter
-      ? source.filter((job) => prioritySelection.includes(job.__priorityKey as "hot" | "urgent"))
+      ? source.filter((job) => prioritySelection.includes(job.__priorityKey))
       : source;
+    const byCountry = countryFilter
+      ? narrowed.filter((job) => {
+          const target = countryFilter.toUpperCase();
+          const blocked = Array.isArray(job.blocked_countries) ? job.blocked_countries : [];
+          if (blocked.map((c) => asString(c).toUpperCase()).includes(target)) return false;
+          const processable = Array.isArray(job.processable_countries)
+            ? job.processable_countries
+            : [];
+          const mentioned = Array.isArray(job.mentioned_countries) ? job.mentioned_countries : [];
+          const combined = [...processable, ...mentioned].map((c) => asString(c).toUpperCase());
+          return combined.includes(target);
+        })
+      : narrowed;
+    const byQuery = !query
+      ? byCountry
+      : byCountry.filter((job) => job.__search.includes(query));
     const map = new Map<string, string>();
     const logos = new Map<string, string>();
     const counts = new Map<string, number>();
-    for (const job of narrowed) {
+    for (const job of byQuery) {
       const key = job.__companyKey;
       const label = asString(job.company).trim();
       if (!key || !label) continue;
@@ -1176,20 +1244,37 @@ export default function JobsBoard() {
       .sort((a, b) =>
         a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
       );
-  }, [baseJobs, departmentFilters, hasPriorityFilter, prioritySelection]);
+  }, [baseJobs, countryFilter, deferredFilter, departmentFilters, hasPriorityFilter, prioritySelection]);
 
   const departmentOptions = useMemo(() => {
+    const query = deferredFilter.trim().toLowerCase();
     const companySet = new Set(companyFilters);
     const source =
       companySet.size > 0
         ? baseJobs.filter((job) => companySet.has(job.__companyKey))
         : baseJobs;
     const narrowed = hasPriorityFilter
-      ? source.filter((job) => prioritySelection.includes(job.__priorityKey as "hot" | "urgent"))
+      ? source.filter((job) => prioritySelection.includes(job.__priorityKey))
       : source;
+    const byCountry = countryFilter
+      ? narrowed.filter((job) => {
+          const target = countryFilter.toUpperCase();
+          const blocked = Array.isArray(job.blocked_countries) ? job.blocked_countries : [];
+          if (blocked.map((c) => asString(c).toUpperCase()).includes(target)) return false;
+          const processable = Array.isArray(job.processable_countries)
+            ? job.processable_countries
+            : [];
+          const mentioned = Array.isArray(job.mentioned_countries) ? job.mentioned_countries : [];
+          const combined = [...processable, ...mentioned].map((c) => asString(c).toUpperCase());
+          return combined.includes(target);
+        })
+      : narrowed;
+    const byQuery = !query
+      ? byCountry
+      : byCountry.filter((job) => job.__search.includes(query));
     const map = new Map<string, string>();
     const counts = new Map<string, number>();
-    for (const job of narrowed) {
+    for (const job of byQuery) {
       const key = job.__departmentKey;
       const label = asString(job.department).trim();
       if (!key || !label) continue;
@@ -1201,7 +1286,7 @@ export default function JobsBoard() {
       .sort((a, b) =>
         a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
       );
-  }, [baseJobs, companyFilters, hasPriorityFilter, prioritySelection]);
+  }, [baseJobs, companyFilters, countryFilter, deferredFilter, hasPriorityFilter, prioritySelection]);
 
   const priorityCounts = useMemo(() => {
     const query = deferredFilter.trim().toLowerCase();
@@ -1232,14 +1317,14 @@ export default function JobsBoard() {
       ? byCountry
       : byCountry.filter((job) => job.__search.includes(query));
 
-    let hot = 0;
-    let urgent = 0;
+    const counts = new Map<string, number>();
     for (const job of narrowed) {
-      if (job.__priorityKey === "hot") hot += 1;
-      else if (job.__priorityKey === "urgent") urgent += 1;
+      const key = job.__priorityKey;
+      if (!key) continue;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
     }
 
-    return { hot, urgent };
+    return counts;
   }, [baseJobs, companyFilters, countryFilter, deferredFilter, departmentFilters]);
 
   useEffect(() => {
@@ -1259,6 +1344,7 @@ export default function JobsBoard() {
   }, [departmentFilters, departmentOptions]);
 
   const countryOptions = useMemo(() => {
+    const query = deferredFilter.trim().toLowerCase();
     const companySet = new Set(companyFilters);
     const departmentSet = new Set(departmentFilters);
     const source =
@@ -1270,18 +1356,24 @@ export default function JobsBoard() {
         ? source.filter((job) => departmentSet.has(job.__departmentKey))
         : source;
     const narrowed = hasPriorityFilter
-      ? byDepartment.filter((job) =>
-          prioritySelection.includes(job.__priorityKey as "hot" | "urgent")
-        )
+      ? byDepartment.filter((job) => prioritySelection.includes(job.__priorityKey))
       : byDepartment;
+    const byQuery = !query
+      ? narrowed
+      : narrowed.filter((job) => job.__search.includes(query));
     const map = new Map<string, { code: string; label: string; count: number }>();
-    for (const job of narrowed) {
+    for (const job of byQuery) {
+      const blocked = Array.isArray(job.blocked_countries) ? job.blocked_countries : [];
+      const blockedSet = new Set(
+        blocked.map((c) => asString(c).trim().toUpperCase()).filter(Boolean)
+      );
       const processable = Array.isArray(job.processable_countries) ? job.processable_countries : [];
       const mentioned = Array.isArray(job.mentioned_countries) ? job.mentioned_countries : [];
       const combined = [...processable, ...mentioned]
         .map((c) => asString(c).trim().toUpperCase())
         .filter(Boolean);
       for (const code of combined) {
+        if (blockedSet.has(code)) continue;
         const existing = map.get(code);
         if (existing) existing.count += 1;
         else map.set(code, { code, label: countryLabelFromCode(code), count: 1 });
@@ -1290,7 +1382,7 @@ export default function JobsBoard() {
     return Array.from(map.values()).sort((a, b) =>
       a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
     );
-  }, [baseJobs, companyFilters, departmentFilters, hasPriorityFilter, prioritySelection]);
+  }, [baseJobs, companyFilters, deferredFilter, departmentFilters, hasPriorityFilter, prioritySelection]);
 
   useEffect(() => {
     if (!countryFilter) return;
@@ -1300,10 +1392,12 @@ export default function JobsBoard() {
   }, [countryFilter, countryOptions]);
 
   useEffect(() => {
-    if (priorityHot && priorityCounts.hot === 0) setPriorityHot(false);
-    if (priorityUrgent && priorityCounts.urgent === 0) setPriorityUrgent(false);
+    if (priorityFilters.length === 0) return;
+    const next = priorityFilters.filter((value) => (priorityCounts.get(normalizePriorityKey(value)) ?? 0) > 0);
+    if (next.length === priorityFilters.length) return;
+    setPriorityFilters(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [priorityCounts.hot, priorityCounts.urgent]);
+  }, [priorityCounts, priorityFilters]);
 
   const filtered = useMemo(() => {
     const query = deferredFilter.trim().toLowerCase();
@@ -1337,9 +1431,7 @@ export default function JobsBoard() {
         })
       : byDepartment;
     const byPriority = hasPriorityFilter
-      ? byCountry.filter((job) =>
-          prioritySelection.includes(job.__priorityKey as "hot" | "urgent")
-        )
+      ? byCountry.filter((job) => prioritySelection.includes(job.__priorityKey))
       : byCountry;
     const matches = !query
       ? byPriority
@@ -1394,19 +1486,33 @@ export default function JobsBoard() {
             "Failed to load jobs."
         );
       }
-      const list = Array.isArray(data) ? (data as JobListItem[]) : [];
+      const list =
+        data && typeof data === "object" && Array.isArray((data as { jobs?: unknown }).jobs)
+          ? ((data as { jobs: JobListItem[] }).jobs ?? [])
+          : Array.isArray(data)
+            ? (data as JobListItem[])
+            : [];
+      const hasPriorityTypesPayload =
+        data &&
+        typeof data === "object" &&
+        Array.isArray((data as { priorityTypes?: unknown }).priorityTypes);
+      const nextPriorityTypes = hasPriorityTypesPayload
+        ? ((data as { priorityTypes: BreezyPriorityType[] }).priorityTypes ?? [])
+        : DEFAULT_BREEZY_PRIORITY_TYPES;
       const indexed = indexJobs(list);
       setJobs(indexed);
+      setPriorityTypes(nextPriorityTypes);
 
       const etag = res.headers.get("etag") ?? "";
       etagRef.current = etag.trim() ? etag.trim() : null;
       // Persist the raw list (smaller) and let the UI rebuild indices quickly on refresh.
       setTimeout(() => {
         writeJobsCache({
-          v: 1,
+          v: 2,
           savedAt: Date.now(),
           etag: etagRef.current ?? undefined,
           items: list,
+          priorityTypes: nextPriorityTypes,
         });
       }, 0);
     } catch (err) {
@@ -1566,7 +1672,7 @@ export default function JobsBoard() {
 
   useEffect(() => {
     setVisibleCount(JOBS_PAGE_SIZE);
-  }, [companyFilters, departmentFilters, countryFilter, deferredFilter, priorityHot, priorityUrgent]);
+  }, [companyFilters, departmentFilters, countryFilter, deferredFilter, priorityFilters]);
 
   const visibleJobs = useMemo(() => {
     return filtered.slice(0, Math.min(filtered.length, visibleCount));
@@ -1743,9 +1849,7 @@ export default function JobsBoard() {
         })
       : byDepartment;
     const byPriority = hasPriorityFilter
-      ? byCountry.filter((job) =>
-          prioritySelection.includes(job.__priorityKey as "hot" | "urgent")
-        )
+      ? byCountry.filter((job) => prioritySelection.includes(job.__priorityKey))
       : byCountry;
     return byPriority;
   }, [
@@ -1777,36 +1881,29 @@ export default function JobsBoard() {
     };
 
     const addPriority = () => {
-      if (priorityCounts.hot > 0) {
+      availablePriorityTypes.forEach((type, index) => {
+        const key = normalizePriorityKey(type.key);
+        const count = priorityCounts.get(key) ?? 0;
+        if (count <= 0) return;
         add({
-          id: "priority:hot",
+          id: `priority:${key}`,
           kind: "priority",
-          label: "Hot",
-          prefix: <Flame className="h-4 w-4 text-orange-500" />,
-          suffix: String(priorityCounts.hot),
+          label: type.label,
+          prefix:
+            index % 2 === 0 ? (
+              <Flame className="h-4 w-4 text-orange-500" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 text-sky-600" />
+            ),
+          suffix: String(count),
           onSelect: () => {
-            setPriorityHot(true);
+            setPriorityFilters((prev) => (prev.includes(key) ? prev : [...prev, key]));
             setSearchSuggestOpen(false);
             setSearchActiveIndex(-1);
             setVisibleCount(JOBS_PAGE_SIZE);
           },
         });
-      }
-      if (priorityCounts.urgent > 0) {
-        add({
-          id: "priority:urgent",
-          kind: "priority",
-          label: "Urgent",
-          prefix: <AlertTriangle className="h-4 w-4 text-fuchsia-600" />,
-          suffix: String(priorityCounts.urgent),
-          onSelect: () => {
-            setPriorityUrgent(true);
-            setSearchSuggestOpen(false);
-            setSearchActiveIndex(-1);
-            setVisibleCount(JOBS_PAGE_SIZE);
-          },
-        });
-      }
+      });
     };
 
     const match = (text: string) => text.toLowerCase().includes(q);
@@ -1996,12 +2093,12 @@ export default function JobsBoard() {
 
     return suggestions.slice(0, 18);
   }, [
+    availablePriorityTypes,
     companyOptions,
     countryOptions,
     departmentOptions,
     filter,
-    priorityCounts.hot,
-    priorityCounts.urgent,
+    priorityCounts,
     searchSuggestionPool,
   ]);
 
@@ -2093,11 +2190,9 @@ export default function JobsBoard() {
     const countryLabel = pickBest(countryOptions.map((opt) => opt.label));
     const companyLabel = pickBest(companyOptions.map((opt) => opt.label));
     const priorityLabel = pickBest(
-      ["Hot", "Urgent"].filter((label) => {
-        if (label === "Hot") return priorityCounts.hot > 0;
-        if (label === "Urgent") return priorityCounts.urgent > 0;
-        return true;
-      })
+      availablePriorityTypes
+        .filter((type) => (priorityCounts.get(normalizePriorityKey(type.key)) ?? 0) > 0)
+        .map((type) => type.label)
     );
     const titleLabel = pickBest(
       [...searchSuggestionPool]
@@ -2117,8 +2212,8 @@ export default function JobsBoard() {
     countryOptions,
     departmentOptions,
     filter,
-    priorityCounts.hot,
-    priorityCounts.urgent,
+    availablePriorityTypes,
+    priorityCounts,
     searchSuggestionPool,
     searchCaretAtEnd,
     searchSuggestOpen,
@@ -2129,16 +2224,14 @@ export default function JobsBoard() {
     companyFilters.length > 0 ||
     departmentFilters.length > 0 ||
     countryFilter.length > 0 ||
-    priorityHot ||
-    priorityUrgent;
+    priorityFilters.length > 0;
 
   const clearAllFilters = useCallback(() => {
     setFilter("");
     setCompanyFilters([]);
     setDepartmentFilters([]);
     setCountryFilter("");
-    setPriorityHot(false);
-    setPriorityUrgent(false);
+    setPriorityFilters([]);
   }, []);
 
   const activeFilterChips = useMemo(() => {
@@ -2193,19 +2286,17 @@ export default function JobsBoard() {
         onRemove: () => setCountryFilter(""),
       });
 
-    if (priorityHot)
+    priorityFilters.forEach((key) => {
+      const normalized = normalizePriorityKey(key);
       chips.push({
-        id: "priority:hot",
-        label: "Priority: Hot",
-        onRemove: () => setPriorityHot(false),
+        id: `priority:${normalized}`,
+        label: `Priority: ${getPriorityLabel(normalized, availablePriorityTypes)}`,
+        onRemove: () =>
+          setPriorityFilters((prev) =>
+            prev.filter((value) => normalizePriorityKey(value) !== normalized)
+          ),
       });
-
-    if (priorityUrgent)
-      chips.push({
-        id: "priority:urgent",
-        label: "Priority: Urgent",
-        onRemove: () => setPriorityUrgent(false),
-      });
+    });
 
     return chips;
   }, [
@@ -2216,8 +2307,8 @@ export default function JobsBoard() {
     departmentFilters,
     departmentLabelByKey,
     filter,
-    priorityHot,
-    priorityUrgent,
+    availablePriorityTypes,
+    priorityFilters,
   ]);
 
   const selectedSummary = useMemo(() => {
@@ -2242,8 +2333,19 @@ export default function JobsBoard() {
     const priority = details
       ? asString(isRecord(details) ? details["priority"] : undefined).trim().toLowerCase()
       : asString(selectedSummary?.priority).trim().toLowerCase();
-    return priority === "hot" ? "Hot" : priority === "urgent" ? "Urgent" : "";
-  }, [details, selectedSummary]);
+    return getPriorityLabel(priority, availablePriorityTypes);
+  }, [availablePriorityTypes, details, selectedSummary]);
+
+  const modalIsHidden = useMemo(() => {
+    if (!details || !isRecord(details)) return false;
+    const value = (details as Record<string, unknown>).hidden;
+    if (value === true) return true;
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      return ["1", "true", "yes", "y", "on"].includes(normalized);
+    }
+    return false;
+  }, [details]);
 
   const handleCopyShareLink = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -2522,54 +2624,45 @@ export default function JobsBoard() {
 		                Priority
 		              </div>
 	              <div className="mt-2 grid gap-2">
-                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50">
-                  <span className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
-                      checked={priorityHot}
-                      disabled={priorityCounts.hot === 0}
-                      onChange={(event) => setPriorityHot(event.target.checked)}
-                    />
-                    <span className={priorityCounts.hot === 0 ? "text-slate-400" : ""}>
-                      Hot
-                    </span>
-                  </span>
-                  <span className={priorityCounts.hot === 0 ? "text-slate-400" : "text-slate-500"}>
-                    {priorityCounts.hot}
-                  </span>
-                </label>
+                {availablePriorityTypes.map((type) => {
+                  const key = normalizePriorityKey(type.key);
+                  const count = priorityCounts.get(key) ?? 0;
+                  const checked = priorityFilters.includes(key);
+                  return (
+                    <label
+                      key={key}
+                      className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50"
+                    >
+                      <span className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
+                          checked={checked}
+                          disabled={count === 0}
+                          onChange={(event) =>
+                            setPriorityFilters((prev) =>
+                              event.target.checked
+                                ? prev.includes(key)
+                                  ? prev
+                                  : [...prev, key]
+                                : prev.filter((value) => value !== key)
+                            )
+                          }
+                        />
+                        <span className={count === 0 ? "text-slate-400" : ""}>{type.label}</span>
+                      </span>
+                      <span className={count === 0 ? "text-slate-400" : "text-slate-500"}>
+                        {count}
+                      </span>
+                    </label>
+                  );
+                })}
 
-                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50">
-                  <span className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
-                      checked={priorityUrgent}
-                      disabled={priorityCounts.urgent === 0}
-                      onChange={(event) => setPriorityUrgent(event.target.checked)}
-                    />
-                    <span className={priorityCounts.urgent === 0 ? "text-slate-400" : ""}>
-                      Urgent
-                    </span>
-                  </span>
-                  <span
-                    className={
-                      priorityCounts.urgent === 0 ? "text-slate-400" : "text-slate-500"
-                    }
-                  >
-                    {priorityCounts.urgent}
-                  </span>
-                </label>
-
-                {priorityHot || priorityUrgent ? (
+                {priorityFilters.length > 0 ? (
                   <button
                     type="button"
                     className="mt-1 w-full rounded-xl px-2 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                    onClick={() => {
-                      setPriorityHot(false);
-                      setPriorityUrgent(false);
-                    }}
+                    onClick={() => setPriorityFilters([])}
                   >
                     Clear priority
 	                  </button>
@@ -2675,54 +2768,47 @@ export default function JobsBoard() {
                   Priority
                 </div>
                 <div className="mt-2 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
-                  <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50">
-                    <span className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
-                        checked={priorityHot}
-                        disabled={priorityCounts.hot === 0}
-                        onChange={(event) => setPriorityHot(event.target.checked)}
-                      />
-                      <span className={priorityCounts.hot === 0 ? "text-slate-400" : ""}>
-                        Hot
-                      </span>
-                    </span>
-                    <span className={priorityCounts.hot === 0 ? "text-slate-400" : "text-slate-500"}>
-                      {priorityCounts.hot}
-                    </span>
-                  </label>
+                  {availablePriorityTypes.map((type) => {
+                    const key = normalizePriorityKey(type.key);
+                    const count = priorityCounts.get(key) ?? 0;
+                    const checked = priorityFilters.includes(key);
+                    return (
+                      <label
+                        key={key}
+                        className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50"
+                      >
+                        <span className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
+                            checked={checked}
+                            disabled={count === 0}
+                            onChange={(event) =>
+                              setPriorityFilters((prev) =>
+                                event.target.checked
+                                  ? prev.includes(key)
+                                    ? prev
+                                    : [...prev, key]
+                                  : prev.filter((value) => value !== key)
+                              )
+                            }
+                          />
+                          <span className={count === 0 ? "text-slate-400" : ""}>
+                            {type.label}
+                          </span>
+                        </span>
+                        <span className={count === 0 ? "text-slate-400" : "text-slate-500"}>
+                          {count}
+                        </span>
+                      </label>
+                    );
+                  })}
 
-                  <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50">
-                    <span className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
-                        checked={priorityUrgent}
-                        disabled={priorityCounts.urgent === 0}
-                        onChange={(event) => setPriorityUrgent(event.target.checked)}
-                      />
-                      <span className={priorityCounts.urgent === 0 ? "text-slate-400" : ""}>
-                        Urgent
-                      </span>
-                    </span>
-                    <span
-                      className={
-                        priorityCounts.urgent === 0 ? "text-slate-400" : "text-slate-500"
-                      }
-                    >
-                      {priorityCounts.urgent}
-                    </span>
-                  </label>
-
-                  {priorityHot || priorityUrgent ? (
+                  {priorityFilters.length > 0 ? (
                     <button
                       type="button"
                       className="mt-1 w-full rounded-xl px-2 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                      onClick={() => {
-                        setPriorityHot(false);
-                        setPriorityUrgent(false);
-                      }}
+                      onClick={() => setPriorityFilters([])}
                     >
                       Clear
                     </button>
@@ -2792,8 +2878,7 @@ export default function JobsBoard() {
                     const avatarSeed = (company || asString(job.name)).trim() || "J";
                     const avatar = avatarSeed.slice(0, 1).toUpperCase();
 	                    const priority = asString(job.priority).trim().toLowerCase();
-	                    const priorityLabel =
-	                      priority === "hot" ? "Hot" : priority === "urgent" ? "Urgent" : "";
+	                    const priorityLabel = getPriorityLabel(priority, availablePriorityTypes);
 	                    const locationBadgeLabel = "WORLDWIDE";
 
 	                    return (
@@ -2840,9 +2925,7 @@ export default function JobsBoard() {
                                   <span
                                     className={[
                                       "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide shadow-sm",
-                                      priorityLabel === "Hot"
-                                        ? "bg-gradient-to-r from-[#ffbf5f] to-[#ff9d2e] text-white shadow-orange-200/40"
-                                        : "bg-gradient-to-r from-[#58d0d8] to-[#3ea4e6] text-white shadow-sky-200/50",
+                                      getPriorityBadgeClass(priority, availablePriorityTypes),
                                     ].join(" ")}
                                   >
                                     {priorityLabel}
@@ -2915,270 +2998,266 @@ export default function JobsBoard() {
       </div>
 
       {selectedId ? (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center px-4 py-6 sm:px-6"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="job-details-title"
-          onClick={() => {
-            closeDetails();
-          }}
-        >
-          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" />
-          <div
-            className="relative z-10 w-full max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-white shadow-[0_30px_80px_-50px_rgba(0,0,0,0.8)]"
-            onClick={(event) => event.stopPropagation()}
-          >
-	            <div className="hide-scrollbar max-h-[80vh] overflow-auto">
-	              <div className="relative overflow-hidden">
-                <div className="h-40 w-full bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6] sm:h-56">
-                  {modalDescription.heroSrc ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={modalDescription.heroSrc}
-                      alt=""
-                      className="h-full w-full object-cover object-top"
-                      loading="eager"
-                      decoding="async"
-                    />
-                  ) : null}
+        <DetailsModalShell
+          open
+          labelledBy="job-details-title"
+          onClose={closeDetails}
+          hero={
+            <div className="h-40 w-full bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6] sm:h-56">
+              {modalDescription.heroSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={modalDescription.heroSrc}
+                  alt=""
+                  className="h-full w-full object-cover object-top"
+                  loading="eager"
+                  decoding="async"
+                />
+              ) : null}
+            </div>
+          }
+          heroActions={
+            <>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center rounded-full border border-white/30 bg-white/85 px-4 py-2 text-xs font-semibold text-slate-800 shadow-sm backdrop-blur hover:bg-white"
+                onClick={handleCopyShareLink}
+              >
+                {shareCopied ? "Link copied" : "Copy link"}
+              </button>
+              <button
+                type="button"
+                aria-label="Close"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm hover:bg-black focus:outline-none focus:ring-2 focus:ring-white/60 focus:ring-offset-2 focus:ring-offset-transparent"
+                onClick={closeDetails}
+              >
+                <span aria-hidden="true" className="text-lg leading-none">
+                  ×
+                </span>
+              </button>
+            </>
+          }
+          stickyHeader={
+            <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 px-6 pb-5 pt-6 backdrop-blur">
+              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                <div className="min-w-0">
+                  <div className="mb-3">
+                    {(() => {
+                      const company = details
+                        ? asString(isRecord(details) ? details["company"] : undefined).trim() ||
+                          extractCompany(details)
+                        : asString(selectedSummary?.company).trim();
+                      const companyLogo =
+                        details && isRecord(details)
+                          ? asString(details["company_logo_url"]).trim()
+                          : asString(selectedSummary?.company_logo_url).trim();
+                      return (
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                          {company ? (
+                            <span className="inline-flex items-center gap-2 pr-2">
+                              {companyLogo ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={companyLogo}
+                                  alt={company}
+                                  className="h-8 w-8 flex-none rounded-full bg-white object-cover shadow-sm ring-1 ring-slate-200"
+                                  loading="lazy"
+                                  decoding="async"
+                                />
+                              ) : (
+                                <Building2 className="h-5 w-5 text-slate-500" />
+                              )}
+                              <span className="max-w-[340px] whitespace-nowrap text-sm font-semibold text-slate-800 truncate">
+                                {company}
+                              </span>
+                            </span>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div
+                    id="job-details-title"
+                    className="mt-2 text-xl font-extrabold leading-tight text-slate-900 break-words sm:text-2xl"
+                  >
+                    <div className="flex flex-wrap items-center gap-3">
+                      {modalPriorityLabel ? (
+                        <span
+                          className={[
+                            "inline-flex items-center rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide shadow-sm",
+                            getPriorityBadgeClass(
+                              details
+                                ? asString(isRecord(details) ? details["priority"] : undefined)
+                                : asString(selectedSummary?.priority),
+                              availablePriorityTypes
+                            ),
+                          ].join(" ")}
+                        >
+                          {modalPriorityLabel}
+                        </span>
+                      ) : null}
+                      <span className="min-w-0 break-words">
+                        {asString(details?.name).trim() ||
+                          asString(details?.title).trim() ||
+                          asString(selectedSummary?.name).trim() ||
+                          selectedId}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
+                      Position
+                    </span>
+                    {(() => {
+                      const department = details
+                        ? asString(isRecord(details) ? details["department"] : undefined).trim() ||
+                          extractDepartment(details)
+                        : asString(selectedSummary?.department).trim();
+                      const location = "WORLDWIDE";
+                      const metaBadges = [
+                        department ? { key: "department", label: department } : null,
+                        { key: "location", label: location },
+                      ].filter(Boolean) as Array<{ key: string; label: string }>;
+
+                      return metaBadges.length > 0 ? (
+                        <>
+                          {metaBadges.map((badge) => (
+                            <span
+                              key={badge.key}
+                              className={[
+                                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-semibold shadow-sm",
+                                badge.key === "department"
+                                  ? "border-amber-200 bg-gradient-to-r from-amber-100 to-[#ffc45c]/70 text-amber-950 shadow-amber-200/40"
+                                  : "border-cyan-200 bg-gradient-to-r from-cyan-100 to-sky-100 text-cyan-950 shadow-cyan-200/40",
+                              ].join(" ")}
+                            >
+                              {badge.key === "department" ? (
+                                <UserRound className="h-3.5 w-3.5 text-amber-600" />
+                              ) : (
+                                <MapPin className="h-3.5 w-3.5 text-cyan-600" />
+                              )}
+                              <span className="min-w-0 max-w-[320px] whitespace-nowrap truncate">
+                                {badge.label}
+                              </span>
+                            </span>
+                          ))}
+                        </>
+                      ) : null;
+                    })()}
+                  </div>
                 </div>
 
-	                <div className="absolute right-4 top-4 flex flex-wrap items-center gap-2">
-	                  <button
-	                    type="button"
-	                    className="inline-flex items-center justify-center rounded-full border border-white/30 bg-white/85 px-4 py-2 text-xs font-semibold text-slate-800 shadow-sm backdrop-blur hover:bg-white"
-	                    onClick={handleCopyShareLink}
-	                  >
-	                    {shareCopied ? "Link copied" : "Copy link"}
-	                  </button>
-	                  <button
-	                    type="button"
-	                    aria-label="Close"
-	                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm hover:bg-black focus:outline-none focus:ring-2 focus:ring-white/60 focus:ring-offset-2 focus:ring-offset-transparent"
+                {!modalIsHidden ? (
+                  <button
+                    type="button"
+                    className="inline-flex h-16 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-10 text-base font-semibold text-white shadow-xl shadow-sky-200/70 ring-1 ring-white/20 hover:from-[#256fd2] hover:to-[#55bbff] focus:outline-none focus:ring-2 focus:ring-sky-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70 sm:justify-self-end"
+                    disabled={applyNavigating}
                     onClick={() => {
-                      closeDetails();
+                      if (typeof window === "undefined") return;
+                      if (applyNavigating) return;
+                      setApplyNavigating(true);
+                      window.location.assign("https://www.ismira.lt/apply");
                     }}
                   >
-                    <span aria-hidden="true" className="text-lg leading-none">
-                      ×
-                    </span>
+                    {applyNavigating ? (
+                      <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading" />
+                    ) : (
+                      <>
+                        <Send className="h-5 w-5" aria-hidden="true" />
+                        <span>Apply Now</span>
+                      </>
+                    )}
                   </button>
-                </div>
-	              </div>
-
-		              <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 px-6 pb-5 pt-6 backdrop-blur">
-		                <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-		                  <div className="min-w-0">
-	                    <div className="mb-3">
-	                      {(() => {
-	                        const company = details
-	                          ? asString(isRecord(details) ? details["company"] : undefined).trim() ||
-	                            extractCompany(details)
-	                          : asString(selectedSummary?.company).trim();
-	                        const companyLogo =
-	                          details && isRecord(details)
-	                            ? asString(details["company_logo_url"]).trim()
-	                            : asString(selectedSummary?.company_logo_url).trim();
-	                        return (
-	                          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
-	                            {company ? (
-	                              <span className="inline-flex items-center gap-2 pr-2">
-	                                {companyLogo ? (
-	                                  // eslint-disable-next-line @next/next/no-img-element
-	                                  <img
-	                                    src={companyLogo}
-	                                    alt={company}
-	                                    className="h-8 w-8 flex-none rounded-full bg-white object-cover shadow-sm ring-1 ring-slate-200"
-	                                    loading="lazy"
-	                                    decoding="async"
-	                                  />
-	                                ) : (
-	                                  <Building2 className="h-5 w-5 text-slate-500" />
-	                                )}
-	                                <span className="max-w-[340px] whitespace-nowrap text-sm font-semibold text-slate-800 truncate">
-	                                  {company}
-	                                </span>
-	                              </span>
-	                            ) : null}
-	                          </div>
-	                        );
-	                      })()}
-	                    </div>
-	                    <div
-	                      id="job-details-title"
-	                      className="mt-2 text-xl font-extrabold leading-tight text-slate-900 break-words sm:text-2xl"
-	                    >
-                      <div className="flex flex-wrap items-center gap-3">
-                        {modalPriorityLabel ? (
-                          <span
-                            className={[
-                              "inline-flex items-center rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide shadow-sm",
-                              modalPriorityLabel === "Hot"
-                                ? "bg-gradient-to-r from-[#ffbf5f] to-[#ff9d2e] text-white shadow-orange-200/40"
-                                : "bg-gradient-to-r from-[#58d0d8] to-[#3ea4e6] text-white shadow-sky-200/50",
-                            ].join(" ")}
-                          >
-                            {modalPriorityLabel}
-                          </span>
-                        ) : null}
-                        <span className="min-w-0 break-words">
-                          {asString(details?.name).trim() ||
-                            asString(details?.title).trim() ||
-                            asString(selectedSummary?.name).trim() ||
-                            selectedId}
-	                        </span>
-	                      </div>
-	                    </div>
-	                    <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-	                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
-	                        Position
-	                      </span>
-	                      {(() => {
-	                        const department = details
-	                          ? asString(
-	                              isRecord(details) ? details["department"] : undefined
-	                            ).trim() || extractDepartment(details)
-	                          : asString(selectedSummary?.department).trim();
-	                        const location = "WORLDWIDE";
-	                        const metaBadges = [
-	                          department ? { key: "department", label: department } : null,
-	                          { key: "location", label: location },
-	                        ].filter(Boolean) as Array<{ key: string; label: string }>;
-
-	                        return metaBadges.length > 0 ? (
-	                          <>
-	                            {metaBadges.map((badge) => (
-	                              <span
-	                                key={badge.key}
-	                                className={[
-	                                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-semibold shadow-sm",
-	                                  badge.key === "department"
-	                                    ? "border-amber-200 bg-gradient-to-r from-amber-100 to-[#ffc45c]/70 text-amber-950 shadow-amber-200/40"
-	                                    : "border-cyan-200 bg-gradient-to-r from-cyan-100 to-sky-100 text-cyan-950 shadow-cyan-200/40",
-	                                ].join(" ")}
-	                              >
-	                                {badge.key === "department" ? (
-	                                  <UserRound className="h-3.5 w-3.5 text-amber-600" />
-	                                ) : (
-	                                  <MapPin className="h-3.5 w-3.5 text-cyan-600" />
-	                                )}
-	                                <span className="min-w-0 max-w-[320px] whitespace-nowrap truncate">
-	                                  {badge.label}
-	                                </span>
-	                              </span>
-	                            ))}
-	                          </>
-	                        ) : null;
-	                      })()}
-	                    </div>
-		                  </div>
-
-			                  <button
-			                    type="button"
-			                    className="inline-flex h-16 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-10 text-base font-semibold text-white shadow-xl shadow-sky-200/70 ring-1 ring-white/20 hover:from-[#256fd2] hover:to-[#55bbff] focus:outline-none focus:ring-2 focus:ring-sky-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70 sm:justify-self-end"
-			                    disabled={applyNavigating}
-			                    onClick={() => {
-			                      if (typeof window === "undefined") return;
-			                      if (applyNavigating) return;
-		                      setApplyNavigating(true);
-		                      window.location.assign("https://www.ismira.lt/apply");
-		                    }}
-		                  >
-			                    {applyNavigating ? (
-			                      <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading" />
-			                    ) : (
-			                      <>
-			                        <Send className="h-5 w-5" aria-hidden="true" />
-			                        <span>Apply Now</span>
-			                      </>
-			                    )}
-			                  </button>
-	                </div>
-	              </div>
-
-              <div className="bg-white px-6 py-6">
-                {detailsLoading || (!details && !error) ? (
-                  <JobDetailsSkeleton />
-                ) : !details ? (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                    No details returned.
-                  </div>
-	                ) : (
-		                  <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-6">
-
-		                        {(() => {
-		                          const raw = (details as Record<string, unknown>)?.nationality_countries;
-		                          if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-                          const countries = raw as NationalityCountries;
-                          const processable = Array.isArray(countries.processable)
-                            ? countries.processable
-                                .filter((item) => item && typeof item === "object")
-                                .map((item) => ({
-                                  code: asString((item as { code?: unknown }).code),
-                                  name: asString((item as { name?: unknown }).name),
-                                }))
-                                .filter((item) => item.code.trim())
-                            : [];
-                          const blocked = Array.isArray(countries.blocked)
-                            ? countries.blocked
-                                .filter((item) => item && typeof item === "object")
-                                .map((item) => ({
-                                  code: asString((item as { code?: unknown }).code),
-                                  name: asString((item as { name?: unknown }).name),
-                                }))
-                                .filter((item) => item.code.trim())
-                            : [];
-
-		                          if (processable.length === 0 && blocked.length === 0) return null;
-
-		                          return (
-		                            <div className="space-y-4">
-		                              {processable.length > 0 ? (
-		                                <div>
-		                                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    Nationalities we process
-                                  </div>
-                                  <div className="mt-2">
-                                    <CountryChips items={processable} />
-                                  </div>
-                                </div>
-                              ) : null}
-
-                              {blocked.length > 0 ? (
-                                <div>
-                                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    Nationalities we can’t process
-                                  </div>
-                                  <div className="mt-2">
-                                    <CountryChips items={blocked} />
-                                  </div>
-                                </div>
-                              ) : null}
-		                            </div>
-		                          );
-		                        })()}
-
-		                    <div>
-		                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-		                        Description
-		                      </div>
-                      <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
-                        {modalDescription.bodyHtml ? (
-                          <RichText content={modalDescription.bodyHtml} />
-                        ) : (
-                          <div className="whitespace-pre-wrap text-sm leading-6 text-slate-800">
-                            {modalDescription.bodyText || "—"}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                ) : (
+                  <div className="inline-flex h-16 items-center justify-center rounded-full border border-amber-200 bg-amber-50 px-8 text-sm font-semibold text-amber-900 shadow-sm sm:justify-self-end">
+                    Not active
                   </div>
                 )}
               </div>
             </div>
-          </div>
-        </div>
+          }
+        >
+          {modalIsHidden ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+              This ad is not active.
+            </div>
+          ) : detailsLoading || (!details && !error) ? (
+            <JobDetailsSkeleton />
+          ) : !details ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+              No details returned.
+            </div>
+          ) : (
+            <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5">
+              {(() => {
+                const raw = (details as Record<string, unknown>)?.nationality_countries;
+                if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+                const countries = raw as NationalityCountries;
+                const processable = Array.isArray(countries.processable)
+                  ? countries.processable
+                      .filter((item) => item && typeof item === "object")
+                      .map((item) => ({
+                        code: asString((item as { code?: unknown }).code),
+                        name: asString((item as { name?: unknown }).name),
+                      }))
+                      .filter((item) => item.code.trim())
+                  : [];
+                const blocked = Array.isArray(countries.blocked)
+                  ? countries.blocked
+                      .filter((item) => item && typeof item === "object")
+                      .map((item) => ({
+                        code: asString((item as { code?: unknown }).code),
+                        name: asString((item as { name?: unknown }).name),
+                      }))
+                      .filter((item) => item.code.trim())
+                  : [];
+
+                if (processable.length === 0 && blocked.length === 0) return null;
+
+                return (
+                  <div className="space-y-4">
+                    {processable.length > 0 ? (
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Nationalities we process
+                        </div>
+                        <div className="mt-2">
+                          <CountryChips items={processable} />
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {blocked.length > 0 ? (
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Nationalities we can’t process
+                        </div>
+                        <div className="mt-2">
+                          <CountryChips items={blocked} />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })()}
+
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Description
+                </div>
+                <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+                  {modalDescription.bodyHtml ? (
+                    <RichText content={modalDescription.bodyHtml} />
+                  ) : (
+                    <div className="whitespace-pre-wrap text-sm leading-6 text-slate-800">
+                      {modalDescription.bodyText || "—"}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </DetailsModalShell>
       ) : null}
     </div>
   );

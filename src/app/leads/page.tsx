@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Skeleton from "@/components/Skeleton";
 import { ensureCompanyBootstrap } from "@/lib/company/bootstrap-client";
+import { useAppDialogs } from "@/components/app-dialogs";
 
 const PAGE_LIMIT = 25;
 const PIPELINE_STAGE_ID = "consultation";
@@ -288,6 +289,7 @@ const buildCandidateRow = (candidate: PipelineCandidate) => {
 };
 
 export default function LeadsPage() {
+  const dialogs = useAppDialogs();
   const [viewMode, setViewMode] = useState<"group" | "filtered">("group");
   const [groups, setGroups] = useState<MailerLiteGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
@@ -1292,9 +1294,13 @@ export default function LeadsPage() {
               const scopeLabel =
                 purgeInclusive ? "on or before" : "before";
               const groupLabel = selectedGroup?.name ?? selectedGroupId;
-              const ok = window.confirm(
-                `This will ${actionLabel} who subscribed ${scopeLabel} ${purgeBeforeDate} in “${groupLabel}”. Continue?`
-              );
+              const ok = await dialogs.confirm({
+                title: "Confirm deletion",
+                message: `This will ${actionLabel} who subscribed ${scopeLabel} ${purgeBeforeDate} in “${groupLabel}”.`,
+                confirmText: "Continue",
+                cancelText: "Cancel",
+                tone: "danger",
+              });
               if (!ok) return;
               await runGroupPurge(false);
             }}

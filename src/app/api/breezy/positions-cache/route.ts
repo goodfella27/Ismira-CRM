@@ -31,6 +31,7 @@ type PositionListItem = {
   department?: string;
   priority?: string;
   edited?: boolean;
+  hidden?: boolean;
   synced_at?: string | null;
   details_synced_at?: string | null;
 };
@@ -52,6 +53,13 @@ function normalizePositions(payload: unknown): BreezyPosition[] {
     if (Array.isArray(obj.positions)) return obj.positions as BreezyPosition[];
   }
   return [];
+}
+
+function parseHiddenOverride(value: unknown): boolean {
+  if (value === true) return true;
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  return ["1", "true", "yes", "y", "on"].includes(normalized);
 }
 
 const isMissingPositionsTableError = (message: string) =>
@@ -189,6 +197,7 @@ export async function GET(request: Request) {
           typeof overrides.department === "string" ? overrides.department.trim() : "";
         const overridePriority =
           typeof overrides.priority === "string" ? overrides.priority.trim() : "";
+        const hidden = parseHiddenOverride(overrides.hidden);
         const edited = Object.keys(overrides).length > 0;
 
         return {
@@ -201,6 +210,7 @@ export async function GET(request: Request) {
           department: overrideDepartment || row.department || undefined,
           priority: overridePriority || undefined,
           edited,
+          hidden,
           synced_at: row.synced_at,
           details_synced_at: row.details_synced_at,
         } satisfies PositionListItem;

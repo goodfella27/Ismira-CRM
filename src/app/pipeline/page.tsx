@@ -35,6 +35,7 @@ import {
   TaskItem,
 } from "./types";
 import { FORM_FIELD_KEYS, FORM_FILE_FIELDS, type FormFieldKey } from "@/lib/form-fields";
+import { useAppDialogs } from "@/components/app-dialogs";
 import {
   canonicalizeCountry,
   getCountryCode,
@@ -749,6 +750,7 @@ const parseDrawerRequestedRightTab = (value: string | null): DrawerRequestedRigh
 export default function PipelinePage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const dialogs = useAppDialogs();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
   const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>(
@@ -2108,9 +2110,13 @@ export default function PipelinePage() {
   };
 
   const handleDeleteCandidate = async (candidate: Candidate) => {
-    const confirmed = window.confirm(
-      `Delete ${candidate.name}? This removes the profile from the pipeline and database.`
-    );
+    const confirmed = await dialogs.confirm({
+      title: `Delete ${candidate.name}?`,
+      message: "This removes the profile from the pipeline and database.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      tone: "danger",
+    });
     if (!confirmed) return;
 
     setCandidates((prev) => prev.filter((item) => item.id !== candidate.id));
@@ -2683,7 +2689,13 @@ export default function PipelinePage() {
   };
 
   const handleCreatePipeline = async () => {
-    const name = typeof window !== "undefined" ? window.prompt("Pipeline name") : "";
+    const name = await dialogs.prompt({
+      title: "Pipeline name",
+      placeholder: "Enter pipeline name",
+      confirmText: "Create",
+      cancelText: "Cancel",
+      required: true,
+    });
     const trimmed = name?.trim();
     if (!trimmed) return;
     const existing = new Set(pipelines.map((pipeline) => pipeline.id));
@@ -2710,12 +2722,13 @@ export default function PipelinePage() {
   const handleDeletePipeline = async () => {
     if (!activePipeline) return;
     if (pipelines.length <= 1) return;
-    const ok =
-      typeof window !== "undefined"
-        ? window.confirm(
-            `Delete pipeline "${activePipeline.name}" and all its candidates?`
-          )
-        : false;
+    const ok = await dialogs.confirm({
+      title: `Delete pipeline “${activePipeline.name}”?`,
+      message: "This will delete the pipeline and all its candidates.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      tone: "danger",
+    });
     if (!ok) return;
     const removeIds = new Set(
       candidates
@@ -2738,7 +2751,13 @@ export default function PipelinePage() {
 
   const handleAddStage = async () => {
     if (!activePipeline) return;
-    const name = typeof window !== "undefined" ? window.prompt("Stage name") : "";
+    const name = await dialogs.prompt({
+      title: "Stage name",
+      placeholder: "Enter stage name",
+      confirmText: "Add stage",
+      cancelText: "Cancel",
+      required: true,
+    });
     const trimmed = name?.trim();
     if (!trimmed) return;
     const existing = new Set(activePipeline.stages.map((stage) => stage.id));
