@@ -88,6 +88,22 @@ function getBreezyCompanyIdFromRequest(request: Request) {
   }
 }
 
+function parsePositiveInt(value: string | null, fallback: number) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  const rounded = Math.floor(n);
+  return rounded >= 0 ? rounded : fallback;
+}
+
+function getPaginationFromRequest(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const limitRaw = searchParams.get("limit");
+  const offsetRaw = searchParams.get("offset");
+  const limit = Math.max(1, Math.min(100, parsePositiveInt(limitRaw, 20)));
+  const offset = parsePositiveInt(offsetRaw, 0);
+  return { limit, offset };
+}
+
 async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,
@@ -139,29 +155,84 @@ export async function GET(request: Request) {
   try {
     await requireUser();
 
+    const { searchParams } = new URL(request.url);
     const breezyCompanyId = getBreezyCompanyIdFromRequest(request);
     if (!breezyCompanyId) {
       return NextResponse.json({ error: "Missing companyId" }, { status: 400 });
     }
 
+    const jobCompanyFilter = (searchParams.get("jobCompany") ?? "").trim();
+    const { limit, offset } = getPaginationFromRequest(request);
+
     const admin = createSupabaseAdminClient();
     const companyId = await getPrimaryCompanyId(admin);
 
-    const { data, error } = await admin
+    let query = admin
       .from("breezy_positions")
       .select(
-        "breezy_position_id,name,state,friendly_id,org_type,company,department,overrides,synced_at,details_synced_at"
+        "breezy_position_id,name,state,friendly_id,org_type,company,department,overrides,synced_at,details_synced_at",
+        { count: "exact" }
       )
       .eq("company_id", companyId)
       .eq("breezy_company_id", breezyCompanyId)
       .order("name", { ascending: true });
 
+    if (jobCompanyFilter) {
+      query = query.eq("company", jobCompanyFilter);
+    }
+
+    const { data, error, count } = await query.range(offset, offset + limit - 1);
+
     if (error) {
-      if (isMissingPositionsTableError(error.message ?? "")) {
-        const fallback = await fetchBreezyPositionsList(breezyCompanyId);
+      const message = (error.message ?? "").toLowerCase();
+      const isRangeError =
+        message.includes("requested range not satisfiable") ||
+        // Some PostgREST versions use `PGRST103` for invalid ranges.
+        (typeof (error as unknown as { code?: string }).code === "string" &&
+          (error as unknown as { code?: string }).code === "PGRST103");
+
+      if (isRangeError) {
+        // Treat as end-of-list (common when infinite scrolling + filters change).
+        const countQuery = admin
+          .from("breezy_positions")
+          .select("breezy_position_id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .eq("breezy_company_id", breezyCompanyId);
+        const { count: safeCount } = jobCompanyFilter
+          ? await countQuery.eq("company", jobCompanyFilter)
+          : await countQuery;
         return NextResponse.json(
           {
-            positions: fallback,
+            positions: [],
+            total: typeof safeCount === "number" ? safeCount : 0,
+            nextOffset: null,
+          },
+          { status: 200 }
+        );
+      }
+
+      if (isMissingPositionsTableError(error.message ?? "")) {
+        if (jobCompanyFilter) {
+          return NextResponse.json(
+            {
+              positions: [],
+              total: 0,
+              nextOffset: null,
+              warning:
+                "Company filtering requires cached positions. Apply `supabase/breezy_positions.sql` and run Sync to enable filtering.",
+            },
+            { status: 200 }
+          );
+        }
+        const fallback = await fetchBreezyPositionsList(breezyCompanyId);
+        const total = fallback.length;
+        const slice = fallback.slice(offset, offset + limit);
+        const nextOffset = offset + slice.length < total ? offset + slice.length : null;
+        return NextResponse.json(
+          {
+            positions: slice,
+            total,
+            nextOffset,
             warning:
               "Database table `breezy_positions` is not set up. Apply `supabase/breezy_positions.sql` in your Supabase project to enable caching and editing.",
           },
@@ -218,17 +289,30 @@ export async function GET(request: Request) {
     );
 
     if (list.length === 0) {
+      if (jobCompanyFilter) {
+        return NextResponse.json(
+          { positions: [], total: 0, nextOffset: null },
+          { status: 200 }
+        );
+      }
       const fallback = await fetchBreezyPositionsList(breezyCompanyId);
+      const total = fallback.length;
+      const slice = fallback.slice(offset, offset + limit);
+      const nextOffset = offset + slice.length < total ? offset + slice.length : null;
       return NextResponse.json(
         {
-          positions: fallback,
+          positions: slice,
+          total,
+          nextOffset,
           warning: "No cached positions yet. Click Sync to store them in the database.",
         },
         { status: 200 }
       );
     }
 
-    return NextResponse.json({ positions: list }, { status: 200 });
+    const total = typeof count === "number" ? count : offset + list.length;
+    const nextOffset = offset + list.length < total ? offset + list.length : null;
+    return NextResponse.json({ positions: list, total, nextOffset }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     const status = /not authenticated/i.test(message) ? 401 : 500;

@@ -76,7 +76,7 @@ export default function BreezyShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="p-6 sm:p-10">
-      <div className="mx-auto w-full max-w-6xl">
+      <div className="w-full max-w-none">
         <div className="flex flex-col gap-6 lg:flex-row">
           <aside className="w-full shrink-0 lg:w-72">
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">

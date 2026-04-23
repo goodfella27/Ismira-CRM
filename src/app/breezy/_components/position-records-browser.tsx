@@ -1,16 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   RefreshCw,
   Search,
   Layers,
   MapPin,
-  BriefcaseBusiness,
   FolderKanban,
   PencilLine,
   MoreHorizontal,
-  CopyPlus,
   Eye,
   EyeOff,
   Plus,
@@ -18,7 +16,7 @@ import {
 } from "lucide-react";
 
 import DetailsModalShell from "@/components/details-modal-shell";
-import { useAppDialogs } from "@/components/app-dialogs";
+import WysiwygEditor from "@/components/wysiwyg-editor";
 import { loadBreezyCompanyId, saveBreezyCompanyId } from "@/lib/breezy-storage";
 import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
 import {
@@ -54,6 +52,8 @@ type BreezyPositionDetails = Record<string, unknown>;
 type CachedPositionsResponse = {
   positions: BreezyPosition[];
   warning?: string;
+  total?: number;
+  nextOffset?: number | null;
 };
 
 type CachedPositionDetailsResponse = {
@@ -69,6 +69,12 @@ type JobCompanyLogoResponse = {
     name?: string;
     logoUrl?: string | null;
   }>;
+};
+
+type CompanyCountsResponse = {
+  companies?: Array<{ name?: string; count?: number }>;
+  warning?: string;
+  error?: string;
 };
 
 type PriorityTypesResponse = {
@@ -215,6 +221,21 @@ function sanitizeHtml(input: string) {
   } catch {
     return "";
   }
+}
+
+function sanitizeOverrideValue(key: string, value: unknown) {
+  if (typeof value !== "string") return value;
+  if (!value.trim()) return value;
+  if (!["description", "responsibilities", "requirements"].includes(key)) return value;
+  return containsHtml(value) ? sanitizeHtml(value) : value;
+}
+
+function sanitizeOverrides(overrides: Record<string, unknown>) {
+  const next: Record<string, unknown> = { ...overrides };
+  for (const [key, value] of Object.entries(next)) {
+    next[key] = sanitizeOverrideValue(key, value);
+  }
+  return next;
 }
 
 function extractHeroImageFromSafeHtml(html: string): { heroSrc: string; bodyHtml: string } {
@@ -364,27 +385,11 @@ function normalizePositionType(value: string | undefined) {
     : "position";
 }
 
-function buildPositionPreview(position: BreezyPosition) {
-  const company = asString(position.company).trim();
-  const department = asString(position.department).trim();
-  const state = asString(position.state).trim();
-  const segments = [
-    company ? `${company} actively recruiting` : "",
-    department ? `for ${department}` : "",
-    state ? `(${state})` : "",
-  ].filter(Boolean);
-  const sentence = segments.join(" ").trim();
-  if (sentence) return `${sentence}.`;
-  if (position.friendly_id) return position.friendly_id;
-  return "Browse cached Breezy details and open the full record for more information.";
-}
-
 export default function BreezyPositionRecordsBrowser({
   recordType,
   title,
   description,
 }: BreezyPositionRecordsBrowserProps) {
-  const dialogs = useAppDialogs();
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [loadingPositions, setLoadingPositions] = useState(false);
   const [syncingPositions, setSyncingPositions] = useState(false);
@@ -395,6 +400,19 @@ export default function BreezyPositionRecordsBrowser({
   const [filter, setFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [positionsTotal, setPositionsTotal] = useState<number | null>(null);
+  const [positionsNextOffset, setPositionsNextOffset] = useState<number | null>(null);
+  const [loadingMorePositions, setLoadingMorePositions] = useState(false);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const [loadMoreInView, setLoadMoreInView] = useState(false);
+  const positionsQueryKeyRef = useRef<string>("");
+  const [jobCompanies, setJobCompanies] = useState<Array<{ name: string; logoUrl: string }>>([]);
+  const [jobCompanyFilter, setJobCompanyFilter] = useState("");
+  const [showAllCompanies, setShowAllCompanies] = useState(false);
+  const [companyCounts, setCompanyCounts] = useState<Array<{ name: string; count: number }>>([]);
+  const [companyCountsLoading, setCompanyCountsLoading] = useState(false);
+  const collapsedCompaniesRowRef = useRef<HTMLDivElement | null>(null);
+  const [collapsedCompaniesLimit, setCollapsedCompaniesLimit] = useState(8);
   const [selectedPositionId, setSelectedPositionId] = useState<string | null>(
     null
   );
@@ -411,13 +429,19 @@ export default function BreezyPositionRecordsBrowser({
   const [savingEdits, setSavingEdits] = useState(false);
   const [visibilityMenuOpen, setVisibilityMenuOpen] = useState(false);
   const [visibilitySaving, setVisibilitySaving] = useState(false);
-  const [cardMenuOpenId, setCardMenuOpenId] = useState<string | null>(null);
-  const [cardMenuSavingId, setCardMenuSavingId] = useState<string | null>(null);
+  const [inlineEditField, setInlineEditField] = useState<
+    null | "title" | "company" | "department"
+  >(null);
   const [priorityTypes, setPriorityTypes] = useState<BreezyPriorityType[]>(
     DEFAULT_BREEZY_PRIORITY_TYPES
   );
   const [priorityTypesWarning, setPriorityTypesWarning] = useState<string | null>(null);
   const [priorityTypesModalOpen, setPriorityTypesModalOpen] = useState(false);
+  const [statusPickerOpen, setStatusPickerOpen] = useState(false);
+  const [openingTypePickerOpen, setOpeningTypePickerOpen] = useState(false);
+  const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
+  const [departmentPickerOpen, setDepartmentPickerOpen] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState("");
   const [priorityDrafts, setPriorityDrafts] = useState<Record<string, string>>({});
   const [newPriorityLabel, setNewPriorityLabel] = useState("");
   const [prioritySaving, setPrioritySaving] = useState(false);
@@ -436,6 +460,151 @@ export default function BreezyPositionRecordsBrowser({
     requirements: "",
   });
 
+  const startEditing = useCallback(() => {
+    if (!details) return;
+
+    const merged = details;
+    const name = getFirstStringField(merged, ["name", "title"]);
+    const company = extractCompany(merged);
+    const department = extractDepartment(merged);
+    const priority = getFirstStringField(merged, ["priority"]);
+    const locationName =
+      getFirstStringField(merged, ["location_name", "locationName", "location_label"]) ||
+      formatPositionLocation(merged);
+    const summary = getFirstStringField(merged, [
+      "summary",
+      "short_description",
+      "description_summary",
+    ]);
+    const description = getFirstStringField(merged, [
+      "description",
+      "description_html",
+      "description_text",
+      "job_description",
+      "content",
+    ]);
+    const requirements = getFirstStringField(merged, [
+      "requirements",
+      "requirements_html",
+      "requirements_text",
+    ]);
+    const responsibilities = getFirstStringField(merged, [
+      "responsibilities",
+      "responsibilities_html",
+      "responsibilities_text",
+    ]);
+
+    setEditForm({
+      name: name || selectedPositionLabel || selectedPositionId || "",
+      company: company || "",
+      department: department || "",
+      priority: normalizePriorityKey(priority || ""),
+      location_name: locationName || "",
+      summary: summary || "",
+      description: description || "",
+      responsibilities: responsibilities || "",
+      requirements: requirements || "",
+    });
+
+    setInlineEditField(null);
+    setEditing(true);
+  }, [details, selectedPositionId, selectedPositionLabel]);
+
+  const companyPickerOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const pos of positions) {
+      const label = asString(pos.company).trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (!seen.has(key)) seen.set(key, label);
+    }
+    return Array.from(seen.values()).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+  }, [positions]);
+
+  const departmentPickerCompany = useMemo(() => {
+    const fromEdit = editForm.company.trim();
+    if (fromEdit) return fromEdit;
+    const fromDetails = details ? extractCompany(details) : "";
+    return asString(fromDetails).trim();
+  }, [details, editForm.company]);
+
+  const departmentPickerOptions = useMemo(() => {
+    const targetCompany = departmentPickerCompany.trim().toLowerCase();
+    const seen = new Map<string, string>();
+    for (const pos of positions) {
+      const company = asString(pos.company).trim();
+      if (targetCompany && company.toLowerCase() !== targetCompany) continue;
+      const label = asString(pos.department).trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (!seen.has(key)) seen.set(key, label);
+    }
+    return Array.from(seen.values()).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+  }, [departmentPickerCompany, positions]);
+
+  const companyFilterOptions = useMemo(() => {
+    const counts = new Map(companyCounts.map((item) => [item.name.toLowerCase(), item.count]));
+
+    const byCount = (name: string) => counts.get(name.toLowerCase()) ?? 0;
+    const uniqueNames = new Map<string, string>();
+
+    for (const item of companyCounts) {
+      const name = asString(item.name).trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (!uniqueNames.has(key)) uniqueNames.set(key, name);
+    }
+
+    for (const item of jobCompanies) {
+      const name = asString(item.name).trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (!uniqueNames.has(key)) uniqueNames.set(key, name);
+    }
+
+    for (const pos of positions) {
+      const name = asString(pos.company).trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (!uniqueNames.has(key)) uniqueNames.set(key, name);
+    }
+
+    const list = Array.from(uniqueNames.values()).map((name) => {
+      const key = name.toLowerCase();
+      const logoUrl = companyLogoByName[key] ?? "";
+      return { name, logoUrl, count: byCount(name) };
+    });
+
+    list.sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    });
+
+    return list;
+  }, [companyCounts, companyLogoByName, jobCompanies, positions]);
+
+  const collapsedCompanyOptions = useMemo(() => {
+    const selected = jobCompanyFilter.trim().toLowerCase();
+    if (!selected) return companyFilterOptions;
+    const idx = companyFilterOptions.findIndex((opt) => opt.name.trim().toLowerCase() === selected);
+    if (idx <= 0) return companyFilterOptions;
+    const copy = [...companyFilterOptions];
+    const [picked] = copy.splice(idx, 1);
+    copy.unshift(picked);
+    return copy;
+  }, [companyFilterOptions, jobCompanyFilter]);
+
+  const filteredPickerOptions = useMemo(() => {
+    const query = pickerQuery.trim().toLowerCase();
+    const source = companyPickerOpen ? companyPickerOptions : departmentPickerOptions;
+    if (!query) return source;
+    return source.filter((label) => label.toLowerCase().includes(query));
+  }, [companyPickerOpen, companyPickerOptions, departmentPickerOptions, pickerQuery]);
+
   const isPositionsTableMissing = useMemo(() => {
     const message = (warning ?? "").toLowerCase();
     return message.includes("breezy_positions") && message.includes("not set up");
@@ -450,154 +619,15 @@ export default function BreezyPositionRecordsBrowser({
     setDetailsOverrides({});
     setCanEdit(false);
     setEditing(false);
+    setInlineEditField(null);
     setPriorityTypesModalOpen(false);
+    setStatusPickerOpen(false);
+    setOpeningTypePickerOpen(false);
+    setCompanyPickerOpen(false);
+    setDepartmentPickerOpen(false);
+    setPickerQuery("");
     setVisibilityMenuOpen(false);
   }, []);
-
-  const setCardHidden = useCallback(
-    async (positionId: string, hidden: boolean) => {
-      const posId = positionId.trim();
-      if (!posId) return;
-      const targetCompanyId = companyId.trim();
-      if (!targetCompanyId) return;
-
-      setCardMenuSavingId(posId);
-      setError(null);
-      try {
-        const url = `/api/breezy/positions-cache/${encodeURIComponent(
-          posId
-        )}?companyId=${encodeURIComponent(targetCompanyId)}`;
-        const res = await fetch(url, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ overrides: { hidden } }),
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          throw new Error(
-            (data && typeof data?.error === "string" && data.error) ||
-              "Failed to update visibility."
-          );
-        }
-
-        setPositions((prev) =>
-          prev.map((item) =>
-            item.id === posId
-              ? {
-                  ...item,
-                  hidden,
-                  edited: hidden ? true : item.edited,
-                }
-              : item
-          )
-        );
-        if (selectedPositionId === posId) {
-          setDetailsOverrides((prev) => ({ ...prev, hidden }));
-          setDetails((prev) => {
-            if (!prev || !isRecord(prev)) return prev;
-            const next = { ...(prev as Record<string, unknown>) };
-            if (hidden) next.hidden = true;
-            else delete next.hidden;
-            return next;
-          });
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to update visibility.");
-      } finally {
-        setCardMenuSavingId((current) => (current === posId ? null : current));
-        setCardMenuOpenId((current) => (current === posId ? null : current));
-      }
-    },
-    [companyId, selectedPositionId]
-  );
-
-  const duplicateCardPosition = useCallback(
-    async (positionId: string) => {
-      const posId = positionId.trim();
-      if (!posId) return;
-      const targetCompanyId = companyId.trim();
-      if (!targetCompanyId) return;
-
-      setCardMenuSavingId(posId);
-      setError(null);
-      try {
-        const url = `/api/breezy/positions-cache/${encodeURIComponent(
-          posId
-        )}/duplicate?companyId=${encodeURIComponent(targetCompanyId)}`;
-        const res = await fetch(url, { method: "POST" });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          throw new Error(
-            (data && typeof data?.error === "string" && data.error) ||
-              "Failed to duplicate record."
-          );
-        }
-
-        const next =
-          data && typeof data === "object"
-            ? (data as { position?: BreezyPosition }).position
-            : null;
-        if (next && next.id) {
-          setPositions((prev) => {
-            const merged = [next, ...prev.filter((item) => item.id !== next.id)];
-            merged.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-            return merged;
-          });
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to duplicate record.");
-      } finally {
-        setCardMenuSavingId((current) => (current === posId ? null : current));
-        setCardMenuOpenId((current) => (current === posId ? null : current));
-      }
-    },
-    [companyId]
-  );
-
-  const deleteCardPosition = useCallback(
-    async (positionId: string) => {
-      const posId = positionId.trim();
-      if (!posId) return;
-      const targetCompanyId = companyId.trim();
-      if (!targetCompanyId) return;
-      const confirmed = await dialogs.confirm({
-        title: "Delete cached record?",
-        message: "You can restore Breezy items later by syncing again.",
-        confirmText: "Delete",
-        cancelText: "Cancel",
-        tone: "danger",
-      });
-      if (!confirmed) {
-        setCardMenuOpenId(null);
-        return;
-      }
-
-      setCardMenuSavingId(posId);
-      setError(null);
-      try {
-        const url = `/api/breezy/positions-cache/${encodeURIComponent(
-          posId
-        )}?companyId=${encodeURIComponent(targetCompanyId)}`;
-        const res = await fetch(url, { method: "DELETE" });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          throw new Error(
-            (data && typeof data?.error === "string" && data.error) ||
-              "Failed to delete record."
-          );
-        }
-
-        setPositions((prev) => prev.filter((item) => item.id !== posId));
-        if (selectedPositionId === posId) closePositionModal();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to delete record.");
-      } finally {
-        setCardMenuSavingId((current) => (current === posId ? null : current));
-        setCardMenuOpenId((current) => (current === posId ? null : current));
-      }
-    },
-    [companyId, selectedPositionId, closePositionModal, dialogs]
-  );
 
   const modalDescription = useMemo(() => {
     const raw = getFirstStringField(details, [
@@ -625,18 +655,23 @@ export default function BreezyPositionRecordsBrowser({
 
   const filteredPositions = useMemo(() => {
     const query = filter.trim().toLowerCase();
+    const companyFilter = jobCompanyFilter.trim().toLowerCase();
     const typeFiltered = positions.filter((pos) => {
       const kind = normalizePositionType(pos.org_type);
       return kind === recordType;
     });
 
-    if (!query) return typeFiltered;
-    return typeFiltered.filter((pos) => {
+    const companyFiltered = companyFilter
+      ? typeFiltered.filter((pos) => asString(pos.company).trim().toLowerCase() === companyFilter)
+      : typeFiltered;
+
+    if (!query) return companyFiltered;
+    return companyFiltered.filter((pos) => {
       const haystack =
         `${pos.name ?? ""} ${pos.company ?? ""} ${pos.department ?? ""} ${pos.state ?? ""} ${pos.org_type ?? ""} ${pos.friendly_id ?? ""} ${pos.id}`.toLowerCase();
       return haystack.includes(query);
     });
-  }, [positions, filter, recordType]);
+  }, [positions, filter, jobCompanyFilter, recordType]);
 
   const loadCompanies = async () => {
     setLoadingCompanies(true);
@@ -671,13 +706,21 @@ export default function BreezyPositionRecordsBrowser({
   const loadPositions = async (nextCompanyId?: string) => {
     const target = (nextCompanyId ?? companyId).trim();
     if (!target) return;
+    const queryKey = `${target}::${jobCompanyFilter.trim().toLowerCase()}`;
+    positionsQueryKeyRef.current = queryKey;
     setLoadingPositions(true);
+    setLoadingMorePositions(false);
     setError(null);
     setWarning(null);
+    setPositionsTotal(null);
+    setPositionsNextOffset(null);
     try {
+      const jobCompanyQuery = jobCompanyFilter.trim()
+        ? `&jobCompany=${encodeURIComponent(jobCompanyFilter.trim())}`
+        : "";
       const url = `/api/breezy/positions-cache?companyId=${encodeURIComponent(
         target
-      )}`;
+      )}&limit=20&offset=0${jobCompanyQuery}`;
       const res = await fetch(url, { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -690,6 +733,10 @@ export default function BreezyPositionRecordsBrowser({
       const list = parsed ? normalizePositions(parsed) : [];
       setPositions(list);
       if (parsed?.warning) setWarning(parsed.warning);
+      setPositionsTotal(typeof parsed?.total === "number" ? parsed.total : null);
+      setPositionsNextOffset(
+        typeof parsed?.nextOffset === "number" ? parsed.nextOffset : null
+      );
     } catch (err) {
       setPositions([]);
       setError(err instanceof Error ? err.message : "Failed to load positions.");
@@ -697,6 +744,73 @@ export default function BreezyPositionRecordsBrowser({
       setLoadingPositions(false);
     }
   };
+
+  const loadMorePositions = useCallback(async () => {
+    const target = companyId.trim();
+    if (!target) return;
+    if (loadingPositions || loadingMorePositions) return;
+    if (positionsNextOffset === null) return;
+
+    const queryKey = `${target}::${jobCompanyFilter.trim().toLowerCase()}`;
+    const keyAtStart = positionsQueryKeyRef.current || queryKey;
+    if (keyAtStart !== queryKey) return;
+
+    setLoadingMorePositions(true);
+    setError(null);
+    try {
+      const jobCompanyQuery = jobCompanyFilter.trim()
+        ? `&jobCompany=${encodeURIComponent(jobCompanyFilter.trim())}`
+        : "";
+      const url = `/api/breezy/positions-cache?companyId=${encodeURIComponent(
+        target
+      )}&limit=20&offset=${encodeURIComponent(String(positionsNextOffset))}${jobCompanyQuery}`;
+      const res = await fetch(url, { cache: "no-store" });
+      if (res.status === 416) {
+        // Offset is past the end (typically because filters changed). Treat as end-of-list.
+        if (positionsQueryKeyRef.current === keyAtStart) setPositionsNextOffset(null);
+        return;
+      }
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          (data && typeof data?.error === "string" && data.error) ||
+            "Failed to load more positions."
+        );
+      }
+      const parsed = isRecord(data) ? (data as CachedPositionsResponse) : null;
+      const list = parsed ? normalizePositions(parsed) : [];
+      if (positionsQueryKeyRef.current !== keyAtStart) return;
+      setPositions((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        const merged = [...prev];
+        for (const item of list) {
+          if (!item?.id || seen.has(item.id)) continue;
+          merged.push(item);
+          seen.add(item.id);
+        }
+        return merged;
+      });
+      if (parsed?.warning) setWarning(parsed.warning);
+      setPositionsTotal(typeof parsed?.total === "number" ? parsed.total : positionsTotal);
+      setPositionsNextOffset(
+        typeof parsed?.nextOffset === "number" ? parsed.nextOffset : null
+      );
+    } catch (err) {
+      if (positionsQueryKeyRef.current === keyAtStart) {
+        setError(err instanceof Error ? err.message : "Failed to load more positions.");
+        setPositionsNextOffset(null);
+      }
+    } finally {
+      setLoadingMorePositions(false);
+    }
+  }, [
+    companyId,
+    jobCompanyFilter,
+    loadingMorePositions,
+    loadingPositions,
+    positionsNextOffset,
+    positionsTotal,
+  ]);
 
   const syncPositions = async () => {
     const target = companyId.trim();
@@ -740,6 +854,7 @@ export default function BreezyPositionRecordsBrowser({
     setDetailsOverrides({});
     setCanEdit(false);
     setEditing(false);
+    setInlineEditField(null);
 
     try {
       const url = `/api/breezy/positions-cache/${encodeURIComponent(
@@ -811,12 +926,14 @@ export default function BreezyPositionRecordsBrowser({
       const priorityLabel = getPriorityLabel(priority, availablePriorityTypes);
       const hidden = Boolean(pos.hidden) && orgType !== "pool";
       const stateNormalized = asString(pos.state).trim().toLowerCase();
-      const statusBorderAccent = hidden
-        ? "border-l-rose-500"
+      const statusTone = hidden
+        ? "bg-rose-50 text-rose-700 ring-1 ring-rose-100"
         : stateNormalized === "published"
-          ? "border-l-emerald-500"
-          : "border-l-slate-200";
-      const preview = buildPositionPreview(pos);
+          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+          : "bg-slate-100 text-slate-600 ring-1 ring-slate-200";
+      const statusLabel = hidden
+        ? "Hidden"
+        : asString(pos.state).trim() || "Draft";
       const avatarSeed = (company || name).trim() || "P";
       const avatar = avatarSeed.slice(0, 1).toUpperCase();
 
@@ -827,12 +944,11 @@ export default function BreezyPositionRecordsBrowser({
           tabIndex={id ? 0 : -1}
           aria-pressed={active}
           className={[
-            "group relative flex w-full items-start justify-between gap-4 rounded-3xl border border-l-[6px] bg-white p-5 text-left shadow-sm transition hover:shadow-md",
+            "group relative flex h-full min-h-[320px] w-full flex-col rounded-[30px] border bg-white p-6 text-left shadow-[0_16px_40px_rgba(15,23,42,0.08)] transition duration-200",
             id ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/25" : "",
             active
-              ? "border-emerald-200 ring-2 ring-emerald-500/20"
-              : "border-slate-200 hover:border-emerald-200",
-            statusBorderAccent,
+              ? "border-emerald-200 ring-2 ring-emerald-500/15"
+              : "border-slate-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_18px_46px_rgba(15,23,42,0.12)]",
           ].join(" ")}
           onClick={() => (id ? void loadPositionDetails(id, name) : undefined)}
           onKeyDown={(event) => {
@@ -842,9 +958,9 @@ export default function BreezyPositionRecordsBrowser({
             void loadPositionDetails(id, name);
           }}
         >
-          <div className="flex w-full min-w-0 items-start justify-between gap-4">
-            <div className="flex min-w-0 flex-1 items-start gap-4">
-              <div className="mt-0.5 grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-white text-2xl font-bold text-slate-600 ring-1 ring-slate-200">
+          <div className="flex min-w-0 items-start justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-200 bg-white text-lg font-bold text-slate-600 shadow-sm">
                 {companyLogoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -858,165 +974,92 @@ export default function BreezyPositionRecordsBrowser({
                 )}
               </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div
-                      title={name}
-                      className={[
-                        "min-w-0 break-words text-[18px] font-extrabold leading-snug text-slate-900",
-                        "[display:-webkit-box] [-webkit-box-orient:vertical] overflow-hidden",
-                        "[-webkit-line-clamp:2]",
-                      ].join(" ")}
-                    >
-                      {name}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold">
-                  {priorityLabel ? (
-                    <span
-                      className={[
-                        "inline-flex items-center rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide shadow-sm",
-                        "bg-gradient-to-r from-[#ffbf5f] to-[#ff9d2e] text-white shadow-orange-200/40",
-                      ].join(" ")}
-                      title="Type"
-                    >
-                      {priorityLabel}
-                    </span>
-                  ) : null}
-
-                  {department ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-gradient-to-r from-sky-100 to-cyan-100 px-2.5 py-1.5 text-sky-950 shadow-sm shadow-sky-200/40">
-                      <Layers className="h-3.5 w-3.5 text-sky-600" />
-                      <span className="max-w-[260px] truncate whitespace-nowrap">{department}</span>
-                    </span>
-                  ) : null}
-
-                  {company ? (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 shadow-sm shadow-slate-200/40">
-                      <span className="grid h-5 w-5 shrink-0 place-items-center overflow-hidden rounded-full bg-slate-100 text-[9px] font-bold uppercase text-slate-600 ring-1 ring-slate-200">
-                        {companyLogoUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={companyLogoUrl}
-                            alt={company}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          avatar
-                        )}
-                      </span>
-                      <span className="max-w-[220px] truncate whitespace-nowrap">{company}</span>
-                    </span>
-                  ) : null}
+              <div className="min-w-0">
+                <div className="truncate text-base font-semibold text-slate-900">
+                  {company || "Position"}
                 </div>
               </div>
             </div>
 
-	            <div className="shrink-0">
-	              <div className="flex min-h-[40px] items-center justify-end gap-2">
-	                {hidden ? (
-	                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-900 shadow-sm shadow-amber-200/40">
-	                    Not active
-	                  </span>
-	                ) : null}
-	                {pos.edited ? (
-	                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-800 shadow-sm">
-	                    Edited
-	                  </span>
-	                ) : null}
+            <div className="flex shrink-0 items-center gap-2">
+              {pos.edited ? (
+                <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700 ring-1 ring-amber-100">
+                  Edited
+                </span>
+              ) : null}
+              <span className={`rounded-full px-3 py-1 text-[11px] font-semibold capitalize ${statusTone}`}>
+                {statusLabel}
+              </span>
+            </div>
+          </div>
 
-	                {id ? (
-	                  <div className="relative">
-	                    <button
-	                      type="button"
-	                      aria-label="Actions"
-	                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
-	                      onClick={(event) => {
-	                        event.stopPropagation();
-	                        setCardMenuOpenId((current) => (current === id ? null : id));
-	                      }}
-	                      disabled={cardMenuSavingId === id}
-	                      title="Actions"
-	                    >
-	                      <MoreHorizontal className="h-5 w-5" />
-	                    </button>
-
-	                    {cardMenuOpenId === id ? (
-	                      <div
-	                        className="absolute right-0 top-12 z-50 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
-	                        onClick={(event) => event.stopPropagation()}
-	                      >
-	                        <button
-	                          type="button"
-	                          className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50"
-	                          onClick={() => {
-	                            setCardMenuOpenId(null);
-	                            void openPositionEditor(id, name);
-	                          }}
-	                        >
-	                          <PencilLine className="h-4 w-4" />
-	                          Edit
-	                        </button>
-	                        <button
-	                          type="button"
-	                          className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
-	                          onClick={() => void duplicateCardPosition(id)}
-	                          disabled={cardMenuSavingId === id}
-	                        >
-	                          <CopyPlus className="h-4 w-4" />
-	                          Duplicate
-	                        </button>
-	                        {orgType !== "pool" ? (
-	                          <button
-	                            type="button"
-	                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
-	                            onClick={() => void setCardHidden(id, !hidden)}
-	                            disabled={cardMenuSavingId === id}
-	                          >
-	                            {hidden ? (
-	                              <Eye className="h-4 w-4" />
-	                            ) : (
-	                              <EyeOff className="h-4 w-4" />
-	                            )}
-	                            {hidden ? "Unhide" : "Hide"}
-	                          </button>
-	                        ) : null}
-	                        <button
-	                          type="button"
-	                          className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-3 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
-	                          onClick={() => void deleteCardPosition(id)}
-	                          disabled={cardMenuSavingId === id}
-	                        >
-	                          <Trash2 className="h-4 w-4" />
-	                          Delete
-	                        </button>
-	                      </div>
-	                    ) : null}
-	                  </div>
-	                ) : null}
-	              </div>
+	          <div className="mt-6 min-w-0">
+	            <div
+	              title={name}
+	              className={[
+	                "min-w-0 break-words text-[24px] font-semibold leading-[1.15] tracking-[-0.03em] text-slate-950",
+	                "[display:-webkit-box] [-webkit-box-orient:vertical] overflow-hidden",
+	                "[-webkit-line-clamp:3]",
+	              ].join(" ")}
+	            >
+	              {name}
 	            </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-700">
+                {department ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-50 px-3 py-2 text-[11px] font-semibold text-sky-800 ring-1 ring-sky-100">
+                    <Layers className="h-3.5 w-3.5 text-sky-600" />
+                    <span className="max-w-[220px] truncate whitespace-nowrap">
+                      {department}
+                    </span>
+                  </span>
+                ) : null}
+
+              </div>
 	          </div>
-	        </div>
-	      );
+
+			          <div className="mt-auto pt-8">
+			            <div className="border-t border-slate-200 pt-5">
+			              <div className="flex flex-wrap items-end justify-between gap-4">
+	                    {priorityLabel ? (
+	                      <span
+                          className={[
+                            "inline-flex items-center rounded-full px-3 py-2 text-[10px] font-semibold uppercase tracking-wide shadow-sm",
+                            "bg-gradient-to-r from-[#ffbf5f] to-[#ff9d2e] text-white shadow-orange-200/40",
+                          ].join(" ")}
+                        >
+	                        {priorityLabel}
+	                      </span>
+	                    ) : (
+                        <span />
+                      )}
+			                {id ? (
+			                  <button
+			                    type="button"
+		                    className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+	                    onClick={(event) => {
+                      event.stopPropagation();
+                      void openPositionEditor(id, name);
+                    }}
+                  >
+                    <PencilLine className="h-4 w-4" />
+                    Edit
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
     });
   }, [
     availablePriorityTypes,
     companyLogoByName,
     filteredPositions,
     loadPositionDetails,
-	    openPositionEditor,
-	    selectedPositionId,
-      cardMenuOpenId,
-      cardMenuSavingId,
-      setCardHidden,
-      duplicateCardPosition,
-      deleteCardPosition,
-	  ]);
+    openPositionEditor,
+    selectedPositionId,
+  ]);
 
   const loadPriorityTypes = async () => {
     try {
@@ -1158,6 +1201,147 @@ export default function BreezyPositionRecordsBrowser({
     }
   };
 
+  const saveQuickOverride = useCallback(
+    async (overrides: Record<string, unknown>) => {
+      const posId = (selectedPositionId ?? "").trim();
+      if (!posId) return;
+      const targetCompanyId = companyId.trim();
+      if (!targetCompanyId) return;
+
+      const sanitizedOverrides = sanitizeOverrides(overrides);
+      setSavingEdits(true);
+      setError(null);
+
+      const baseSnapshot = {
+        name:
+          getFirstStringField(details, ["name", "title"]) ||
+          selectedPositionLabel ||
+          selectedPositionId ||
+          "",
+        company: details ? extractCompany(details) : "",
+        department: details ? extractDepartment(details) : "",
+        priority: asString((details as Record<string, unknown> | null)?.priority),
+      };
+
+      const applyStringOverride = (
+        obj: Record<string, unknown>,
+        key: string,
+        value: unknown
+      ) => {
+        if (typeof value !== "string") return;
+        const trimmed = value.trim();
+        if (!trimmed) delete obj[key];
+        else obj[key] = trimmed;
+      };
+
+      // Optimistically update local state to avoid "refresh/flicker" in the modal.
+      setDetailsOverrides((prev) => {
+        const next = { ...(prev ?? {}) } as Record<string, unknown>;
+        for (const [key, value] of Object.entries(sanitizedOverrides)) {
+          if (key === "hidden") {
+            if (value === true) next.hidden = true;
+            else delete next.hidden;
+            continue;
+          }
+          if (typeof value !== "string") continue;
+          const trimmed = value.trim();
+          if (!trimmed) delete next[key];
+          else next[key] = trimmed;
+        }
+        return next;
+      });
+
+      setDetails((prev) => {
+        if (!prev || !isRecord(prev)) return prev;
+        const next = { ...(prev as Record<string, unknown>) };
+        for (const [key, value] of Object.entries(sanitizedOverrides)) {
+          if (key === "hidden") {
+            if (value === true) next.hidden = true;
+            else delete next.hidden;
+            continue;
+          }
+          applyStringOverride(next, key, value);
+        }
+        return next;
+      });
+
+      setPositions((prev) =>
+        prev.map((item) => {
+          if (item.id !== posId) return item;
+          const next: BreezyPosition = { ...item };
+
+          if (Object.prototype.hasOwnProperty.call(sanitizedOverrides, "name")) {
+            const value = sanitizedOverrides.name;
+            next.name =
+              typeof value === "string" && value.trim() ? value.trim() : baseSnapshot.name;
+          }
+          if (Object.prototype.hasOwnProperty.call(sanitizedOverrides, "company")) {
+            const value = sanitizedOverrides.company;
+            const companyValue =
+              typeof value === "string" && value.trim() ? value.trim() : baseSnapshot.company;
+            next.company = companyValue || undefined;
+          }
+          if (Object.prototype.hasOwnProperty.call(sanitizedOverrides, "department")) {
+            const value = sanitizedOverrides.department;
+            const deptValue =
+              typeof value === "string" && value.trim()
+                ? value.trim()
+                : baseSnapshot.department;
+            next.department = deptValue || undefined;
+          }
+          if (Object.prototype.hasOwnProperty.call(sanitizedOverrides, "priority")) {
+            const value = sanitizedOverrides.priority;
+            const priorityValue =
+              typeof value === "string" && value.trim() ? value.trim() : "";
+            next.priority = priorityValue || undefined;
+          }
+          if (Object.prototype.hasOwnProperty.call(sanitizedOverrides, "hidden")) {
+            next.hidden = sanitizedOverrides.hidden === true;
+            if (next.hidden) next.edited = true;
+          }
+          return next;
+        })
+      );
+
+      try {
+        const url = `/api/breezy/positions-cache/${encodeURIComponent(
+          posId
+        )}?companyId=${encodeURIComponent(targetCompanyId)}`;
+        const res = await fetch(url, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ overrides: sanitizedOverrides }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(
+            (data && typeof data?.error === "string" && data.error) ||
+              "Failed to save changes."
+          );
+        }
+        // No reload here (unlike full Save) to keep the modal stable.
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to save changes.");
+        // If the optimistic update diverged (e.g., permission error), reload to recover.
+        try {
+          await loadPositionDetails(posId);
+        } catch {
+          // ignore
+        }
+      } finally {
+        setSavingEdits(false);
+      }
+    },
+    [
+      companyId,
+      details,
+      loadPositionDetails,
+      selectedPositionId,
+      selectedPositionLabel,
+      setPositions,
+    ]
+  );
+
   const saveEdits = async () => {
     const posId = (selectedPositionId ?? "").trim();
     if (!posId) return;
@@ -1170,10 +1354,11 @@ export default function BreezyPositionRecordsBrowser({
       const url = `/api/breezy/positions-cache/${encodeURIComponent(
         posId
       )}?companyId=${encodeURIComponent(targetCompanyId)}`;
+      const overrides = sanitizeOverrides(editForm as unknown as Record<string, unknown>);
       const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ overrides: editForm }),
+        body: JSON.stringify({ overrides }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -1183,6 +1368,7 @@ export default function BreezyPositionRecordsBrowser({
         );
       }
       await loadPositionDetails(posId);
+      await loadPositions(targetCompanyId);
       setEditing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save edits.");
@@ -1252,6 +1438,87 @@ export default function BreezyPositionRecordsBrowser({
   }, [companyId]);
 
   useEffect(() => {
+    const target = companyId.trim();
+    if (!target) return;
+    setCompanyCountsLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/breezy/positions-cache/company-counts?companyId=${encodeURIComponent(
+            target
+          )}&recordType=${encodeURIComponent(recordType)}`,
+          { cache: "no-store" }
+        );
+        const data = (await res.json().catch(() => null)) as CompanyCountsResponse | null;
+        if (!res.ok) {
+          throw new Error(data?.error || "Failed to load company counts.");
+        }
+        const list = Array.isArray(data?.companies) ? data!.companies! : [];
+        const parsed = list
+          .map((item) => ({
+            name: asString(item?.name).trim(),
+            count: typeof item?.count === "number" ? item.count : 0,
+          }))
+          .filter((item) => item.name);
+        setCompanyCounts(parsed);
+      } catch {
+        setCompanyCounts([]);
+      } finally {
+        setCompanyCountsLoading(false);
+      }
+    })();
+  }, [companyId, recordType]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    void loadPositions(companyId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobCompanyFilter]);
+
+  useEffect(() => {
+    const node = loadMoreSentinelRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        setLoadMoreInView(Boolean(entry?.isIntersecting));
+        if (!entry?.isIntersecting) return;
+        void loadMorePositions();
+      },
+      { root: null, rootMargin: "800px 0px", threshold: 0 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [loadMorePositions]);
+
+  useEffect(() => {
+    if (!loadMoreInView) return;
+    if (positionsNextOffset === null) return;
+    void loadMorePositions();
+  }, [loadMoreInView, loadMorePositions, positionsNextOffset]);
+
+  useEffect(() => {
+    const node = collapsedCompaniesRowRef.current;
+    if (!node) return;
+
+    const update = () => {
+      const width = node.getBoundingClientRect().width;
+      const tile = 180;
+      const gap = 12;
+      const max = 10;
+      const computed = Math.max(1, Math.min(max, Math.floor((width + gap) / (tile + gap))));
+      setCollapsedCompaniesLimit(computed);
+    };
+
+    update();
+    const ro = new ResizeObserver(() => update());
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
     let ignore = false;
 
     const loadCompanyLogos = async () => {
@@ -1260,17 +1527,30 @@ export default function BreezyPositionRecordsBrowser({
         const data = (await res.json().catch(() => null)) as JobCompanyLogoResponse | null;
         if (!res.ok || !data?.companies || ignore) return;
 
-        const next = data.companies.reduce<Record<string, string>>((acc, company) => {
-          const name = asString(company?.name).trim().toLowerCase();
-          const logoUrl = asString(company?.logoUrl).trim();
+        const nextList = data.companies
+          .map((company) => ({
+            name: asString(company?.name).trim(),
+            logoUrl: asString(company?.logoUrl).trim(),
+          }))
+          .filter((item) => item.name);
+
+        const next = nextList.reduce<Record<string, string>>((acc, company) => {
+          const name = company.name.trim().toLowerCase();
+          const logoUrl = company.logoUrl.trim();
           if (!name || !logoUrl) return acc;
           acc[name] = logoUrl;
           return acc;
         }, {});
 
-        if (!ignore) setCompanyLogoByName(next);
+        if (!ignore) {
+          setCompanyLogoByName(next);
+          setJobCompanies(nextList);
+        }
       } catch {
-        if (!ignore) setCompanyLogoByName({});
+        if (!ignore) {
+          setCompanyLogoByName({});
+          setJobCompanies([]);
+        }
       }
     };
 
@@ -1332,7 +1612,7 @@ export default function BreezyPositionRecordsBrowser({
       </div>
 
       <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Company
@@ -1388,9 +1668,6 @@ export default function BreezyPositionRecordsBrowser({
                 Sync
               </button>
             </div>
-            <p className="mt-2 text-xs text-slate-500">
-              Loads from the database cache. Use Sync to pull fresh data from Breezy.
-            </p>
           </div>
 
           <div>
@@ -1406,35 +1683,6 @@ export default function BreezyPositionRecordsBrowser({
                 onChange={(event) => setFilter(event.target.value)}
               />
             </div>
-            <p className="mt-2 text-xs text-slate-500">
-              {recordType === "pool"
-                ? "Pools are separated from live job openings so the data model stays cleaner as this grows."
-                : "Tip: pick a Position ID to set as `BREEZY_POSITION_ID`."}
-            </p>
-          </div>
-
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              View
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 shadow-sm">
-                {recordType === "pool" ? (
-                  <FolderKanban className="h-4 w-4" />
-                ) : (
-                  <BriefcaseBusiness className="h-4 w-4" />
-                )}
-                <span>{recordType === "pool" ? "Pools" : "Positions"}</span>
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-900">
-                  {filteredPositions.length}
-                </span>
-              </div>
-            </div>
-            <p className="mt-2 text-xs text-slate-500">
-              {recordType === "pool"
-                ? "Dedicated pool view, separate from active job openings."
-                : "Dedicated positions view, separate from candidate pools."}
-            </p>
           </div>
         </div>
 
@@ -1457,10 +1705,169 @@ export default function BreezyPositionRecordsBrowser({
                 {filteredPositions.length.toLocaleString()}
               </span>{" "}
               {recordType === "pool" ? "pools" : "positions"}
+              {typeof positionsTotal === "number" ? (
+                <span className="ml-2 text-slate-400">
+                  / {positionsTotal.toLocaleString()}
+                </span>
+              ) : null}
             </div>
           </div>
 
-          <div className="mt-5 space-y-4">
+          <div className="mt-5">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Companies
+            </div>
+
+            {showAllCompanies ? (
+              <div className="mt-3 grid gap-3 grid-cols-[repeat(auto-fit,minmax(160px,1fr))]">
+                {companyFilterOptions.map((item) => {
+                  const active =
+                    item.name.trim().toLowerCase() === jobCompanyFilter.trim().toLowerCase();
+                  const logoUrl =
+                    item.logoUrl.trim() || companyLogoByName[item.name.trim().toLowerCase()] || "";
+                  const initial = item.name.trim().slice(0, 1).toUpperCase() || "C";
+
+                  return (
+                    <button
+                      key={item.name}
+                      type="button"
+                      className={[
+                        "flex items-center gap-3 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition hover:bg-slate-50",
+                        active
+                          ? "border-emerald-400 bg-emerald-200 text-emerald-950 shadow-md ring-2 ring-emerald-600/15"
+                          : "border-slate-200 text-slate-700",
+                      ].join(" ")}
+                      onClick={() =>
+                        setJobCompanyFilter((prev) =>
+                          prev.trim().toLowerCase() === item.name.trim().toLowerCase()
+                            ? ""
+                            : item.name
+                        )
+                      }
+                      title={item.name}
+                    >
+                      <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white text-sm font-bold text-slate-700 ring-1 ring-slate-200">
+                        {logoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={logoUrl}
+                            alt={item.name}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          initial
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">{item.name}</span>
+                        {active ? (
+                          <span className="block truncate text-xs text-emerald-800">
+                            Selected (click to clear)
+                          </span>
+                        ) : companyCountsLoading ? (
+                          <span className="block truncate text-xs text-slate-400">Loading…</span>
+                        ) : item.count ? (
+                          <span className="block truncate text-xs text-slate-500">
+                            {item.count} openings
+                          </span>
+                        ) : (
+                          <span className="block truncate text-xs text-slate-500">Filter</span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div ref={collapsedCompaniesRowRef} className="mt-3 flex gap-3">
+                {collapsedCompanyOptions.slice(0, collapsedCompaniesLimit).map((item) => {
+                  const active =
+                    item.name.trim().toLowerCase() === jobCompanyFilter.trim().toLowerCase();
+                  const logoUrl =
+                    item.logoUrl.trim() || companyLogoByName[item.name.trim().toLowerCase()] || "";
+                  const initial = item.name.trim().slice(0, 1).toUpperCase() || "C";
+
+                  return (
+                    <button
+                      key={item.name}
+                      type="button"
+                      className={[
+                        "flex min-w-[180px] items-center gap-3 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition hover:bg-slate-50",
+                        active
+                          ? "border-emerald-400 bg-emerald-200 text-emerald-950 shadow-md ring-2 ring-emerald-600/15"
+                          : "border-slate-200 text-slate-700",
+                      ].join(" ")}
+                      onClick={() =>
+                        setJobCompanyFilter((prev) =>
+                          prev.trim().toLowerCase() === item.name.trim().toLowerCase()
+                            ? ""
+                            : item.name
+                        )
+                      }
+                      title={item.name}
+                    >
+                      <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white text-sm font-bold text-slate-700 ring-1 ring-slate-200">
+                        {logoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={logoUrl}
+                            alt={item.name}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          initial
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">{item.name}</span>
+                        {active ? (
+                          <span className="block truncate text-xs text-emerald-800">
+                            Selected (click to clear)
+                          </span>
+                        ) : companyCountsLoading ? (
+                          <span className="block truncate text-xs text-slate-400">Loading…</span>
+                        ) : item.count ? (
+                          <span className="block truncate text-xs text-slate-500">
+                            {item.count} openings
+                          </span>
+                        ) : (
+                          <span className="block truncate text-xs text-slate-500">Filter</span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              {jobCompanyFilter.trim() ? (
+                <button
+                  type="button"
+                  className="text-sm font-semibold text-slate-600 hover:underline"
+                  onClick={() => setJobCompanyFilter("")}
+                >
+                  Clear filter
+                </button>
+              ) : (
+                <span />
+              )}
+
+              {companyFilterOptions.length > 10 ? (
+                <button
+                  type="button"
+                  className="text-sm font-semibold text-emerald-700 hover:underline"
+                  onClick={() => setShowAllCompanies((prev) => !prev)}
+                >
+                  {showAllCompanies ? "Show less" : "Show all"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-5 grid-cols-[repeat(auto-fit,minmax(280px,1fr))]">
             {loadingPositions ? (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
                 Loading positions…
@@ -1473,6 +1880,22 @@ export default function BreezyPositionRecordsBrowser({
               positionCards
             )}
           </div>
+
+          {!loadingPositions ? (
+            <div className="mt-6">
+              <div ref={loadMoreSentinelRef} className="h-1 w-full" />
+              {loadingMorePositions ? (
+                <div className="mt-3 text-center text-sm text-slate-500">
+                  Loading more…
+                </div>
+              ) : null}
+              {!loadingMorePositions && positionsNextOffset === null && positionsTotal !== null ? (
+                <div className="mt-3 text-center text-xs text-slate-400">
+                  End of list
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -1514,7 +1937,7 @@ export default function BreezyPositionRecordsBrowser({
                 <button
                   type="button"
                   className="inline-flex items-center justify-center rounded-full border border-white/30 bg-white/85 px-4 py-2 text-xs font-semibold text-slate-800 shadow-sm backdrop-blur hover:bg-white disabled:opacity-60"
-                  onClick={() => setEditing(true)}
+                  onClick={startEditing}
                   disabled={detailsLoading || !details}
                   title="Edit fields"
                 >
@@ -1574,13 +1997,17 @@ export default function BreezyPositionRecordsBrowser({
                 <div className="min-w-0">
                   <div className="mb-3">
                     {(() => {
-                      const company = details ? extractCompany(details) : "";
+                      const baseCompany = details ? extractCompany(details) : "";
+                      const company =
+                        editing && editForm.company.trim()
+                          ? editForm.company.trim()
+                          : baseCompany;
                       const logoSrc = company
                         ? companyLogoByName[company.toLowerCase()] ?? ""
                         : "";
                       return company ? (
                         <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
-                          <span className="inline-flex items-center gap-2 pr-2">
+                          <span className="inline-flex items-center gap-2">
                             {logoSrc ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
@@ -1591,74 +2018,312 @@ export default function BreezyPositionRecordsBrowser({
                                 decoding="async"
                               />
                             ) : null}
-                            <span className="max-w-[340px] whitespace-nowrap text-sm font-semibold text-slate-800 truncate">
-                              {company}
-                            </span>
+
+                            {canEdit && editing ? (
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-2 rounded-full px-2 py-1 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:opacity-60"
+                                title="Edit company"
+                                onClick={() => {
+                                  setInlineEditField("company");
+                                  setPickerQuery("");
+                                  setDepartmentPickerOpen(false);
+                                  setCompanyPickerOpen(true);
+                                }}
+                                disabled={detailsLoading || savingEdits}
+                              >
+                                <span className="max-w-[340px] whitespace-nowrap truncate">
+                                  {company}
+                                </span>
+                                <PencilLine className="h-4 w-4 text-slate-500" />
+                              </button>
+                            ) : (
+                              <span className="max-w-[340px] whitespace-nowrap text-sm font-semibold text-slate-800 truncate">
+                                {company}
+                              </span>
+                            )}
                           </span>
                         </div>
                       ) : null;
                     })()}
                   </div>
 
-                  <div
-                    id="breezy-position-modal-title"
-                    className="mt-2 text-xl font-extrabold leading-tight text-slate-900 break-words sm:text-2xl"
-                  >
-                    {detailsLoading
-                      ? "Loading…"
-                      : getFirstStringField(details, ["name", "title"]) ||
-                        selectedPositionLabel ||
-                        selectedPositionId}
+                  <div className="mt-2">
+                    <div className="flex min-w-0 items-start gap-2">
+                      {editing && inlineEditField === "title" ? (
+                        <input
+                          id="breezy-position-modal-title"
+                          className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-lg font-extrabold text-slate-900 shadow-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 sm:text-2xl"
+                          value={editForm.name}
+                          disabled={savingEdits}
+                          onChange={(event) =>
+                            setEditForm((prev) => ({ ...prev, name: event.target.value }))
+                          }
+                          onBlur={() => {
+                            const next = editForm.name;
+                            void saveQuickOverride({ name: next });
+                            setInlineEditField(null);
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape") {
+                              setInlineEditField(null);
+                              return;
+                            }
+                            if (event.key === "Enter") {
+                              const next = editForm.name;
+                              void saveQuickOverride({ name: next });
+                              setInlineEditField(null);
+                            }
+                          }}
+                          placeholder={
+                            getFirstStringField(details, ["name", "title"]) ||
+                            selectedPositionLabel ||
+                            selectedPositionId
+                          }
+                          autoFocus
+                        />
+                      ) : (
+                        <>
+                          {canEdit && editing ? (
+                            <button
+                              type="button"
+                              id="breezy-position-modal-title"
+                              className="min-w-0 text-left text-xl font-extrabold leading-tight text-slate-900 break-words transition hover:text-slate-950 disabled:opacity-60 sm:text-2xl"
+                              title="Edit title"
+                              onClick={() => {
+                                const currentTitle =
+                                  getFirstStringField(details, ["name", "title"]) ||
+                                  selectedPositionLabel ||
+                                  selectedPositionId;
+                                setInlineEditField("title");
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  name: prev.name.trim() ? prev.name : currentTitle,
+                                }));
+                              }}
+                              disabled={detailsLoading || savingEdits}
+                            >
+                              {detailsLoading
+                                ? "Loading…"
+                                : (editing && editForm.name.trim()
+                                    ? editForm.name.trim()
+                                    : getFirstStringField(details, ["name", "title"]) ||
+                                      selectedPositionLabel ||
+                                      selectedPositionId)}
+                            </button>
+                          ) : (
+                            <div
+                              id="breezy-position-modal-title"
+                              className="min-w-0 text-xl font-extrabold leading-tight text-slate-900 break-words sm:text-2xl"
+                            >
+                              {detailsLoading
+                                ? "Loading…"
+                                : getFirstStringField(details, ["name", "title"]) ||
+                                  selectedPositionLabel ||
+                                  selectedPositionId}
+                            </div>
+                          )}
+                          {canEdit && editing ? (
+                            <button
+                              type="button"
+                              className="mt-1 inline-flex h-9 w-9 flex-none items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                              title="Edit title"
+                              onClick={() => {
+                                const currentTitle =
+                                  getFirstStringField(details, ["name", "title"]) ||
+                                  selectedPositionLabel ||
+                                  selectedPositionId;
+                                setInlineEditField("title");
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  name: prev.name.trim() ? prev.name : currentTitle,
+                                }));
+                              }}
+                              disabled={detailsLoading || savingEdits}
+                            >
+                              <PencilLine className="h-4 w-4" />
+                            </button>
+                          ) : null}
+                        </>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
-                      {recordType === "pool" ? "Pool" : "Position"}
-                    </span>
-                    {isHidden ? (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 shadow-sm shadow-amber-200/40">
-                        Not active
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
+                        {recordType === "pool" ? "Pool" : "Position"}
                       </span>
-                    ) : null}
-                    {(() => {
-                      const department = details ? extractDepartment(details) : "";
-                      const location = details ? formatPositionLocation(details) : "";
-                      const state = getFirstStringField(details, ["state", "status"]);
-                      const metaBadges = [
-                        department ? { key: "department", label: department } : null,
-                        location ? { key: "location", label: location } : null,
-                        state ? { key: "state", label: state } : null,
-                      ].filter(Boolean) as Array<{ key: string; label: string }>;
+                      {(() => {
+                        const baseDepartment = details ? extractDepartment(details) : "";
+                        const department =
+                          editing && editForm.department.trim()
+                            ? editForm.department.trim()
+                            : baseDepartment;
+                        const location = details ? formatPositionLocation(details) : "";
+                        const metaBadges = [
+                          department ? { key: "department", label: department } : null,
+                          location ? { key: "location", label: location } : null,
+                        ].filter(Boolean) as Array<{ key: string; label: string }>;
 
-                      return metaBadges.length > 0 ? (
-                        <>
-                          {metaBadges.map((badge) => (
-                            <span
-                              key={badge.key}
-                              className={[
+                        return metaBadges.length > 0 ? (
+                          <>
+                            {metaBadges.map((badge) => {
+                              const content = (
+                                <>
+                                  {badge.key === "department" ? (
+                                    <Layers className="h-3.5 w-3.5 text-amber-600" />
+                                  ) : (
+                                    <MapPin className="h-3.5 w-3.5 text-cyan-600" />
+                                  )}
+                                  <span className="min-w-0 max-w-[320px] whitespace-nowrap truncate">
+                                    {badge.label}
+                                  </span>
+                                  {canEdit && editing && badge.key === "department" ? (
+                                    <PencilLine className="h-3.5 w-3.5 text-amber-700" />
+                                  ) : null}
+                                </>
+                              );
+
+                              const className = [
                                 "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-semibold shadow-sm",
                                 badge.key === "department"
                                   ? "border-amber-200 bg-gradient-to-r from-amber-100 to-[#ffc45c]/70 text-amber-950 shadow-amber-200/40"
-                                  : badge.key === "location"
-                                    ? "border-cyan-200 bg-gradient-to-r from-cyan-100 to-sky-100 text-cyan-950 shadow-cyan-200/40"
-                                    : "border-slate-200 bg-slate-100 text-slate-700 shadow-slate-200/40",
+                                  : "border-cyan-200 bg-gradient-to-r from-cyan-100 to-sky-100 text-cyan-950 shadow-cyan-200/40",
+                              ].join(" ");
+
+                              if (canEdit && editing && badge.key === "department") {
+                                return (
+                                  <button
+                                    key={badge.key}
+                                    type="button"
+                                    className={[
+                                      className,
+                                      "text-left transition hover:brightness-[0.98] disabled:opacity-60",
+                                    ].join(" ")}
+                                    title="Edit department"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setInlineEditField("department");
+                                      setPickerQuery("");
+                                      setCompanyPickerOpen(false);
+                                      setDepartmentPickerOpen(true);
+                                    }}
+                                    disabled={detailsLoading || savingEdits}
+                                  >
+                                    {content}
+                                  </button>
+                                );
+                              }
+
+                              return (
+                                <span key={badge.key} className={className}>
+                                  {content}
+                                </span>
+                              );
+                            })}
+                          </>
+                        ) : null;
+                      })()}
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {recordType !== "pool" ? (
+                        <>
+                          {(() => {
+                            const overridePriority =
+                              typeof (detailsOverrides as Record<string, unknown>)?.priority ===
+                              "string"
+                                ? asString(
+                                    (detailsOverrides as Record<string, unknown>)?.priority
+                                  ).trim()
+                                : "";
+                            const currentPriority =
+                              (editing ? editForm.priority.trim() : "") ||
+                              overridePriority ||
+                              asString((details as Record<string, unknown> | null)?.priority);
+                            const priorityKey = normalizePriorityKey(currentPriority);
+                            const label = getPriorityLabel(priorityKey, availablePriorityTypes) || "None";
+                            return canEdit && editing ? (
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-gradient-to-r from-sky-100 to-[#64c8ff]/70 px-2.5 py-1.5 text-[10px] font-semibold text-sky-950 shadow-sm shadow-sky-200/40 transition hover:brightness-[0.98] disabled:opacity-60"
+                                title="Opening type"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpeningTypePickerOpen(true);
+                                }}
+                                disabled={detailsLoading || savingEdits}
+                              >
+                                <FolderKanban className="h-3.5 w-3.5 text-sky-600" />
+                                <span className="min-w-0 max-w-[240px] whitespace-nowrap truncate">
+                                  {label}
+                                </span>
+                                <PencilLine className="h-3.5 w-3.5 text-sky-700" />
+                              </button>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-gradient-to-r from-sky-100 to-[#64c8ff]/70 px-2.5 py-1.5 text-[10px] font-semibold text-sky-950 shadow-sm shadow-sky-200/40">
+                                <FolderKanban className="h-3.5 w-3.5 text-sky-600" />
+                                <span className="min-w-0 max-w-[240px] whitespace-nowrap truncate">
+                                  {label}
+                                </span>
+                              </span>
+                            );
+                          })()}
+
+                          {canEdit && editing ? (
+                            <button
+                              type="button"
+                              className={[
+                                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-semibold shadow-sm transition hover:brightness-[0.98] disabled:opacity-60",
+                                isHidden
+                                  ? "border-rose-200 bg-rose-50 text-rose-900 shadow-rose-200/40"
+                                  : "border-emerald-200 bg-emerald-50 text-emerald-900 shadow-emerald-200/40",
+                              ].join(" ")}
+                              title="Active status"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setStatusPickerOpen(true);
+                              }}
+                              disabled={detailsLoading || visibilitySaving}
+                            >
+                              {isHidden ? (
+                                <EyeOff className="h-3.5 w-3.5 text-rose-600" />
+                              ) : (
+                                <Eye className="h-3.5 w-3.5 text-emerald-600" />
+                              )}
+                              <span className="whitespace-nowrap">
+                                {isHidden ? "Not active" : "Active"}
+                              </span>
+                              <PencilLine
+                                className={[
+                                  "h-3.5 w-3.5",
+                                  isHidden ? "text-rose-700" : "text-emerald-700",
+                                ].join(" ")}
+                              />
+                            </button>
+                          ) : (
+                            <span
+                              className={[
+                                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-semibold shadow-sm",
+                                isHidden
+                                  ? "border-rose-200 bg-rose-50 text-rose-900 shadow-rose-200/40"
+                                  : "border-emerald-200 bg-emerald-50 text-emerald-900 shadow-emerald-200/40",
                               ].join(" ")}
                             >
-                              {badge.key === "department" ? (
-                                <Layers className="h-3.5 w-3.5 text-amber-600" />
-                              ) : badge.key === "location" ? (
-                                <MapPin className="h-3.5 w-3.5 text-cyan-600" />
+                              {isHidden ? (
+                                <EyeOff className="h-3.5 w-3.5 text-rose-600" />
                               ) : (
-                                <BriefcaseBusiness className="h-3.5 w-3.5 text-slate-500" />
+                                <Eye className="h-3.5 w-3.5 text-emerald-600" />
                               )}
-                              <span className="min-w-0 max-w-[320px] whitespace-nowrap truncate">
-                                {badge.label}
+                              <span className="whitespace-nowrap">
+                                {isHidden ? "Not active" : "Active"}
                               </span>
                             </span>
-                          ))}
+                          )}
                         </>
-                      ) : null;
-                    })()}
+                      ) : null}
+                    </div>
                   </div>
 
                   {!editing && !detailsLoading && details && !canEdit ? (
@@ -1675,7 +2340,7 @@ export default function BreezyPositionRecordsBrowser({
                   <button
                     type="button"
                     className="inline-flex h-16 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-10 text-base font-semibold text-white shadow-xl shadow-sky-200/70 ring-1 ring-white/20 hover:from-[#256fd2] hover:to-[#55bbff] focus:outline-none focus:ring-2 focus:ring-sky-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70 sm:justify-self-end"
-                    onClick={() => setEditing(true)}
+                    onClick={startEditing}
                     disabled={detailsLoading || !details}
                   >
                     <PencilLine className="h-5 w-5" aria-hidden="true" />
@@ -1703,7 +2368,15 @@ export default function BreezyPositionRecordsBrowser({
                       <button
                         type="button"
                         className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                        onClick={() => setEditing(false)}
+                        onClick={() => {
+                          setEditing(false);
+                          setInlineEditField(null);
+                          setStatusPickerOpen(false);
+                          setOpeningTypePickerOpen(false);
+                          setCompanyPickerOpen(false);
+                          setDepartmentPickerOpen(false);
+                          setPickerQuery("");
+                        }}
                         disabled={savingEdits}
                       >
                         Cancel
@@ -1808,6 +2481,318 @@ export default function BreezyPositionRecordsBrowser({
                   </div>
                 </div>
               ) : null}
+
+              {companyPickerOpen || departmentPickerOpen ? (
+                <div
+                  className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
+                  onClick={() => {
+                    setCompanyPickerOpen(false);
+                    setDepartmentPickerOpen(false);
+                    setPickerQuery("");
+                  }}
+                >
+                  <div
+                    className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-900">
+                          {companyPickerOpen ? "Companies" : "Departments"}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          {companyPickerOpen
+                            ? "Pick an existing company name."
+                            : departmentPickerCompany
+                              ? `Pick a department for ${departmentPickerCompany}.`
+                              : "Pick an existing department."}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                        onClick={() => {
+                          setCompanyPickerOpen(false);
+                          setDepartmentPickerOpen(false);
+                          setPickerQuery("");
+                        }}
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    <div className="mt-4">
+                      <div className="relative">
+                        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <input
+                          className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                          value={pickerQuery}
+                          onChange={(event) => setPickerQuery(event.target.value)}
+                          placeholder={`Search ${companyPickerOpen ? "companies" : "departments"}...`}
+                        />
+                      </div>
+
+                      <div className="mt-4 max-h-[320px] overflow-auto rounded-2xl border border-slate-200">
+                        {filteredPickerOptions.length > 0 ? (
+                          <div className="divide-y divide-slate-100">
+                            {filteredPickerOptions.map((label) => (
+                              <button
+                                key={label}
+                                type="button"
+                                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                                onClick={() => {
+                                  if (companyPickerOpen) {
+                                    const companyKey = label.trim().toLowerCase();
+                                    const allowedDepartments = new Set(
+                                      positions
+                                        .filter(
+                                          (pos) =>
+                                            asString(pos.company).trim().toLowerCase() ===
+                                            companyKey
+                                        )
+                                        .map((pos) =>
+                                          asString(pos.department).trim().toLowerCase()
+                                        )
+                                        .filter(Boolean)
+                                    );
+                                    const nextDept = editForm.department.trim();
+                                    const keepDept =
+                                      !nextDept ||
+                                      allowedDepartments.size === 0 ||
+                                      allowedDepartments.has(nextDept.toLowerCase());
+
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      company: label,
+                                      department: keepDept ? prev.department : "",
+                                    }));
+                                    void saveQuickOverride({
+                                      company: label,
+                                      department: keepDept ? editForm.department : "",
+                                    });
+                                  } else {
+                                    setEditForm((prev) => ({ ...prev, department: label }));
+                                    void saveQuickOverride({ department: label });
+                                  }
+                                  setCompanyPickerOpen(false);
+                                  setDepartmentPickerOpen(false);
+                                  setPickerQuery("");
+                                  setInlineEditField(null);
+                                }}
+                              >
+                                <span className="min-w-0 truncate">{label}</span>
+                                <span className="text-slate-400">Select</span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="px-4 py-6 text-sm text-slate-500">No matches found.</div>
+                        )}
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                          onClick={() => {
+                            if (companyPickerOpen) {
+                              setEditForm((prev) => ({ ...prev, company: "" }));
+                            } else {
+                              setEditForm((prev) => ({ ...prev, department: "" }));
+                            }
+                            setCompanyPickerOpen(false);
+                            setDepartmentPickerOpen(false);
+                            setPickerQuery("");
+                          }}
+                        >
+                          Clear
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                          onClick={() => {
+                            setCompanyPickerOpen(false);
+                            setDepartmentPickerOpen(false);
+                            setPickerQuery("");
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {statusPickerOpen ? (
+                <div
+                  className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
+                  onClick={() => setStatusPickerOpen(false)}
+                >
+                  <div
+                    className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-900">Opening status</div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          Active openings are visible on the public jobs page.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                        onClick={() => setStatusPickerOpen(false)}
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    <div className="mt-4 grid gap-2">
+                      <button
+                        type="button"
+                        className={[
+                          "flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition hover:bg-slate-50 disabled:opacity-60",
+                          !isHidden ? "border-emerald-200 bg-emerald-50/60" : "border-slate-200",
+                        ].join(" ")}
+                        onClick={() => {
+                          void setHiddenOverride(false);
+                          setStatusPickerOpen(false);
+                        }}
+                        disabled={visibilitySaving || detailsLoading}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Eye className="h-4 w-4 text-emerald-600" />
+                          Active
+                        </span>
+                        {!isHidden ? <span className="text-emerald-700">Selected</span> : null}
+                      </button>
+                      <button
+                        type="button"
+                        className={[
+                          "flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition hover:bg-slate-50 disabled:opacity-60",
+                          isHidden ? "border-rose-200 bg-rose-50/60" : "border-slate-200",
+                        ].join(" ")}
+                        onClick={() => {
+                          void setHiddenOverride(true);
+                          setStatusPickerOpen(false);
+                        }}
+                        disabled={visibilitySaving || detailsLoading}
+                      >
+                        <span className="flex items-center gap-2">
+                          <EyeOff className="h-4 w-4 text-rose-600" />
+                          Not active
+                        </span>
+                        {isHidden ? <span className="text-rose-700">Selected</span> : null}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+                  {openingTypePickerOpen ? (
+                <div
+                  className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
+                  onClick={() => setOpeningTypePickerOpen(false)}
+                >
+                  <div
+                    className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-900">Opening type</div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          Choose a label for this opening, or create a new one.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                        onClick={() => setOpeningTypePickerOpen(false)}
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    {(() => {
+                      const overridePriority =
+                        typeof (detailsOverrides as Record<string, unknown>)?.priority === "string"
+                          ? asString((detailsOverrides as Record<string, unknown>)?.priority).trim()
+                          : "";
+                      const currentPriority =
+                        editForm.priority.trim() ||
+                        overridePriority ||
+                        asString((details as Record<string, unknown> | null)?.priority);
+                      const activeKey = normalizePriorityKey(currentPriority);
+
+                      const options: Array<{ key: string; label: string }> = [
+                        { key: "", label: "None" },
+                        ...availablePriorityTypes.map((t) => ({
+                          key: normalizePriorityKey(t.key),
+                          label: t.label,
+                        })),
+                      ];
+
+                      return (
+                        <>
+                          <div className="mt-4 max-h-[320px] overflow-auto rounded-2xl border border-slate-200">
+                            <div className="divide-y divide-slate-100">
+                              {options.map((opt) => {
+                                const selected = normalizePriorityKey(opt.key) === activeKey;
+                                return (
+                                  <button
+                                    key={opt.key || "__none__"}
+                                    type="button"
+                                    className={[
+                                      "flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold transition hover:bg-slate-50 disabled:opacity-60",
+                                      selected ? "bg-sky-50" : "bg-white",
+                                    ].join(" ")}
+                                    onClick={() => {
+                                      setEditForm((prev) => ({ ...prev, priority: opt.key }));
+                                      setDetailsOverrides((prev) => ({
+                                        ...prev,
+                                        priority: opt.key,
+                                      }));
+                                      void saveQuickOverride({ priority: opt.key });
+                                      setOpeningTypePickerOpen(false);
+                                    }}
+                                    disabled={savingEdits || detailsLoading}
+                                  >
+                                    <span className="min-w-0 truncate">{opt.label}</span>
+                                    {selected ? (
+                                      <span className="text-sky-700">Selected</span>
+                                    ) : null}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                              onClick={() => setPriorityTypesModalOpen(true)}
+                              disabled={savingEdits || detailsLoading}
+                            >
+                              Manage / create types
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                              onClick={() => setOpeningTypePickerOpen(false)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : null}
             </>
           }
         >
@@ -1816,10 +2801,7 @@ export default function BreezyPositionRecordsBrowser({
               ) : details ? (
                 <div className="grid gap-4">
                   {(() => {
-                    const title = getFirstStringField(details, ["name", "title"]);
                     const state = getFirstStringField(details, ["state", "status"]);
-                    const company = extractCompany(details);
-                    const department = extractDepartment(details);
                     const location = formatPositionLocation(details);
                     const summary = getFirstStringField(details, [
                       "summary",
@@ -1853,108 +2835,60 @@ export default function BreezyPositionRecordsBrowser({
                               Edit fields
                             </div>
                             <div className="mt-1 text-xs text-slate-600">
-                              Leave empty to use the Breezy value. Edited keys:{" "}
+                              Changes you make here are saved as overrides. Edited keys:{" "}
                               {editedKeys.length > 0 ? editedKeys.join(", ") : "—"}
                             </div>
                           </div>
 
                           <div className="grid gap-3">
-                            <div className="grid gap-1">
-                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                Title
-                              </div>
-                              <input
-                                className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
-                                value={editForm.name}
-                                disabled={savingEdits}
-                                onChange={(event) =>
-                                  setEditForm((prev) => ({ ...prev, name: event.target.value }))
-                                }
-                                placeholder={title || "—"}
-                              />
-                            </div>
-
-                            <div className="grid gap-3 sm:grid-cols-4">
-                              <div className="grid gap-1">
-                                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                  Company
-                                </div>
-                                <input
-                                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
-                                  value={editForm.company}
-                                  disabled={savingEdits}
-                                  onChange={(event) =>
-                                    setEditForm((prev) => ({
-                                      ...prev,
-                                      company: event.target.value,
-                                    }))
-                                  }
-                                  placeholder={company || "—"}
-                                />
-                              </div>
-                              <div className="grid gap-1">
-                                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                  Department
-                                </div>
-                                <input
-                                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
-                                  value={editForm.department}
-                                  disabled={savingEdits}
-                                  onChange={(event) =>
-                                    setEditForm((prev) => ({
-                                      ...prev,
-                                      department: event.target.value,
-                                    }))
-                                  }
-                                  placeholder={department || "—"}
-                                />
-                              </div>
-
+                            <div className="grid gap-3 sm:grid-cols-2">
                               <div className="grid gap-1">
                                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                                   Priority
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <select
-                                    className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
-                                    value={editForm.priority}
-                                    disabled={savingEdits || prioritySaving}
-                                    onChange={(event) =>
-                                      setEditForm((prev) => ({
-                                        ...prev,
-                                        priority: event.target.value,
-                                      }))
-                                    }
-                                  >
-                                    <option value="">None</option>
-                                    {editForm.priority &&
-                                    !availablePriorityTypes.some(
-                                      (type) =>
-                                        normalizePriorityKey(type.key) ===
-                                        normalizePriorityKey(editForm.priority)
-                                    ) ? (
-                                      <option value={normalizePriorityKey(editForm.priority)}>
-                                        {getPriorityLabel(editForm.priority, availablePriorityTypes)}
-                                      </option>
-                                    ) : null}
-                                    {availablePriorityTypes.map((type) => (
-                                      <option key={type.key} value={normalizePriorityKey(type.key)}>
-                                        {type.label}
-                                      </option>
-                                    ))}
-                                  </select>
+                                <select
+                                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
+                                  value={editForm.priority}
+                                  disabled={savingEdits || prioritySaving}
+                                  onChange={(event) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      priority: event.target.value,
+                                    }))
+                                  }
+                                >
+                                  <option value="">None</option>
+                                  {editForm.priority &&
+                                  !availablePriorityTypes.some(
+                                    (type) =>
+                                      normalizePriorityKey(type.key) ===
+                                      normalizePriorityKey(editForm.priority)
+                                  ) ? (
+                                    <option value={normalizePriorityKey(editForm.priority)}>
+                                      {getPriorityLabel(editForm.priority, availablePriorityTypes)}
+                                    </option>
+                                  ) : null}
+                                  {availablePriorityTypes.map((type) => (
+                                    <option key={type.key} value={normalizePriorityKey(type.key)}>
+                                      {type.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                                   <button
                                     type="button"
-                                    className="h-11 shrink-0 rounded-2xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
                                     onClick={() => setPriorityTypesModalOpen(true)}
                                     disabled={savingEdits || prioritySaving || !canEdit}
                                   >
-                                    Manage
+                                    Manage types
                                   </button>
+                                  {priorityTypesWarning ? (
+                                    <div className="text-[11px] text-amber-700">
+                                      {priorityTypesWarning}
+                                    </div>
+                                  ) : null}
                                 </div>
-                                {priorityTypesWarning ? (
-                                  <div className="text-[11px] text-amber-700">{priorityTypesWarning}</div>
-                                ) : null}
                               </div>
 
                               <div className="grid gap-1">
@@ -1995,17 +2929,14 @@ export default function BreezyPositionRecordsBrowser({
                               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                                 Description
                               </div>
-                              <textarea
-                                className="min-h-[180px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
-                                value={editForm.description}
+                              <WysiwygEditor
+                                value={editForm.description || description || ""}
                                 disabled={savingEdits}
-                                onChange={(event) =>
-                                  setEditForm((prev) => ({
-                                    ...prev,
-                                    description: event.target.value,
-                                  }))
+                                placeholder="Write the full description…"
+                                minHeightClassName="min-h-[220px]"
+                                onChange={(next) =>
+                                  setEditForm((prev) => ({ ...prev, description: next }))
                                 }
-                                placeholder={description || ""}
                               />
                             </div>
 
@@ -2013,17 +2944,14 @@ export default function BreezyPositionRecordsBrowser({
                               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                                 Responsibilities
                               </div>
-                              <textarea
-                                className="min-h-[140px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
-                                value={editForm.responsibilities}
+                              <WysiwygEditor
+                                value={editForm.responsibilities || responsibilities || ""}
                                 disabled={savingEdits}
-                                onChange={(event) =>
-                                  setEditForm((prev) => ({
-                                    ...prev,
-                                    responsibilities: event.target.value,
-                                  }))
+                                placeholder="List responsibilities…"
+                                minHeightClassName="min-h-[180px]"
+                                onChange={(next) =>
+                                  setEditForm((prev) => ({ ...prev, responsibilities: next }))
                                 }
-                                placeholder={responsibilities || ""}
                               />
                             </div>
 
@@ -2031,17 +2959,14 @@ export default function BreezyPositionRecordsBrowser({
                               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                                 Requirements
                               </div>
-                              <textarea
-                                className="min-h-[140px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
-                                value={editForm.requirements}
+                              <WysiwygEditor
+                                value={editForm.requirements || requirements || ""}
                                 disabled={savingEdits}
-                                onChange={(event) =>
-                                  setEditForm((prev) => ({
-                                    ...prev,
-                                    requirements: event.target.value,
-                                  }))
+                                placeholder="List requirements…"
+                                minHeightClassName="min-h-[180px]"
+                                onChange={(next) =>
+                                  setEditForm((prev) => ({ ...prev, requirements: next }))
                                 }
-                                placeholder={requirements || ""}
                               />
                             </div>
                           </div>
