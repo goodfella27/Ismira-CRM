@@ -32,7 +32,7 @@ const navItems = [
     icon: Users2,
   },
   {
-    label: "Breezy HR",
+    label: "Ismira HR Portal",
     href: "/breezy",
     description: "ATS connection",
     icon: Briefcase,

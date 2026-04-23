@@ -84,7 +84,7 @@ export default function BreezyShell({ children }: { children: ReactNode }) {
                 Integration
               </div>
               <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                Breezy HR
+                Ismira HR Portal
               </div>
               <p className="mt-2 text-sm text-slate-600">
                 Manage Breezy connection data and sync assets into LinAs CRM.
