@@ -166,6 +166,30 @@ function containsHtml(value: string) {
   return /<\/?[a-z][\s\S]*>/i.test(value);
 }
 
+function moveFlagRunsToOwnParagraph(doc: Document) {
+  const flagRunPattern = /((?:\s*[\u{1F1E6}-\u{1F1FF}]{2}\s*){2,})/u;
+  const candidates = Array.from(doc.body.querySelectorAll("p, h1, h2, h3, h4"));
+
+  candidates.forEach((node) => {
+    const text = node.textContent ?? "";
+    const match = text.match(flagRunPattern);
+    if (!match || !match[1]) return;
+
+    const flags = match[1].trim();
+    const flagIndex = text.indexOf(flags);
+    if (flagIndex <= 0) return;
+
+    const before = text.slice(0, flagIndex).trimEnd();
+    if (!before) return;
+
+    node.textContent = before;
+
+    const flagsParagraph = doc.createElement("p");
+    flagsParagraph.textContent = flags;
+    node.insertAdjacentElement("afterend", flagsParagraph);
+  });
+}
+
 function sanitizeHtml(input: string) {
   if (!input.trim()) return "";
   if (typeof window === "undefined") return "";
@@ -249,6 +273,8 @@ function sanitizeHtml(input: string) {
       }
     });
 
+    moveFlagRunsToOwnParagraph(doc);
+
     return doc.body.innerHTML;
   } catch {
     return "";
@@ -265,19 +291,21 @@ function RichText({ content }: { content: string }) {
     return (
       <div
         className={[
-          "text-sm text-slate-800",
-          "[&_p]:mt-2 [&_p]:leading-6",
-          "[&_h1]:mt-4 [&_h1]:text-lg [&_h1]:font-semibold",
-          "[&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold",
-          "[&_h3]:mt-4 [&_h3]:text-base [&_h3]:font-semibold",
-          "[&_h4]:mt-3 [&_h4]:text-sm [&_h4]:font-semibold",
-          "[&_ul]:mt-2 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5",
-          "[&_ol]:mt-2 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5",
-          "[&_li]:leading-6",
-          "[&_strong]:font-semibold",
+          "text-[15px] leading-7 text-slate-800",
+          "[&>*:first-child]:mt-0",
+          "[&_p]:mt-4",
+          "[&_h1]:mb-3 [&_h1]:mt-8 [&_h1]:border-l-4 [&_h1]:border-sky-300 [&_h1]:pl-4 [&_h1]:text-[1.1rem] [&_h1]:font-extrabold [&_h1]:uppercase [&_h1]:tracking-[0.08em] [&_h1]:text-slate-900",
+          "[&_h2]:mb-3 [&_h2]:mt-8 [&_h2]:border-l-4 [&_h2]:border-sky-300 [&_h2]:pl-4 [&_h2]:text-[1.05rem] [&_h2]:font-extrabold [&_h2]:uppercase [&_h2]:tracking-[0.08em] [&_h2]:text-slate-900",
+          "[&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:border-l-4 [&_h3]:border-sky-200 [&_h3]:pl-4 [&_h3]:text-base [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-[0.06em] [&_h3]:text-slate-800",
+          "[&_h4]:mb-1 [&_h4]:mt-4 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:uppercase [&_h4]:tracking-[0.08em] [&_h4]:text-slate-600",
+          "[&_ul]:mt-4 [&_ul]:list-disc [&_ul]:space-y-3 [&_ul]:pl-7",
+          "[&_ol]:mt-4 [&_ol]:list-decimal [&_ol]:space-y-3 [&_ol]:pl-7",
+          "[&_li]:leading-7 [&_li]:marker:text-sky-500",
+          "[&_strong]:font-extrabold [&_strong]:text-slate-900",
           "[&_a]:font-semibold [&_a]:text-emerald-700 [&_a:hover]:underline",
-          "[&_img]:my-3 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-2xl [&_img]:border [&_img]:border-slate-200",
-          "[&_figure]:my-3",
+          "[&_img]:my-4 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-[24px] [&_img]:border [&_img]:border-slate-200 [&_img]:shadow-[0_20px_50px_-30px_rgba(15,23,42,0.45)]",
+          "[&_figure]:my-4",
+          "[&_hr]:my-6 [&_hr]:border-slate-200",
           "[&_br]:leading-6",
         ].join(" ")}
         dangerouslySetInnerHTML={{ __html: safeHtml || "" }}
@@ -3310,14 +3338,14 @@ export default function JobsBoard() {
               })()}
 
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                   Description
                 </div>
-                <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+                <div className="mt-4 overflow-hidden rounded-[28px] border border-slate-200 bg-white p-8 shadow-[0_18px_40px_-34px_rgba(15,23,42,0.24)]">
                   {modalDescription.bodyHtml ? (
                     <RichText content={modalDescription.bodyHtml} />
                   ) : (
-                    <div className="whitespace-pre-wrap text-sm leading-6 text-slate-800">
+                    <div className="whitespace-pre-wrap text-[15px] leading-7 text-slate-800">
                       {modalDescription.bodyText || "—"}
                     </div>
                   )}
