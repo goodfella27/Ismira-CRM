@@ -950,7 +950,7 @@ function BenefitTagFeatureList({ tags }: { tags: string[] }) {
             </span>
             <div className="min-w-0">
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                Company Benefit
+                You Get
               </div>
               <div className="truncate text-sm font-semibold text-slate-900">{label}</div>
             </div>
