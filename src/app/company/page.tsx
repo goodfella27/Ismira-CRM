@@ -19,6 +19,7 @@ import {
   type Questionnaire,
   type QuestionnaireStatus,
 } from "@/lib/questionnaires";
+import { AVAILABLE_BENEFIT_TAGS, BENEFIT_TAG_LABELS, type BenefitTag } from "@/lib/job-benefits";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureCompanyBootstrap } from "@/lib/company/bootstrap-client";
 import {
@@ -56,6 +57,7 @@ type JobCompanyAdminItem = {
   slug: string;
   website: string | null;
   logoUrl: string | null;
+  benefitTags: BenefitTag[];
   positionsCount: number;
 };
 
@@ -257,6 +259,10 @@ export default function CompanyPage() {
   const [jobCompaniesSyncing, setJobCompaniesSyncing] = useState(false);
   const [jobCompaniesError, setJobCompaniesError] = useState<string | null>(null);
   const [jobCompaniesActionId, setJobCompaniesActionId] = useState<string | null>(null);
+  const [jobCompanyNameDrafts, setJobCompanyNameDrafts] = useState<Record<string, string>>({});
+  const [jobCompanyBenefitDrafts, setJobCompanyBenefitDrafts] = useState<
+    Record<string, BenefitTag[]>
+  >({});
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [pipelineName, setPipelineName] = useState("");
   const [pipelineError, setPipelineError] = useState<string | null>(null);
@@ -554,18 +560,50 @@ export default function CompanyPage() {
         list.map((item) => {
           const row = isRecord(item) ? item : {};
           const positionsCount = row.positionsCount;
+          const benefitTagsRaw = Array.isArray(row.benefitTags) ? row.benefitTags : [];
           return {
             id: typeof row.id === "string" ? row.id : "",
             name: typeof row.name === "string" ? row.name : "Company",
             slug: typeof row.slug === "string" ? row.slug : "",
             website: typeof row.website === "string" ? row.website : null,
             logoUrl: typeof row.logoUrl === "string" ? row.logoUrl : null,
+            benefitTags: benefitTagsRaw.filter(
+              (tag): tag is BenefitTag =>
+                typeof tag === "string" &&
+                AVAILABLE_BENEFIT_TAGS.includes(tag as BenefitTag)
+            ),
             positionsCount:
               typeof positionsCount === "number" && Number.isFinite(positionsCount)
                 ? positionsCount
                 : 0,
           } satisfies JobCompanyAdminItem;
         })
+      );
+      setJobCompanyNameDrafts(
+        Object.fromEntries(
+          list.map((item) => {
+            const row = isRecord(item) ? item : {};
+            const id = typeof row.id === "string" ? row.id : "";
+            const name = typeof row.name === "string" ? row.name : "Company";
+            return [id, name];
+          })
+        )
+      );
+      setJobCompanyBenefitDrafts(
+        Object.fromEntries(
+          list.map((item) => {
+            const row = isRecord(item) ? item : {};
+            const id = typeof row.id === "string" ? row.id : "";
+            const tags = Array.isArray(row.benefitTags)
+              ? row.benefitTags.filter(
+                  (tag): tag is BenefitTag =>
+                    typeof tag === "string" &&
+                    AVAILABLE_BENEFIT_TAGS.includes(tag as BenefitTag)
+                )
+              : [];
+            return [id, tags];
+          })
+        )
       );
     } catch (err) {
       setJobCompaniesError(
@@ -790,6 +828,42 @@ export default function CompanyPage() {
       }
     },
     [loadJobCompanies]
+  );
+
+  const handleRenameJobCompany = useCallback(
+    async (jobCompanyId: string) => {
+      const name = (jobCompanyNameDrafts[jobCompanyId] ?? "").trim();
+      const benefitTags = jobCompanyBenefitDrafts[jobCompanyId] ?? [];
+      if (!jobCompanyId) return;
+      if (!name) {
+        setJobCompaniesError("Company name is required.");
+        return;
+      }
+
+      setJobCompaniesActionId(jobCompanyId);
+      setJobCompaniesError(null);
+      try {
+        const form = new FormData();
+        form.set("name", name);
+        form.set("benefitTags", JSON.stringify(benefitTags));
+        const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
+          method: "POST",
+          body: form,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(data?.error ?? "Failed to update job company name.");
+        }
+        await loadJobCompanies();
+      } catch (err) {
+        setJobCompaniesError(
+          err instanceof Error ? err.message : "Failed to update job company name."
+        );
+      } finally {
+        setJobCompaniesActionId(null);
+      }
+    },
+    [jobCompanyBenefitDrafts, jobCompanyNameDrafts, loadJobCompanies]
   );
 
   useEffect(() => {
@@ -2698,16 +2772,69 @@ export default function CompanyPage() {
                               )}
                             </div>
                             <div className="min-w-0">
-                              <div className="truncate text-sm font-semibold text-slate-900">
-                                {item.name}
-                              </div>
-                              <div className="mt-1 text-xs text-slate-500">
-                                {item.positionsCount} {item.positionsCount === 1 ? "position" : "positions"}
+                              <div className="flex flex-col gap-3">
+                                <input
+                                  type="text"
+                                  value={jobCompanyNameDrafts[item.id] ?? item.name}
+                                  disabled={isBusy}
+                                  onChange={(event) =>
+                                    setJobCompanyNameDrafts((prev) => ({
+                                      ...prev,
+                                      [item.id]: event.target.value,
+                                    }))
+                                  }
+                                  className="h-9 w-full min-w-[220px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                                />
+                                <div className="flex flex-wrap gap-2">
+                                  {AVAILABLE_BENEFIT_TAGS.map((tag) => {
+                                    const active = (jobCompanyBenefitDrafts[item.id] ?? []).includes(tag);
+                                    return (
+                                      <button
+                                        key={tag}
+                                        type="button"
+                                        disabled={isBusy}
+                                        onClick={() =>
+                                          setJobCompanyBenefitDrafts((prev) => {
+                                            const current = prev[item.id] ?? [];
+                                            const next = current.includes(tag)
+                                              ? current.filter((itemTag) => itemTag !== tag)
+                                              : [...current, tag];
+                                            return { ...prev, [item.id]: next };
+                                          })
+                                        }
+                                        className={[
+                                          "rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
+                                          active
+                                            ? "border-sky-300 bg-sky-50 text-sky-700"
+                                            : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                        ].join(" ")}
+                                      >
+                                        {BENEFIT_TAG_LABELS[tag]}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                <div className="text-xs text-slate-500">
+                                  {item.positionsCount} {item.positionsCount === 1 ? "position" : "positions"}
+                                </div>
                               </div>
                             </div>
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              className="h-9 rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                              onClick={() => void handleRenameJobCompany(item.id)}
+                              disabled={
+                                isBusy ||
+                                ((jobCompanyNameDrafts[item.id] ?? item.name).trim() === item.name.trim() &&
+                                  JSON.stringify(jobCompanyBenefitDrafts[item.id] ?? []) ===
+                                    JSON.stringify(item.benefitTags))
+                              }
+                            >
+                              Save
+                            </button>
                             <label className="inline-flex h-9 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
                               <input
                                 type="file"

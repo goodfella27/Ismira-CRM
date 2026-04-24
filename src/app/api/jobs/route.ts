@@ -5,12 +5,21 @@ import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
 import { getPrimaryCompanyId } from "@/lib/company/primary";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { applyPublicCacheControl } from "@/lib/http/public-api";
-import { inferCompanyFromPositionName } from "@/lib/breezy-position-fields";
+import {
+  inferCompanyFromPositionName,
+  replacePositionTitleCompany,
+} from "@/lib/breezy-position-fields";
 import {
   DEFAULT_BREEZY_PRIORITY_TYPES,
   dedupePriorityTypes,
 } from "@/lib/breezy-priority-types";
 import { buildBreezyPublicPositionUrl } from "@/lib/breezy-public";
+import {
+  fetchJobCompanyBenefits,
+  hasManualBenefitsOverride,
+  mapBenefitTagsByJobCompanyId,
+  syncAutoBenefitsFromCachedPositions,
+} from "@/lib/job-company-benefits";
 import {
   fetchJobCompaniesByNormalizedName,
   normalizeJobCompanyName,
@@ -32,6 +41,7 @@ type JobListItem = {
   company_slug?: string;
   application_url?: string;
   updated_at?: string;
+  benefit_tags?: string[];
   processable_countries?: string[];
   blocked_countries?: string[];
   mentioned_countries?: string[];
@@ -180,6 +190,27 @@ async function attachJobCompanyBranding(
   );
   const byName = new Map(jobCompanies.map((item) => [item.normalized_name, item] as const));
   const signedUrls = await signJobCompanyLogoUrls(init.admin, jobCompanies);
+  let benefitTagsByCompanyId = await fetchJobCompanyBenefits(
+    init.admin,
+    init.companyId,
+    jobCompanies.map((item) => item.id)
+  )
+    .then((rows) => mapBenefitTagsByJobCompanyId(rows))
+    .catch(() => new Map<string, string[]>());
+
+  const missingAutoCompanies = jobCompanies.filter(
+    (company) =>
+      !hasManualBenefitsOverride(company.metadata) && !benefitTagsByCompanyId.has(company.id)
+  );
+  if (missingAutoCompanies.length > 0) {
+    const autoTags = await syncAutoBenefitsFromCachedPositions(init.admin, {
+      companyId: init.companyId,
+      jobCompanies: missingAutoCompanies,
+    }).catch(() => new Map<string, string[]>());
+    if (autoTags.size > 0) {
+      benefitTagsByCompanyId = new Map([...benefitTagsByCompanyId, ...autoTags]);
+    }
+  }
 
   return items.map((item) => {
     const company = byName.get(normalizeJobCompanyName(item.company));
@@ -187,8 +218,11 @@ async function attachJobCompanyBranding(
     const logoPath = typeof company.logo_path === "string" ? company.logo_path.trim() : "";
     return {
       ...item,
+      name: replacePositionTitleCompany(item.name, item.company, company.name) || item.name,
+      company: company.name,
       company_slug: company.slug,
       company_logo_url: logoPath ? signedUrls.get(logoPath) ?? undefined : undefined,
+      benefit_tags: benefitTagsByCompanyId.get(company.id) ?? [],
     };
   });
 }

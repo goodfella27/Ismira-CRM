@@ -3,11 +3,16 @@ import { NextResponse } from "next/server";
 import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
 import { getPrimaryCompanyId } from "@/lib/company/primary";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
+import {
+  extractCompany,
+  extractDepartment,
+  replacePositionTitleCompany,
+} from "@/lib/breezy-position-fields";
 import { applyPublicCacheControl } from "@/lib/http/public-api";
 import { pickPositionDescription } from "@/lib/breezy-position-description";
 import { buildCountryRows, extractNationalityCountryGroups } from "@/lib/nationality-countries";
 import { buildBreezyPublicPositionUrl } from "@/lib/breezy-public";
+import { extractBenefitTagsFromDescription } from "@/lib/job-benefits";
 import {
   fetchJobCompaniesByNormalizedName,
   normalizeJobCompanyName,
@@ -249,9 +254,19 @@ async function attachJobCompanyBranding(
 
   const signedUrls = await signJobCompanyLogoUrls(init.admin, [company]);
   const logoPath = typeof company.logo_path === "string" ? company.logo_path.trim() : "";
+  const nextName =
+    typeof details.name === "string"
+      ? replacePositionTitleCompany(details.name, companyName, company.name)
+      : null;
+  const nextTitle =
+    typeof details.title === "string"
+      ? replacePositionTitleCompany(details.title, companyName, company.name)
+      : null;
 
   return {
     ...details,
+    ...(nextName ? { name: nextName } : {}),
+    ...(nextTitle ? { title: nextTitle } : {}),
     company: company.name,
     company_slug: company.slug,
     company_logo_url: logoPath ? signedUrls.get(logoPath) ?? null : null,
@@ -416,9 +431,14 @@ export async function GET(
 	              positionId,
 	            })) ?? computeNationalityCountries(merged);
 
+	          const benefitTags = extractBenefitTagsFromDescription(pickPositionDescription(enriched));
+	          const basePayload = {
+	            ...enriched,
+	            benefit_tags: benefitTags,
+	          };
 	          const payload = countries
-	            ? { ...enriched, nationality_countries: countries }
-	            : enriched;
+	            ? { ...basePayload, nationality_countries: countries }
+	            : basePayload;
 	          responseCache.set(cacheKey, {
 	            expiresAt: Date.now() + 5 * 60_000,
 	            payload,
@@ -630,6 +650,11 @@ export async function GET(
 		  } catch {
 		    enriched = body;
 		  }
+
+    if (isRecord(enriched)) {
+      const benefitTags = extractBenefitTagsFromDescription(pickPositionDescription(enriched));
+      enriched = { ...(enriched as Record<string, unknown>), benefit_tags: benefitTags };
+    }
 
     responseCache.set(cacheKey, {
       expiresAt: Date.now() + 5 * 60_000,

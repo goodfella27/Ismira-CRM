@@ -21,6 +21,16 @@ import {
   Send,
   Flame,
   AlertTriangle,
+  House,
+  UtensilsCrossed,
+  Plane,
+  Shield,
+  HeartPulse,
+  GraduationCap,
+  Coins,
+  FileText,
+  TrendingUp,
+  Compass,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -37,6 +47,7 @@ import {
   type BreezyPriorityType,
 } from "@/lib/breezy-priority-types";
 import jobBanner from "@/images/job_abnner.png";
+import StickyJobsHeader from "./sticky-jobs-header";
 
 type JobListItem = {
   id: string;
@@ -51,6 +62,7 @@ type JobListItem = {
   company_slug?: string;
   application_url?: string;
   updated_at?: string;
+  benefit_tags?: string[];
   processable_countries?: string[];
   blocked_countries?: string[];
   mentioned_countries?: string[];
@@ -238,33 +250,6 @@ function sanitizeHtml(input: string) {
     });
 
     return doc.body.innerHTML;
-  } catch {
-    return "";
-  }
-}
-
-function buildDescriptionPreview(details: Record<string, unknown> | null | undefined, maxChars = 220) {
-  const raw = pickPositionDescription(details);
-  if (!raw.trim()) return "";
-
-  const normalize = (text: string) => text.replace(/\s+/g, " ").trim();
-
-  if (!containsHtml(raw)) {
-    const normalized = normalize(raw);
-    if (!normalized) return "";
-    return normalized.length > maxChars ? `${normalized.slice(0, maxChars).trimEnd()}…` : normalized;
-  }
-
-  if (typeof window === "undefined") return "";
-  const safeHtml = sanitizeHtml(raw);
-  if (!safeHtml.trim()) return "";
-
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(safeHtml, "text/html");
-    const text = normalize(doc.body.textContent ?? "");
-    if (!text) return "";
-    return text.length > maxChars ? `${text.slice(0, maxChars).trimEnd()}…` : text;
   } catch {
     return "";
   }
@@ -834,6 +819,89 @@ type NationalityCountries = {
   blocked?: Array<{ code: string; name: string }>;
   mentioned?: Array<{ code: string; name: string }>;
 };
+
+const BENEFIT_TAG_LABELS: Record<string, string> = {
+  meals: "Free Meals",
+  accommodation: "Accommodation",
+  travel_tickets: "Tickets / Travel",
+  visa_support: "Visa Support",
+  medical_exam: "Paid Medical",
+  certification: "Certification",
+  bonus_tips: "Bonus / Tips",
+  contract_length: "Stable Contract",
+  growth: "Career Growth",
+  travel_opportunity: "Travel Opportunity",
+};
+
+function formatBenefitTag(tag: string) {
+  const normalized = asString(tag).trim();
+  if (!normalized) return "Unknown";
+  return (
+    BENEFIT_TAG_LABELS[normalized] ??
+    normalized
+      .split("_")
+      .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+      .join(" ")
+  );
+}
+
+function getBenefitTagIcon(tag: string) {
+  switch (tag) {
+    case "accommodation":
+      return House;
+    case "meals":
+      return UtensilsCrossed;
+    case "travel_tickets":
+      return Plane;
+    case "visa_support":
+      return Shield;
+    case "medical_exam":
+      return HeartPulse;
+    case "certification":
+      return GraduationCap;
+    case "bonus_tips":
+      return Coins;
+    case "contract_length":
+      return FileText;
+    case "growth":
+      return TrendingUp;
+    case "travel_opportunity":
+      return Compass;
+    default:
+      return FileText;
+  }
+}
+
+function BenefitTagDatapoints({ tags }: { tags: string[] }) {
+  if (tags.length === 0) return null;
+
+  return (
+    <div className="mt-5 flex flex-wrap items-center gap-2">
+      {tags.map((tag) => {
+        const Icon = getBenefitTagIcon(tag);
+        const label = formatBenefitTag(tag);
+        return (
+          <span key={tag} className="group/benefit relative inline-flex">
+            <span
+              aria-label={label}
+              tabIndex={0}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-sky-200 bg-white text-sky-700 shadow-sm transition outline-none group-hover:border-sky-300 group-hover:bg-sky-50 group-focus-within/benefit:border-sky-300 group-focus-within/benefit:bg-sky-50"
+            >
+              <Icon className="h-4.5 w-4.5" />
+            </span>
+            <span
+              role="tooltip"
+              className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white opacity-0 shadow-lg transition duration-75 group-hover/benefit:opacity-100 group-focus-within/benefit:opacity-100"
+            >
+              {label}
+              <span className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-slate-900" />
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 function CountryChips({ items }: { items: Array<{ code: string; name: string }> }) {
   return (
@@ -1768,18 +1836,18 @@ export default function JobsBoard() {
     };
   }, [detailsById, visibleJobs]);
 
-  const descriptionPreviewById = useMemo(() => {
-    const map = new Map<string, string>();
+  const benefitTagsById = useMemo(() => {
+    const map = new Map<string, string[]>();
     for (const job of visibleJobs) {
       const id = job.id;
       if (!id) continue;
-      const details = detailsById[id];
-      if (!details) continue;
-      const preview = buildDescriptionPreview(details);
-      if (preview) map.set(id, preview);
+      const raw = job.benefit_tags;
+      if (!Array.isArray(raw)) continue;
+      const tags = raw.map((item) => asString(item).trim()).filter(Boolean);
+      if (tags.length > 0) map.set(id, tags);
     }
     return map;
-  }, [detailsById, visibleJobs]);
+  }, [visibleJobs]);
 
   const companyLabelByKey = useMemo(() => {
     const map = new Map<string, string>();
@@ -2370,9 +2438,12 @@ export default function JobsBoard() {
   }, [selectedId]);
 
   return (
-    <div className="min-h-screen bg-slate-50 px-3 py-10 text-slate-900 sm:px-5 lg:px-8">
+    <div className="min-h-screen bg-slate-50 px-3 pb-10 pt-28 text-slate-900 sm:px-5 lg:px-8">
+      <StickyJobsHeader />
       <div className="mx-auto w-full max-w-[1280px]">
-        <section className="relative overflow-hidden rounded-[36px] px-6 pb-16 pt-12 text-center shadow-[0_30px_80px_-55px_rgba(0,0,0,0.75)] sm:px-10 sm:pb-20 sm:pt-14">
+        <section
+          className="relative overflow-hidden rounded-[36px] px-6 pb-16 pt-12 text-center shadow-[0_30px_80px_-55px_rgba(0,0,0,0.75)] sm:px-10 sm:pb-20 sm:pt-14"
+        >
           <div className="absolute inset-0 bg-gradient-to-r from-[#ff9f2f] via-[#58d0d8] to-[#3ea4e6]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_40%,rgba(255,255,255,0.30),transparent_56%)] opacity-95" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_52%_20%,rgba(255,255,255,0.22),transparent_52%)] opacity-95" />
@@ -2874,7 +2945,7 @@ export default function JobsBoard() {
                     const company = asString(job.company).trim();
                     const department = asString(job.department).trim();
                     const companyLogoUrl = asString(job.company_logo_url).trim();
-                    const preview = descriptionPreviewById.get(job.id) ?? "";
+                    const benefitTags = benefitTagsById.get(job.id) ?? [];
                     const avatarSeed = (company || asString(job.name)).trim() || "J";
                     const avatar = avatarSeed.slice(0, 1).toUpperCase();
 	                    const priority = asString(job.priority).trim().toLowerCase();
@@ -2935,11 +3006,8 @@ export default function JobsBoard() {
 		                                {job.name || "Position"}
 		                              </div>
 		                            </div>
-                            <div className="mt-1 text-xs leading-5 text-slate-600 [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical] overflow-hidden">
-                              {preview ||
-                                `${company ? `by ${company}` : "—"}${department ? ` in ${department}` : ""}`}
-                            </div>
-			                            <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold">
+                            <BenefitTagDatapoints tags={benefitTags} />
+			                            <div className="mt-5 flex flex-wrap items-center gap-2 text-[10px] font-semibold">
 			                              {department ? (
 			                                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-gradient-to-r from-amber-100 to-[#ffc45c]/70 px-2.5 py-1.5 text-amber-950 shadow-sm shadow-amber-200/40">
 			                                  <UserRound className="h-3.5 w-3.5 text-amber-600" />

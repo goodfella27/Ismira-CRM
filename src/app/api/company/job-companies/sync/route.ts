@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { ensureCompanyMembership } from "@/lib/company/membership";
+import { syncAutoBenefitsFromCachedPositions } from "@/lib/job-company-benefits";
+import { fetchJobCompaniesByNormalizedName } from "@/lib/job-companies";
 import { syncJobCompaniesFromPositions } from "@/lib/job-companies";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -28,6 +30,15 @@ export async function POST() {
     const result = await syncJobCompaniesFromPositions(admin, {
       companyId: membership.companyId,
     });
+    const { data: companies } = await admin
+      .from("job_companies")
+      .select("id,company_id,breezy_company_id,name,normalized_name,slug,logo_path,website,metadata,created_at,updated_at")
+      .eq("company_id", membership.companyId);
+
+    await syncAutoBenefitsFromCachedPositions(admin, {
+      companyId: membership.companyId,
+      jobCompanies: Array.isArray(companies) ? companies : [],
+    });
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
@@ -36,4 +47,3 @@ export async function POST() {
     return NextResponse.json({ error: message }, { status });
   }
 }
-

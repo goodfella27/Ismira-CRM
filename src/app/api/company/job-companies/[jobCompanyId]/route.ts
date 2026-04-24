@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { ensureCompanyMembership } from "@/lib/company/membership";
+import { normalizeBenefitTags } from "@/lib/job-company-benefits";
 import { signJobCompanyLogoUrls, type JobCompanyRow } from "@/lib/job-companies";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -41,7 +42,7 @@ export async function POST(
 
     const { data: existing, error: existingError } = await admin
       .from("job_companies")
-      .select("id,name,logo_path")
+      .select("id,name,logo_path,metadata")
       .eq("company_id", membership.companyId)
       .eq("id", id)
       .maybeSingle();
@@ -57,6 +58,8 @@ export async function POST(
     const file = form.get("logo");
     const removeLogo = form.get("removeLogo");
     const websiteRaw = form.get("website");
+    const nameRaw = form.get("name");
+    const benefitTagsRaw = form.get("benefitTags");
 
     let nextLogoPath: string | null | undefined = undefined;
     if (removeLogo === "1" || removeLogo === "true") {
@@ -89,6 +92,21 @@ export async function POST(
 
     const update: Record<string, unknown> = {};
     if (nextLogoPath !== undefined) update.logo_path = nextLogoPath;
+    if (typeof nameRaw === "string") {
+      const name = nameRaw.trim();
+      if (!name) {
+        return NextResponse.json({ error: "Company name is required." }, { status: 400 });
+      }
+      update.name = name;
+    }
+    if (typeof benefitTagsRaw === "string") {
+      const metadata =
+        existing.metadata && typeof existing.metadata === "object" && !Array.isArray(existing.metadata)
+          ? { ...(existing.metadata as Record<string, unknown>) }
+          : {};
+      metadata.job_company_benefits_manual_override = true;
+      update.metadata = metadata;
+    }
     if (typeof websiteRaw === "string") {
       const website = websiteRaw.trim();
       update.website = website || null;
@@ -101,6 +119,34 @@ export async function POST(
         .eq("company_id", membership.companyId)
         .eq("id", id);
       if (updateError) throw new Error(updateError.message ?? "Failed to update job company");
+    }
+
+    if (typeof benefitTagsRaw === "string") {
+      const parsed = JSON.parse(benefitTagsRaw) as unknown;
+      const tags = normalizeBenefitTags(parsed);
+      const { error: deleteError } = await admin
+        .from("job_company_benefits")
+        .delete()
+        .eq("company_id", membership.companyId)
+        .eq("job_company_id", id);
+      if (deleteError) {
+        throw new Error(deleteError.message ?? "Failed to clear job company benefits");
+      }
+
+      if (tags.length > 0) {
+        const { error: insertError } = await admin.from("job_company_benefits").insert(
+          tags.map((tag, index) => ({
+            company_id: membership.companyId,
+            job_company_id: id,
+            tag,
+            sort_order: index,
+            enabled: true,
+          }))
+        );
+        if (insertError) {
+          throw new Error(insertError.message ?? "Failed to update job company benefits");
+        }
+      }
     }
 
     const { data: company, error: companyError } = await admin
@@ -141,4 +187,3 @@ export async function POST(
     return NextResponse.json({ error: message }, { status });
   }
 }
-

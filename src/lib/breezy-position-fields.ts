@@ -100,6 +100,37 @@ export function inferCompanyFromPositionName(value: unknown) {
   return prefix;
 }
 
+function normalizeLooseCompanyName(value: unknown) {
+  return asTrimmedString(value).replace(/\s+/g, " ").toLowerCase();
+}
+
+export function replacePositionTitleCompany(
+  titleValue: unknown,
+  sourceCompanyValue: unknown,
+  targetCompanyValue: unknown
+) {
+  const title = asTrimmedString(titleValue);
+  const sourceCompany = asTrimmedString(sourceCompanyValue);
+  const targetCompany = asTrimmedString(targetCompanyValue);
+  if (!title || !sourceCompany || !targetCompany) return title;
+  if (normalizeLooseCompanyName(sourceCompany) === normalizeLooseCompanyName(targetCompany)) {
+    return title;
+  }
+
+  const inferred = inferCompanyFromPositionName(title);
+  if (!inferred) return title;
+  if (normalizeLooseCompanyName(inferred) !== normalizeLooseCompanyName(sourceCompany)) {
+    return title;
+  }
+
+  const parts = title.split(/\s([-–—])\s/);
+  if (parts.length < 3) return title;
+  const separator = parts[1] ?? "-";
+  const rest = parts.slice(2).join(" ").trim();
+  if (!rest) return title;
+  return `${targetCompany} ${separator} ${rest}`;
+}
+
 export function extractCompany(details: Record<string, unknown> | null) {
   if (!details) return "";
   const direct = getFirstTextField(details, [

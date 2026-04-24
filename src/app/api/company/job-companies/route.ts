@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import {
+  fetchJobCompanyBenefits,
+  mapBenefitTagsByJobCompanyId,
+  syncAutoBenefitsFromCachedPositions,
+} from "@/lib/job-company-benefits";
+import {
   normalizeJobCompanyName,
   signJobCompanyLogoUrls,
   type JobCompanyRow,
@@ -19,6 +24,18 @@ async function requireUser() {
   if (!user) throw new Error("Not authenticated.");
   return user;
 }
+
+const normalizeJobCompaniesError = (raw?: string | null) => {
+  const message = typeof raw === "string" ? raw.trim() : "";
+  if (!message) return "Failed to load job companies.";
+  if (/schema cache/i.test(message) && /job_company_benefits/i.test(message)) {
+    return [
+      "Job company benefits table is not set up yet.",
+      "Run `supabase/job_company_benefits.sql` in the Supabase SQL editor, then reload the API schema cache (Settings -> API -> Reload schema) or restart the API.",
+    ].join(" ");
+  }
+  return message;
+};
 
 export async function GET() {
   try {
@@ -40,6 +57,26 @@ export async function GET() {
 
     const rows = Array.isArray(data) ? (data as JobCompanyRow[]) : [];
     const logoUrls = await signJobCompanyLogoUrls(admin, rows);
+    await syncAutoBenefitsFromCachedPositions(admin, {
+      companyId: membership.companyId,
+      jobCompanies: rows,
+    }).catch((benefitsError) => {
+      const message =
+        benefitsError instanceof Error ? benefitsError.message : "Failed to auto-sync job company benefits.";
+      throw new Error(normalizeJobCompaniesError(message));
+    });
+    const benefits = await fetchJobCompanyBenefits(
+      admin,
+      membership.companyId,
+      rows.map((row) => row.id)
+    ).catch((benefitsError) => {
+      throw new Error(
+        normalizeJobCompaniesError(
+          benefitsError instanceof Error ? benefitsError.message : "Failed to load job company benefits."
+        )
+      );
+    });
+    const benefitTagsByCompanyId = mapBenefitTagsByJobCompanyId(benefits);
 
     const { data: positionRows, error: positionError } = await admin
       .from("breezy_positions")
@@ -84,6 +121,7 @@ export async function GET() {
             (typeof row.logo_path === "string" && row.logo_path.trim()
               ? logoUrls.get(row.logo_path.trim())
               : null) ?? null,
+          benefitTags: benefitTagsByCompanyId.get(row.id) ?? [],
           positionsCount:
             countsById.get(row.id) ?? countsByName.get(row.normalized_name) ?? 0,
           createdAt: row.created_at ?? null,
@@ -98,4 +136,3 @@ export async function GET() {
     return NextResponse.json({ error: message }, { status });
   }
 }
-
