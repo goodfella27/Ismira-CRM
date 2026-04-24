@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { ensureCompanyMembership } from "@/lib/company/membership";
-import { normalizeBenefitTags } from "@/lib/job-company-benefits";
+import { fetchJobCompanyBenefits, mapBenefitTagsByJobCompanyId, normalizeBenefitTags } from "@/lib/job-company-benefits";
+import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import { signJobCompanyLogoUrls, type JobCompanyRow } from "@/lib/job-companies";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -149,6 +150,11 @@ export async function POST(
       }
     }
 
+    clearJobsResponseCache();
+
+    const savedBenefits = await fetchJobCompanyBenefits(admin, membership.companyId, [id]).catch(() => []);
+    const benefitTagsByCompanyId = mapBenefitTagsByJobCompanyId(savedBenefits);
+
     const { data: company, error: companyError } = await admin
       .from("job_companies")
       .select("id,company_id,breezy_company_id,name,normalized_name,slug,logo_path,website,metadata,created_at,updated_at")
@@ -176,6 +182,7 @@ export async function POST(
           name: company.name,
           slug: company.slug,
           website: company.website,
+          benefitTags: benefitTagsByCompanyId.get(company.id) ?? [],
           logoUrl: logoPath ? signedUrls.get(logoPath) ?? null : null,
         },
       },

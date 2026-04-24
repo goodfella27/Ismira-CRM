@@ -20,6 +20,7 @@ import {
   mapBenefitTagsByJobCompanyId,
   syncAutoBenefitsFromCachedPositions,
 } from "@/lib/job-company-benefits";
+import { getJobsResponseCache, setJobsResponseCache } from "@/lib/jobs-api-cache";
 import {
   fetchJobCompaniesByNormalizedName,
   normalizeJobCompanyName,
@@ -227,11 +228,6 @@ async function attachJobCompanyBranding(
   });
 }
 
-const responseCache = new Map<
-  string,
-  { expiresAt: number; payload: { jobs: JobListItem[]; priorityTypes: PriorityTypePayload[] } }
->();
-
 const isMissingPriorityTypesTableError = (message: string) =>
   /could not find the table/i.test(message) && /breezy_priority_types/i.test(message);
 
@@ -362,9 +358,9 @@ export async function GET(request: Request) {
     const companyId = companyParam || requireBreezyCompanyId().companyId;
     const bypassCache = searchParams.has("ts") || searchParams.get("bypassCache") === "1";
     const cacheKey = companyParam ? `company:${companyId}` : "default";
-    const cached = !bypassCache ? responseCache.get(cacheKey) : null;
+    const cached = !bypassCache ? getJobsResponseCache(cacheKey) : null;
     if (cached && cached.expiresAt > Date.now()) {
-      return jsonResponse(request, cached.payload, { status: 200 });
+      return jsonResponse(request, cached.payload as { jobs: JobListItem[]; priorityTypes: PriorityTypePayload[] }, { status: 200 });
     }
 
     // Prefer database cache (fast + supports local edits). Falls back to Breezy if not available.
@@ -459,7 +455,7 @@ export async function GET(request: Request) {
 
         const priorityTypes = await loadPriorityTypes(admin, primaryCompanyId);
         const payload = { jobs: enriched, priorityTypes };
-        responseCache.set(cacheKey, {
+        setJobsResponseCache(cacheKey, {
           expiresAt: Date.now() + 60_000,
           payload,
         });
@@ -555,7 +551,7 @@ export async function GET(request: Request) {
         priorityTypes = DEFAULT_BREEZY_PRIORITY_TYPES;
       }
       const payload = { jobs: enriched, priorityTypes };
-      responseCache.set(cacheKey, {
+      setJobsResponseCache(cacheKey, {
         expiresAt: Date.now() + 60_000,
         payload,
       });
@@ -566,7 +562,7 @@ export async function GET(request: Request) {
 
     enriched = attachPublicApplyUrls(enriched);
     const payload = { jobs: enriched, priorityTypes: DEFAULT_BREEZY_PRIORITY_TYPES };
-    responseCache.set(cacheKey, {
+    setJobsResponseCache(cacheKey, {
       expiresAt: Date.now() + 60_000,
       payload,
     });

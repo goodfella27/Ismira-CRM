@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import { syncAutoBenefitsFromCachedPositions } from "@/lib/job-company-benefits";
+import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import { fetchJobCompaniesByNormalizedName } from "@/lib/job-companies";
 import { syncJobCompaniesFromPositions } from "@/lib/job-companies";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -39,6 +40,8 @@ export async function POST() {
       companyId: membership.companyId,
       jobCompanies: Array.isArray(companies) ? companies : [],
     });
+
+    clearJobsResponseCache();
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {

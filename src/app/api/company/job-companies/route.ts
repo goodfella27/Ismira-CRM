@@ -57,26 +57,45 @@ export async function GET() {
 
     const rows = Array.isArray(data) ? (data as JobCompanyRow[]) : [];
     const logoUrls = await signJobCompanyLogoUrls(admin, rows);
-    await syncAutoBenefitsFromCachedPositions(admin, {
-      companyId: membership.companyId,
-      jobCompanies: rows,
-    }).catch((benefitsError) => {
-      const message =
-        benefitsError instanceof Error ? benefitsError.message : "Failed to auto-sync job company benefits.";
-      throw new Error(normalizeJobCompaniesError(message));
-    });
-    const benefits = await fetchJobCompanyBenefits(
+    let benefits = await fetchJobCompanyBenefits(
       admin,
       membership.companyId,
       rows.map((row) => row.id)
     ).catch((benefitsError) => {
-      throw new Error(
-        normalizeJobCompaniesError(
-          benefitsError instanceof Error ? benefitsError.message : "Failed to load job company benefits."
-        )
-      );
+      const message =
+        benefitsError instanceof Error ? benefitsError.message : "Failed to load job company benefits.";
+      throw new Error(normalizeJobCompaniesError(message));
     });
-    const benefitTagsByCompanyId = mapBenefitTagsByJobCompanyId(benefits);
+    let benefitTagsByCompanyId = mapBenefitTagsByJobCompanyId(benefits);
+    const companiesMissingBenefits = rows.filter((row) => !benefitTagsByCompanyId.has(row.id));
+
+    if (companiesMissingBenefits.length > 0) {
+      await syncAutoBenefitsFromCachedPositions(admin, {
+        companyId: membership.companyId,
+        jobCompanies: companiesMissingBenefits,
+      }).catch((benefitsError) => {
+        const message =
+          benefitsError instanceof Error
+            ? benefitsError.message
+            : "Failed to auto-sync job company benefits.";
+        throw new Error(normalizeJobCompaniesError(message));
+      });
+
+      benefits = await fetchJobCompanyBenefits(
+        admin,
+        membership.companyId,
+        rows.map((row) => row.id)
+      ).catch((benefitsError) => {
+        throw new Error(
+          normalizeJobCompaniesError(
+            benefitsError instanceof Error
+              ? benefitsError.message
+              : "Failed to reload job company benefits."
+          )
+        );
+      });
+      benefitTagsByCompanyId = mapBenefitTagsByJobCompanyId(benefits);
+    }
 
     const { data: positionRows, error: positionError } = await admin
       .from("breezy_positions")

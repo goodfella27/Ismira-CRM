@@ -237,6 +237,12 @@ const getApiErrorMessage = (payload: unknown, fallback: string) => {
   return fallback;
 };
 
+const normalizeBenefitTagList = (value: BenefitTag[]) =>
+  [...new Set(value)].sort((a, b) => a.localeCompare(b));
+
+const sameBenefitTagSelection = (left: BenefitTag[], right: BenefitTag[]) =>
+  JSON.stringify(normalizeBenefitTagList(left)) === JSON.stringify(normalizeBenefitTagList(right));
+
 
 export default function CompanyPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -833,7 +839,7 @@ export default function CompanyPage() {
   const handleRenameJobCompany = useCallback(
     async (jobCompanyId: string) => {
       const name = (jobCompanyNameDrafts[jobCompanyId] ?? "").trim();
-      const benefitTags = jobCompanyBenefitDrafts[jobCompanyId] ?? [];
+      const benefitTags = normalizeBenefitTagList(jobCompanyBenefitDrafts[jobCompanyId] ?? []);
       if (!jobCompanyId) return;
       if (!name) {
         setJobCompaniesError("Company name is required.");
@@ -854,6 +860,28 @@ export default function CompanyPage() {
         if (!res.ok) {
           throw new Error(data?.error ?? "Failed to update job company name.");
         }
+
+        const savedName = typeof data?.company?.name === "string" ? data.company.name : name;
+        const savedTagsRaw = Array.isArray(data?.company?.benefitTags) ? data.company.benefitTags : benefitTags;
+        const savedTags = savedTagsRaw.filter(
+          (tag): tag is BenefitTag =>
+            typeof tag === "string" && AVAILABLE_BENEFIT_TAGS.includes(tag as BenefitTag)
+        );
+
+        setJobCompanies((prev) =>
+          prev.map((item) =>
+            item.id === jobCompanyId
+              ? {
+                  ...item,
+                  name: savedName,
+                  benefitTags: savedTags,
+                }
+              : item
+          )
+        );
+        setJobCompanyNameDrafts((prev) => ({ ...prev, [jobCompanyId]: savedName }));
+        setJobCompanyBenefitDrafts((prev) => ({ ...prev, [jobCompanyId]: savedTags }));
+
         await loadJobCompanies();
       } catch (err) {
         setJobCompaniesError(
@@ -2829,8 +2857,10 @@ export default function CompanyPage() {
                               disabled={
                                 isBusy ||
                                 ((jobCompanyNameDrafts[item.id] ?? item.name).trim() === item.name.trim() &&
-                                  JSON.stringify(jobCompanyBenefitDrafts[item.id] ?? []) ===
-                                    JSON.stringify(item.benefitTags))
+                                  sameBenefitTagSelection(
+                                    jobCompanyBenefitDrafts[item.id] ?? [],
+                                    item.benefitTags
+                                  ))
                               }
                             >
                               Save

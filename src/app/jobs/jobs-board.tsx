@@ -931,6 +931,36 @@ function BenefitTagDatapoints({ tags }: { tags: string[] }) {
   );
 }
 
+function BenefitTagFeatureList({ tags }: { tags: string[] }) {
+  if (tags.length === 0) return null;
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {tags.map((tag) => {
+        const Icon = getBenefitTagIcon(tag);
+        const label = formatBenefitTag(tag);
+
+        return (
+          <div
+            key={tag}
+            className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
+          >
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700">
+              <Icon className="h-4.5 w-4.5" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Company Benefit
+              </div>
+              <div className="truncate text-sm font-semibold text-slate-900">{label}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function CountryChips({ items }: { items: Array<{ code: string; name: string }> }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -2432,6 +2462,11 @@ export default function JobsBoard() {
     return getPriorityLabel(priority, availablePriorityTypes);
   }, [availablePriorityTypes, details, selectedSummary]);
 
+  const modalBenefitTags = useMemo(() => {
+    if (!selectedId) return [];
+    return benefitTagsById.get(selectedId) ?? [];
+  }, [benefitTagsById, selectedId]);
+
   const modalIsHidden = useMemo(() => {
     if (!details || !isRecord(details)) return false;
     const value = (details as Record<string, unknown>).hidden;
@@ -3166,6 +3201,21 @@ export default function JobsBoard() {
                               <span className="max-w-[340px] whitespace-nowrap text-sm font-semibold text-slate-800 truncate">
                                 {company}
                               </span>
+                              {modalPriorityLabel ? (
+                                <span
+                                  className={[
+                                    "inline-flex items-center rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide shadow-sm",
+                                    getPriorityBadgeClass(
+                                      details
+                                        ? asString(isRecord(details) ? details["priority"] : undefined)
+                                        : asString(selectedSummary?.priority),
+                                      availablePriorityTypes
+                                    ),
+                                  ].join(" ")}
+                                >
+                                  {modalPriorityLabel}
+                                </span>
+                              ) : null}
                             </span>
                           ) : null}
                         </div>
@@ -3177,21 +3227,6 @@ export default function JobsBoard() {
                     className="mt-2 text-xl font-extrabold leading-tight text-slate-900 break-words sm:text-2xl"
                   >
                     <div className="flex flex-wrap items-center gap-3">
-                      {modalPriorityLabel ? (
-                        <span
-                          className={[
-                            "inline-flex items-center rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide shadow-sm",
-                            getPriorityBadgeClass(
-                              details
-                                ? asString(isRecord(details) ? details["priority"] : undefined)
-                                : asString(selectedSummary?.priority),
-                              availablePriorityTypes
-                            ),
-                          ].join(" ")}
-                        >
-                          {modalPriorityLabel}
-                        </span>
-                      ) : null}
                       <span className="min-w-0 break-words">
                         {asString(details?.name).trim() ||
                           asString(details?.title).trim() ||
@@ -3285,6 +3320,17 @@ export default function JobsBoard() {
             </div>
           ) : (
             <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5">
+              {modalBenefitTags.length > 0 ? (
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Company Benefits
+                  </div>
+                  <div className="mt-3">
+                    <BenefitTagFeatureList tags={modalBenefitTags} />
+                  </div>
+                </div>
+              ) : null}
+
               {(() => {
                 const raw = (details as Record<string, unknown>)?.nationality_countries;
                 if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
