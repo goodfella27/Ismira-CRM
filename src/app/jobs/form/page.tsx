@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import {
+  Suspense,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Loader2, UploadCloud } from "lucide-react";
 
@@ -106,7 +113,7 @@ function getClientValidationError(form: FormState) {
   return null;
 }
 
-export default function JobsFormPage() {
+function JobsFormContent() {
   const searchParams = useSearchParams();
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
   const [submitting, setSubmitting] = useState(false);
@@ -386,6 +393,26 @@ export default function JobsFormPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function JobsFormFallback() {
+  return (
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.22),_transparent_32%),linear-gradient(135deg,#d7f0f1_0%,#fff7ec_45%,#ffb347_100%)] px-4 py-10 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-5xl">
+        <div className="rounded-[36px] border border-white/70 bg-white/95 px-6 py-8 text-sm text-slate-500 shadow-[0_30px_80px_-45px_rgba(15,23,42,0.35)] sm:px-10">
+          Loading application form…
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function JobsFormPage() {
+  return (
+    <Suspense fallback={<JobsFormFallback />}>
+      <JobsFormContent />
+    </Suspense>
   );
 }
 
