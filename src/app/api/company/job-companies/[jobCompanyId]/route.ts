@@ -4,6 +4,7 @@ import { ensureCompanyMembership } from "@/lib/company/membership";
 import { fetchJobCompanyBenefits, mapBenefitTagsByJobCompanyId, normalizeBenefitTags } from "@/lib/job-company-benefits";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import { signJobCompanyLogoUrls, type JobCompanyRow } from "@/lib/job-companies";
+import { normalizeJobShipType, resolveJobShipType } from "@/lib/job-ship-types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -61,6 +62,7 @@ export async function POST(
     const websiteRaw = form.get("website");
     const nameRaw = form.get("name");
     const benefitTagsRaw = form.get("benefitTags");
+    const shipTypeRaw = form.get("shipType");
 
     let nextLogoPath: string | null | undefined = undefined;
     if (removeLogo === "1" || removeLogo === "true") {
@@ -106,6 +108,18 @@ export async function POST(
           ? { ...(existing.metadata as Record<string, unknown>) }
           : {};
       metadata.job_company_benefits_manual_override = true;
+      update.metadata = metadata;
+    }
+    if (typeof shipTypeRaw === "string") {
+      const metadata =
+        (update.metadata && typeof update.metadata === "object" && !Array.isArray(update.metadata)
+          ? { ...(update.metadata as Record<string, unknown>) }
+          : existing.metadata && typeof existing.metadata === "object" && !Array.isArray(existing.metadata)
+            ? { ...(existing.metadata as Record<string, unknown>) }
+            : {});
+      const shipType = normalizeJobShipType(shipTypeRaw);
+      if (shipType) metadata.ship_type = shipType;
+      else delete metadata.ship_type;
       update.metadata = metadata;
     }
     if (typeof websiteRaw === "string") {
@@ -182,12 +196,58 @@ export async function POST(
           name: company.name,
           slug: company.slug,
           website: company.website,
+          shipType: resolveJobShipType({ metadata: company.metadata, name: company.name }),
           benefitTags: benefitTagsByCompanyId.get(company.id) ?? [],
           logoUrl: logoPath ? signedUrls.get(logoPath) ?? null : null,
         },
       },
       { status: 200 }
     );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    const status = /not authenticated/i.test(message) ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ jobCompanyId: string }> }
+) {
+  try {
+    const user = await requireUser();
+    const { jobCompanyId } = await params;
+    const id = (jobCompanyId ?? "").trim();
+    if (!id) {
+      return NextResponse.json({ error: "Missing jobCompanyId" }, { status: 400 });
+    }
+
+    const admin = createSupabaseAdminClient();
+    const membership = await ensureCompanyMembership(admin, user.id);
+    if (membership.role.toLowerCase() !== "admin") {
+      return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+    }
+
+    const { data: existing, error: existingError } = await admin
+      .from("job_companies")
+      .select("id")
+      .eq("company_id", membership.companyId)
+      .eq("id", id)
+      .maybeSingle();
+    if (existingError) throw new Error(existingError.message ?? "Failed to load job company");
+    if (!existing) {
+      return NextResponse.json({ error: "Job company not found." }, { status: 404 });
+    }
+
+    const { error: deleteError } = await admin
+      .from("job_companies")
+      .delete()
+      .eq("company_id", membership.companyId)
+      .eq("id", id);
+    if (deleteError) throw new Error(deleteError.message ?? "Failed to delete job company");
+
+    clearJobsResponseCache();
+    return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     const status = /not authenticated/i.test(message) ? 401 : 500;

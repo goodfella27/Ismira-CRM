@@ -9,11 +9,20 @@ type BreezyToken = {
 let tokenCache: BreezyToken | null = null;
 
 export function getBreezyEnv() {
-  const email = process.env.BREEZY_EMAIL;
-  const password = process.env.BREEZY_PASSWORD;
-  const apiToken = process.env.BREEZY_API_TOKEN;
-  const companyId = process.env.BREEZY_COMPANY_ID;
-  const positionId = process.env.BREEZY_POSITION_ID;
+  const normalizeEnvValue = (value: string | undefined) => {
+    const trimmed = value?.trim() ?? "";
+    if (!trimmed) return undefined;
+    if (["...", "your_position_id", "your_company_id", "changeme", "todo"].includes(trimmed.toLowerCase())) {
+      return undefined;
+    }
+    return trimmed;
+  };
+
+  const email = normalizeEnvValue(process.env.BREEZY_EMAIL);
+  const password = normalizeEnvValue(process.env.BREEZY_PASSWORD);
+  const apiToken = normalizeEnvValue(process.env.BREEZY_API_TOKEN);
+  const companyId = normalizeEnvValue(process.env.BREEZY_COMPANY_ID);
+  const positionId = normalizeEnvValue(process.env.BREEZY_POSITION_ID);
 
   return { email, password, apiToken, companyId, positionId };
 }
@@ -128,12 +137,16 @@ export async function breezyFetch(pathOrUrl: string, init?: RequestInit) {
     ? pathOrUrl
     : `${BREEZY_BASE_URL}${pathOrUrl}`;
 
-  const headers: HeadersInit = {
-    Accept: "application/json",
-    "Content-Type": "application/json",
-    Authorization: buildAuthHeader(tokenInfo.token, tokenInfo.tokenType),
-    ...(init?.headers ?? {}),
-  };
+  const isFormDataBody =
+    typeof FormData !== "undefined" && init?.body instanceof FormData;
+  const headers = new Headers(init?.headers ?? undefined);
+  if (!headers.has("Accept")) headers.set("Accept", "application/json");
+  if (!headers.has("Authorization")) {
+    headers.set("Authorization", buildAuthHeader(tokenInfo.token, tokenInfo.tokenType));
+  }
+  if (!isFormDataBody && init?.body != null && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
 
   let res = await fetch(url, {
     cache: "no-store",
@@ -162,7 +175,9 @@ export async function breezyFetch(pathOrUrl: string, init?: RequestInit) {
 export function requireBreezyIds() {
   const { companyId, positionId } = getBreezyEnv();
   if (!companyId || !positionId) {
-    throw new Error("Missing BREEZY_COMPANY_ID or BREEZY_POSITION_ID");
+    throw new Error(
+      "Missing valid BREEZY_COMPANY_ID or BREEZY_POSITION_ID. Check .env.local and replace placeholder values."
+    );
   }
   return { companyId, positionId };
 }

@@ -26,6 +26,7 @@ import {
   normalizeJobCompanyName,
   signJobCompanyLogoUrls,
 } from "@/lib/job-companies";
+import { resolveJobShipType } from "@/lib/job-ship-types";
 
 export const runtime = "nodejs";
 
@@ -42,6 +43,7 @@ type JobListItem = {
   company_slug?: string;
   application_url?: string;
   updated_at?: string;
+  ship_type?: string;
   benefit_tags?: string[];
   processable_countries?: string[];
   blocked_countries?: string[];
@@ -223,6 +225,11 @@ async function attachJobCompanyBranding(
       company: company.name,
       company_slug: company.slug,
       company_logo_url: logoPath ? signedUrls.get(logoPath) ?? undefined : undefined,
+      ship_type: resolveJobShipType({
+        metadata: company.metadata,
+        name: company.name,
+        fallback: item.name,
+      }) || undefined,
       benefit_tags: benefitTagsByCompanyId.get(company.id) ?? [],
     };
   });

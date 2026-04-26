@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { ensureCompanyMembership } from "@/lib/company/membership";
+import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import {
   fetchJobCompanyBenefits,
   mapBenefitTagsByJobCompanyId,
@@ -8,9 +9,11 @@ import {
 } from "@/lib/job-company-benefits";
 import {
   normalizeJobCompanyName,
+  slugifyJobCompanyName,
   signJobCompanyLogoUrls,
   type JobCompanyRow,
 } from "@/lib/job-companies";
+import { resolveJobShipType } from "@/lib/job-ship-types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -140,6 +143,7 @@ export async function GET() {
             (typeof row.logo_path === "string" && row.logo_path.trim()
               ? logoUrls.get(row.logo_path.trim())
               : null) ?? null,
+          shipType: resolveJobShipType({ metadata: row.metadata, name: row.name }),
           benefitTags: benefitTagsByCompanyId.get(row.id) ?? [],
           positionsCount:
             countsById.get(row.id) ?? countsByName.get(row.normalized_name) ?? 0,
@@ -149,6 +153,70 @@ export async function GET() {
       },
       { status: 200 }
     );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    const status = /not authenticated/i.test(message) ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const user = await requireUser();
+    const admin = createSupabaseAdminClient();
+    const membership = await ensureCompanyMembership(admin, user.id);
+    if (membership.role.toLowerCase() !== "admin") {
+      return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+    }
+
+    const payload = await request.json().catch(() => null);
+    const name = typeof payload?.name === "string" ? payload.name.trim() : "";
+    if (!name) {
+      return NextResponse.json({ error: "Company name is required." }, { status: 400 });
+    }
+
+    const normalizedName = normalizeJobCompanyName(name);
+    const slugBase = slugifyJobCompanyName(name);
+    let slug = slugBase;
+    let index = 2;
+    while (true) {
+      const { data: existingSlug, error: slugError } = await admin
+        .from("job_companies")
+        .select("id")
+        .eq("company_id", membership.companyId)
+        .eq("slug", slug)
+        .maybeSingle();
+      if (slugError) throw new Error(slugError.message ?? "Failed to check company slug");
+      if (!existingSlug) break;
+      slug = `${slugBase}-${index}`;
+      index += 1;
+    }
+
+    const { data: existing, error: existingError } = await admin
+      .from("job_companies")
+      .select("id")
+      .eq("company_id", membership.companyId)
+      .eq("normalized_name", normalizedName)
+      .maybeSingle();
+    if (existingError) throw new Error(existingError.message ?? "Failed to check company");
+    if (existing) {
+      return NextResponse.json(
+        { error: "This company already exists." },
+        { status: 409 }
+      );
+    }
+
+    const { error: insertError } = await admin.from("job_companies").insert({
+      company_id: membership.companyId,
+      name,
+      normalized_name: normalizedName,
+      slug,
+      metadata: {},
+    });
+    if (insertError) throw new Error(insertError.message ?? "Failed to add company");
+
+    clearJobsResponseCache();
+    return NextResponse.json({ ok: true }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     const status = /not authenticated/i.test(message) ? 401 : 500;

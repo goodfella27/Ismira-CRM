@@ -46,6 +46,7 @@ import {
   normalizePriorityKey,
   type BreezyPriorityType,
 } from "@/lib/breezy-priority-types";
+import { getJobShipTypeLabel, inferJobShipTypeFromText } from "@/lib/job-ship-types";
 import jobBanner from "@/images/job_abnner.png";
 import StickyJobsHeader from "./sticky-jobs-header";
 
@@ -62,6 +63,7 @@ type JobListItem = {
   company_slug?: string;
   application_url?: string;
   updated_at?: string;
+  ship_type?: string;
   benefit_tags?: string[];
   processable_countries?: string[];
   blocked_countries?: string[];
@@ -902,27 +904,26 @@ function getBenefitTagIcon(tag: string) {
 
 function BenefitTagDatapoints({ tags }: { tags: string[] }) {
   if (tags.length === 0) return null;
+  const maxWidthClass = tags.length >= 6 ? "max-w-[520px]" : "max-w-[360px]";
 
   return (
-    <div className="mt-5 flex flex-wrap items-center gap-2">
+    <div className={["mt-5 flex flex-wrap gap-x-4 gap-y-2.5", maxWidthClass].join(" ")}>
       {tags.map((tag) => {
         const Icon = getBenefitTagIcon(tag);
         const label = formatBenefitTag(tag);
         return (
-          <span key={tag} className="group/benefit relative inline-flex">
-            <span
-              aria-label={label}
-              tabIndex={0}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-sky-200 bg-white text-sky-700 shadow-sm transition outline-none group-hover:border-sky-300 group-hover:bg-sky-50 group-focus-within/benefit:border-sky-300 group-focus-within/benefit:bg-sky-50"
-            >
-              <Icon className="h-4.5 w-4.5" />
+          <span
+            key={tag}
+            className={[
+              "inline-flex min-w-0 items-center gap-2 px-1 py-0.5 text-slate-950",
+              tags.length >= 6 ? "basis-[calc(33.333%-0.7rem)]" : "basis-[calc(50%-0.5rem)]",
+            ].join(" ")}
+          >
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-950">
+              <Icon className="h-3.5 w-3.5" />
             </span>
-            <span
-              role="tooltip"
-              className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white opacity-0 shadow-lg transition duration-75 group-hover/benefit:opacity-100 group-focus-within/benefit:opacity-100"
-            >
+            <span className="min-w-0 truncate text-[11px] font-semibold leading-none text-slate-950">
               {label}
-              <span className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-slate-900" />
             </span>
           </span>
         );
@@ -3013,7 +3014,9 @@ export default function JobsBoard() {
                     const avatar = avatarSeed.slice(0, 1).toUpperCase();
 	                    const priority = asString(job.priority).trim().toLowerCase();
 	                    const priorityLabel = getPriorityLabel(priority, availablePriorityTypes);
-	                    const locationBadgeLabel = "WORLDWIDE";
+	                    const shipTypeLabel =
+	                      getJobShipTypeLabel(job.ship_type) ||
+	                      getJobShipTypeLabel(inferJobShipTypeFromText(job.company, job.name));
 
 	                    return (
                       <div
@@ -3079,11 +3082,11 @@ export default function JobsBoard() {
 		                                  </span>
 		                                </span>
 		                              ) : null}
-		                              {locationBadgeLabel ? (
+		                              {shipTypeLabel ? (
 		                                <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-gradient-to-r from-cyan-100 to-sky-100 px-2.5 py-1.5 text-cyan-950 shadow-sm shadow-cyan-200/40">
-		                                  <MapPin className="h-3.5 w-3.5 text-cyan-600" />
+		                                  <Compass className="h-3.5 w-3.5 text-cyan-600" />
 		                                  <span className="max-w-[320px] truncate whitespace-nowrap">
-		                                    {locationBadgeLabel}
+		                                    {shipTypeLabel}
 		                                  </span>
 		                                </span>
 		                              ) : null}
@@ -3244,10 +3247,19 @@ export default function JobsBoard() {
                         ? asString(isRecord(details) ? details["department"] : undefined).trim() ||
                           extractDepartment(details)
                         : asString(selectedSummary?.department).trim();
-                      const location = "WORLDWIDE";
+                      const shipType =
+                        details && isRecord(details)
+                          ? getJobShipTypeLabel(details.ship_type) ||
+                            getJobShipTypeLabel(
+                              inferJobShipTypeFromText(details.company, details.name, details.title)
+                            )
+                          : getJobShipTypeLabel(selectedSummary?.ship_type) ||
+                            getJobShipTypeLabel(
+                              inferJobShipTypeFromText(selectedSummary?.company, selectedSummary?.name)
+                            );
                       const metaBadges = [
                         department ? { key: "department", label: department } : null,
-                        { key: "location", label: location },
+                        shipType ? { key: "shipType", label: shipType } : null,
                       ].filter(Boolean) as Array<{ key: string; label: string }>;
 
                       return metaBadges.length > 0 ? (
@@ -3265,7 +3277,7 @@ export default function JobsBoard() {
                               {badge.key === "department" ? (
                                 <UserRound className="h-3.5 w-3.5 text-amber-600" />
                               ) : (
-                                <MapPin className="h-3.5 w-3.5 text-cyan-600" />
+                                <Compass className="h-3.5 w-3.5 text-cyan-600" />
                               )}
                               <span className="min-w-0 max-w-[320px] whitespace-nowrap truncate">
                                 {badge.label}
