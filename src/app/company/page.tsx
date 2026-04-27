@@ -2827,7 +2827,7 @@ export default function CompanyPage() {
                 )}
               </div>
 
-              <div className="rounded-2xl border border-slate-200 px-4 py-4">
+              <div className="hidden">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold text-slate-900">

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   type ReactNode,
   useCallback,
   useDeferredValue,
@@ -31,6 +32,8 @@ import {
   FileText,
   TrendingUp,
   Compass,
+  Quote,
+  Star,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -46,7 +49,15 @@ import {
   normalizePriorityKey,
   type BreezyPriorityType,
 } from "@/lib/breezy-priority-types";
-import { getJobShipTypeLabel, inferJobShipTypeFromText } from "@/lib/job-ship-types";
+import {
+  getJobShipTypeLabel,
+  inferJobShipTypeFromText,
+  JOB_SHIP_TYPE_LABELS,
+  JOB_SHIP_TYPES,
+  normalizeJobShipType,
+  type JobShipType,
+} from "@/lib/job-ship-types";
+import { getCountryCode } from "@/lib/country";
 import jobBanner from "@/images/job_abnner.png";
 import StickyJobsHeader from "./sticky-jobs-header";
 
@@ -75,6 +86,7 @@ type JobListItemIndexed = JobListItem & {
   __companyKey: string;
   __departmentKey: string;
   __priorityKey: string;
+  __shipTypeKey: JobShipType | "";
   __updatedAtMs: number;
 };
 
@@ -84,6 +96,15 @@ type JobsBoardCache = {
   etag?: string;
   items: JobListItem[];
   priorityTypes: BreezyPriorityType[];
+};
+
+type JobTestimonial = {
+  id: string;
+  quote: string;
+  name: string;
+  role: string;
+  country: string;
+  imageUrl: string | null;
 };
 
 function asString(value: unknown) {
@@ -113,6 +134,9 @@ const COUNTRY_DISPLAY_NAMES =
 
 const HERO_LOGOS_CACHE_KEY = "jobs:hero_logos:v1";
 const HERO_LOGOS_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
+
+const TESTIMONIALS_CACHE_KEY = "jobs:testimonials:v1";
+const TESTIMONIALS_CACHE_TTL_MS = 1000 * 60 * 60 * 6; // signed image URLs expire; keep this short
 
 function countryLabelFromCode(code: string) {
   const upper = (code ?? "").trim().toUpperCase();
@@ -1069,6 +1093,9 @@ function indexJobs(list: JobListItem[]) {
     const department = asString(job.department).trim();
     const priority = asString(job.priority).trim();
     const priorityKey = normalizeFilterKey(priority);
+    const shipType =
+      normalizeJobShipType(job.ship_type) ||
+      inferJobShipTypeFromText(company, job.name, department);
     const updatedAtRaw = asString(job.updated_at).trim();
     const updatedAtMs = updatedAtRaw ? Date.parse(updatedAtRaw) : Number.NaN;
     const org = (job.org_type || "position").toLowerCase();
@@ -1093,10 +1120,117 @@ function indexJobs(list: JobListItem[]) {
       __companyKey: normalizeFilterKey(company),
       __departmentKey: normalizeFilterKey(department),
       __priorityKey: priorityKey,
+      __shipTypeKey: shipType,
       __updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : 0,
       __search: ` ${search} countries:${countries.toLowerCase()} `,
     } satisfies JobListItemIndexed;
   });
+}
+
+function shouldInsertInlineTestimonial(index: number) {
+  const position = index + 1;
+  return position === 8 || (position > 8 && (position - 8) % 12 === 0);
+}
+
+function getInlineTestimonialIndex(index: number) {
+  return Math.max(0, Math.floor((index + 1 - 8) / 12));
+}
+
+function getInlineTestimonial(index: number, testimonials: JobTestimonial[]) {
+  // The top proof strip consumes the first testimonial (index 0).
+  // Inline placements show the remaining testimonials in order, exactly once.
+  const inlineTestimonials = testimonials.slice(1);
+  if (inlineTestimonials.length === 0) return null;
+  const testimonialIndex = getInlineTestimonialIndex(index);
+  return inlineTestimonials[testimonialIndex] ?? null;
+}
+
+function getTestimonialCountryDisplay(country: string) {
+  const code = getCountryCode(country);
+  if (!code) return { flag: "", label: country.trim() };
+  return { flag: toFlagEmoji(code), label: countryLabelFromCode(code) };
+}
+
+function JobTestimonialStrip({
+  testimonial,
+  variant = "inline",
+}: {
+  testimonial: JobTestimonial;
+  variant?: "top" | "inline";
+}) {
+  const isTop = variant === "top";
+  const country = getTestimonialCountryDisplay(testimonial.country);
+
+  return (
+    <div
+      className={[
+        "relative overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-r from-sky-50 via-white to-amber-50 text-slate-900",
+        isTop ? "p-5 shadow-sm sm:p-6" : "p-5 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.4)]",
+      ].join(" ")}
+    >
+      <div className="absolute right-4 top-4 text-sky-100" aria-hidden="true">
+        <Quote className={isTop ? "h-16 w-16" : "h-12 w-12"} />
+      </div>
+
+      <div className="relative grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+        <div className="flex items-center gap-3">
+          <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full bg-white text-lg font-extrabold text-slate-600 ring-1 ring-slate-200 sm:h-[72px] sm:w-[72px]">
+            {testimonial.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={testimonial.imageUrl}
+                alt={testimonial.name}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+            ) : (
+              (testimonial.name.trim() || "T").slice(0, 1).toUpperCase()
+            )}
+          </div>
+          <div className="min-w-0 sm:hidden">
+            <div className="truncate text-sm font-extrabold text-slate-950">
+              {testimonial.name}
+            </div>
+            <div className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+              {testimonial.role}
+            </div>
+          </div>
+        </div>
+
+        <div className="min-w-0">
+          <div className="mb-2 flex items-center gap-1 text-amber-500" aria-label="5 star review">
+            {Array.from({ length: 5 }).map((_, starIndex) => (
+              <Star key={starIndex} className="h-3.5 w-3.5 fill-current" />
+            ))}
+          </div>
+          <p
+            className={[
+              "text-pretty font-semibold leading-6 text-slate-950",
+              isTop ? "text-base sm:text-lg" : "text-sm sm:text-base",
+            ].join(" ")}
+          >
+            {`"${testimonial.quote}"`}
+          </p>
+          <div className="mt-3 hidden min-w-0 sm:block">
+            <div className="truncate text-sm font-extrabold text-slate-950">
+              {testimonial.name}
+            </div>
+            <div className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+              {testimonial.role}
+            </div>
+          </div>
+        </div>
+
+        {country.label ? (
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-100 bg-white/75 px-3 py-1.5 text-xs font-bold text-sky-900 shadow-sm">
+            {country.flag ? <span aria-hidden="true">{country.flag}</span> : null}
+            <span>{country.label}</span>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 export default function JobsBoard() {
@@ -1105,6 +1239,7 @@ export default function JobsBoard() {
   const etagRef = useRef<string | null>(null);
   const jobsAbortRef = useRef<AbortController | null>(null);
   const detailsAbortRef = useRef<AbortController | null>(null);
+  const testimonialsAbortRef = useRef<AbortController | null>(null);
   const prefetchingDetailsRef = useRef<Set<string>>(new Set());
   const scrollLockRef = useRef<{
     scrollY: number;
@@ -1116,6 +1251,7 @@ export default function JobsBoard() {
   const [heroLogos, setHeroLogos] = useState<Array<{ id: string; label: string; logoUrl: string }>>(
     []
   );
+  const [testimonials, setTestimonials] = useState<JobTestimonial[]>([]);
   const [heroAssetsReady, setHeroAssetsReady] = useState(false);
   const [pageAssetsReady, setPageAssetsReady] = useState(() => {
     if (typeof document === "undefined") return false;
@@ -1125,6 +1261,7 @@ export default function JobsBoard() {
   const [companyFilters, setCompanyFilters] = useState<string[]>([]);
   const [departmentFilters, setDepartmentFilters] = useState<string[]>([]);
   const [countryFilter, setCountryFilter] = useState("");
+  const [shipTypeFilters, setShipTypeFilters] = useState<JobShipType[]>([]);
   const [priorityTypes, setPriorityTypes] = useState<BreezyPriorityType[]>(
     DEFAULT_BREEZY_PRIORITY_TYPES
   );
@@ -1292,6 +1429,52 @@ export default function JobsBoard() {
     []
   );
 
+  const readTestimonialsCache = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = window.localStorage.getItem(TESTIMONIALS_CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as unknown;
+      if (!parsed || typeof parsed !== "object") return null;
+      const savedAt = Number((parsed as { savedAt?: unknown }).savedAt);
+      if (!Number.isFinite(savedAt)) return null;
+      if (Date.now() - savedAt > TESTIMONIALS_CACHE_TTL_MS) return null;
+      const list = (parsed as { testimonials?: unknown }).testimonials;
+      if (!Array.isArray(list)) return null;
+      const testimonials = list
+        .map((item) => {
+          const row = isRecord(item) ? item : {};
+          return {
+            id: typeof row.id === "string" ? row.id : "",
+            quote: typeof row.quote === "string" ? row.quote.trim() : "",
+            name: typeof row.name === "string" ? row.name.trim() : "",
+            role: typeof row.role === "string" ? row.role.trim() : "",
+            country: typeof row.country === "string" ? row.country.trim() : "",
+            imageUrl:
+              typeof row.imageUrl === "string" && row.imageUrl.trim()
+                ? row.imageUrl.trim()
+                : null,
+          };
+        })
+        .filter((item) => item.id && item.quote && item.name);
+      return testimonials.length > 0 ? testimonials : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const writeTestimonialsCache = useCallback((next: JobTestimonial[]) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        TESTIMONIALS_CACHE_KEY,
+        JSON.stringify({ savedAt: Date.now(), testimonials: next })
+      );
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const applyCachedJobs = useCallback((cache: JobsBoardCache) => {
     if (Date.now() - cache.savedAt > JOBS_CACHE_MAX_AGE_MS) return;
     etagRef.current = cache.etag ?? null;
@@ -1320,6 +1503,14 @@ export default function JobsBoard() {
   );
 
   const hasPriorityFilter = prioritySelection.length > 0;
+  const shipTypeSelection = useMemo(
+    () =>
+      shipTypeFilters
+        .map((value) => normalizeJobShipType(value))
+        .filter((value): value is JobShipType => Boolean(value)),
+    [shipTypeFilters]
+  );
+  const hasShipTypeFilter = shipTypeSelection.length > 0;
 
   const companyOptions = useMemo(() => {
     const query = deferredFilter.trim().toLowerCase();
@@ -1328,9 +1519,12 @@ export default function JobsBoard() {
       departmentSet.size > 0
         ? baseJobs.filter((job) => departmentSet.has(job.__departmentKey))
         : baseJobs;
-    const narrowed = hasPriorityFilter
-      ? source.filter((job) => prioritySelection.includes(job.__priorityKey))
+    const byShipType = hasShipTypeFilter
+      ? source.filter((job) => job.__shipTypeKey !== "" && shipTypeSelection.includes(job.__shipTypeKey))
       : source;
+    const narrowed = hasPriorityFilter
+      ? byShipType.filter((job) => prioritySelection.includes(job.__priorityKey))
+      : byShipType;
     const byCountry = countryFilter
       ? narrowed.filter((job) => {
           const target = countryFilter.toUpperCase();
@@ -1371,7 +1565,16 @@ export default function JobsBoard() {
       .sort((a, b) =>
         a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
       );
-  }, [baseJobs, countryFilter, deferredFilter, departmentFilters, hasPriorityFilter, prioritySelection]);
+  }, [
+    baseJobs,
+    countryFilter,
+    deferredFilter,
+    departmentFilters,
+    hasPriorityFilter,
+    hasShipTypeFilter,
+    prioritySelection,
+    shipTypeSelection,
+  ]);
 
   const departmentOptions = useMemo(() => {
     const query = deferredFilter.trim().toLowerCase();
@@ -1380,9 +1583,12 @@ export default function JobsBoard() {
       companySet.size > 0
         ? baseJobs.filter((job) => companySet.has(job.__companyKey))
         : baseJobs;
-    const narrowed = hasPriorityFilter
-      ? source.filter((job) => prioritySelection.includes(job.__priorityKey))
+    const byShipType = hasShipTypeFilter
+      ? source.filter((job) => job.__shipTypeKey !== "" && shipTypeSelection.includes(job.__shipTypeKey))
       : source;
+    const narrowed = hasPriorityFilter
+      ? byShipType.filter((job) => prioritySelection.includes(job.__priorityKey))
+      : byShipType;
     const byCountry = countryFilter
       ? narrowed.filter((job) => {
           const target = countryFilter.toUpperCase();
@@ -1413,9 +1619,68 @@ export default function JobsBoard() {
       .sort((a, b) =>
         a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
       );
-  }, [baseJobs, companyFilters, countryFilter, deferredFilter, hasPriorityFilter, prioritySelection]);
+  }, [
+    baseJobs,
+    companyFilters,
+    countryFilter,
+    deferredFilter,
+    hasPriorityFilter,
+    hasShipTypeFilter,
+    prioritySelection,
+    shipTypeSelection,
+  ]);
 
   const priorityCounts = useMemo(() => {
+    const query = deferredFilter.trim().toLowerCase();
+    const companySet = new Set(companyFilters);
+    const departmentSet = new Set(departmentFilters);
+    const source =
+      companySet.size > 0
+        ? baseJobs.filter((job) => companySet.has(job.__companyKey))
+        : baseJobs;
+    const byDepartment =
+      departmentSet.size > 0
+        ? source.filter((job) => departmentSet.has(job.__departmentKey))
+        : source;
+    const byShipType = hasShipTypeFilter
+      ? byDepartment.filter((job) => job.__shipTypeKey !== "" && shipTypeSelection.includes(job.__shipTypeKey))
+      : byDepartment;
+    const byCountry = countryFilter
+      ? byShipType.filter((job) => {
+          const target = countryFilter.toUpperCase();
+          const blocked = Array.isArray(job.blocked_countries) ? job.blocked_countries : [];
+          if (blocked.map((c) => asString(c).toUpperCase()).includes(target)) return false;
+          const processable = Array.isArray(job.processable_countries)
+            ? job.processable_countries
+            : [];
+          const mentioned = Array.isArray(job.mentioned_countries) ? job.mentioned_countries : [];
+          const combined = [...processable, ...mentioned].map((c) => asString(c).toUpperCase());
+          return combined.includes(target);
+        })
+      : byShipType;
+    const narrowed = !query
+      ? byCountry
+      : byCountry.filter((job) => job.__search.includes(query));
+
+    const counts = new Map<string, number>();
+    for (const job of narrowed) {
+      const key = job.__priorityKey;
+      if (!key) continue;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    return counts;
+  }, [
+    baseJobs,
+    companyFilters,
+    countryFilter,
+    deferredFilter,
+    departmentFilters,
+    hasShipTypeFilter,
+    shipTypeSelection,
+  ]);
+
+  const shipTypeCounts = useMemo(() => {
     const query = deferredFilter.trim().toLowerCase();
     const companySet = new Set(companyFilters);
     const departmentSet = new Set(departmentFilters);
@@ -1440,19 +1705,30 @@ export default function JobsBoard() {
           return combined.includes(target);
         })
       : byDepartment;
+    const byPriority = hasPriorityFilter
+      ? byCountry.filter((job) => prioritySelection.includes(job.__priorityKey))
+      : byCountry;
     const narrowed = !query
-      ? byCountry
-      : byCountry.filter((job) => job.__search.includes(query));
+      ? byPriority
+      : byPriority.filter((job) => job.__search.includes(query));
 
-    const counts = new Map<string, number>();
+    const counts = new Map<JobShipType, number>();
     for (const job of narrowed) {
-      const key = job.__priorityKey;
+      const key = job.__shipTypeKey;
       if (!key) continue;
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
 
     return counts;
-  }, [baseJobs, companyFilters, countryFilter, deferredFilter, departmentFilters]);
+  }, [
+    baseJobs,
+    companyFilters,
+    countryFilter,
+    deferredFilter,
+    departmentFilters,
+    hasPriorityFilter,
+    prioritySelection,
+  ]);
 
   useEffect(() => {
     if (companyFilters.length === 0) return;
@@ -1485,9 +1761,12 @@ export default function JobsBoard() {
     const narrowed = hasPriorityFilter
       ? byDepartment.filter((job) => prioritySelection.includes(job.__priorityKey))
       : byDepartment;
+    const byShipType = hasShipTypeFilter
+      ? narrowed.filter((job) => job.__shipTypeKey !== "" && shipTypeSelection.includes(job.__shipTypeKey))
+      : narrowed;
     const byQuery = !query
-      ? narrowed
-      : narrowed.filter((job) => job.__search.includes(query));
+      ? byShipType
+      : byShipType.filter((job) => job.__search.includes(query));
     const map = new Map<string, { code: string; label: string; count: number }>();
     for (const job of byQuery) {
       const blocked = Array.isArray(job.blocked_countries) ? job.blocked_countries : [];
@@ -1509,7 +1788,16 @@ export default function JobsBoard() {
     return Array.from(map.values()).sort((a, b) =>
       a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
     );
-  }, [baseJobs, companyFilters, deferredFilter, departmentFilters, hasPriorityFilter, prioritySelection]);
+  }, [
+    baseJobs,
+    companyFilters,
+    deferredFilter,
+    departmentFilters,
+    hasPriorityFilter,
+    hasShipTypeFilter,
+    prioritySelection,
+    shipTypeSelection,
+  ]);
 
   useEffect(() => {
     if (!countryFilter) return;
@@ -1526,12 +1814,20 @@ export default function JobsBoard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [priorityCounts, priorityFilters]);
 
+  useEffect(() => {
+    if (shipTypeFilters.length === 0) return;
+    const next = shipTypeFilters.filter((value) => (shipTypeCounts.get(value) ?? 0) > 0);
+    if (next.length === shipTypeFilters.length) return;
+    setShipTypeFilters(next);
+  }, [shipTypeCounts, shipTypeFilters]);
+
   const filtered = useMemo(() => {
     const query = deferredFilter.trim().toLowerCase();
     const companySet = new Set(companyFilters);
     const departmentSet = new Set(departmentFilters);
     const showFeaturedOnly =
       !hasPriorityFilter &&
+      !hasShipTypeFilter &&
       companySet.size === 0 &&
       departmentSet.size === 0 &&
       !countryFilter &&
@@ -1557,9 +1853,12 @@ export default function JobsBoard() {
           return combined.includes(target);
         })
       : byDepartment;
-    const byPriority = hasPriorityFilter
-      ? byCountry.filter((job) => prioritySelection.includes(job.__priorityKey))
+    const byShipType = hasShipTypeFilter
+      ? byCountry.filter((job) => job.__shipTypeKey !== "" && shipTypeSelection.includes(job.__shipTypeKey))
       : byCountry;
+    const byPriority = hasPriorityFilter
+      ? byShipType.filter((job) => prioritySelection.includes(job.__priorityKey))
+      : byShipType;
     const matches = !query
       ? byPriority
       : byPriority.filter((job) => {
@@ -1577,11 +1876,14 @@ export default function JobsBoard() {
     deferredFilter,
     departmentFilters,
     hasPriorityFilter,
+    hasShipTypeFilter,
     prioritySelection,
+    shipTypeSelection,
   ]);
 
   const showingFeaturedOnly =
     !hasPriorityFilter &&
+    !hasShipTypeFilter &&
     companyFilters.length === 0 &&
     departmentFilters.length === 0 &&
     !countryFilter &&
@@ -1751,6 +2053,54 @@ export default function JobsBoard() {
 	    };
 		  }, [writeHeroLogosCache]);
 
+  useEffect(() => {
+    let ignore = false;
+    const cached = readTestimonialsCache();
+    if (cached) setTestimonials(cached);
+
+    const load = async () => {
+      testimonialsAbortRef.current?.abort();
+      const controller = new AbortController();
+      testimonialsAbortRef.current = controller;
+      try {
+        // Use browser HTTP cache for near-instant refresh when available.
+        const res = await fetch("/api/jobs/testimonials", { signal: controller.signal });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) return;
+        const list: unknown[] = Array.isArray(data?.testimonials)
+          ? (data.testimonials as unknown[])
+          : [];
+        const parsed = list
+          .map((item) => {
+            const row = isRecord(item) ? item : {};
+            return {
+              id: typeof row.id === "string" ? row.id : "",
+              quote: typeof row.quote === "string" ? row.quote.trim() : "",
+              name: typeof row.name === "string" ? row.name.trim() : "",
+              role: typeof row.role === "string" ? row.role.trim() : "",
+              country: typeof row.country === "string" ? row.country.trim() : "",
+              imageUrl:
+                typeof row.imageUrl === "string" && row.imageUrl.trim()
+                  ? row.imageUrl.trim()
+                  : null,
+            };
+          })
+          .filter((item) => item.id && item.quote && item.name);
+        if (!ignore) {
+          setTestimonials(parsed);
+          if (parsed.length > 0) writeTestimonialsCache(parsed);
+        }
+      } catch {
+        if (!ignore) setTestimonials([]);
+      }
+    };
+    void load();
+    return () => {
+      ignore = true;
+      testimonialsAbortRef.current?.abort();
+    };
+  }, [readTestimonialsCache, writeTestimonialsCache]);
+
   const heroSliderItems = useMemo<LogoStackItem[] | null>(() => {
     if (heroLogos.length === 0) return null;
     return heroLogos.map((logo, index) => ({
@@ -1799,7 +2149,7 @@ export default function JobsBoard() {
 
   useEffect(() => {
     setVisibleCount(JOBS_PAGE_SIZE);
-  }, [companyFilters, departmentFilters, countryFilter, deferredFilter, priorityFilters]);
+  }, [companyFilters, departmentFilters, countryFilter, deferredFilter, priorityFilters, shipTypeFilters]);
 
   const visibleJobs = useMemo(() => {
     return filtered.slice(0, Math.min(filtered.length, visibleCount));
@@ -1950,6 +2300,7 @@ export default function JobsBoard() {
     const departmentSet = new Set(departmentFilters);
     const showFeaturedOnly =
       !hasPriorityFilter &&
+      !hasShipTypeFilter &&
       companySet.size === 0 &&
       departmentSet.size === 0 &&
       !countryFilter &&
@@ -1978,7 +2329,10 @@ export default function JobsBoard() {
     const byPriority = hasPriorityFilter
       ? byCountry.filter((job) => prioritySelection.includes(job.__priorityKey))
       : byCountry;
-    return byPriority;
+    const byShipType = hasShipTypeFilter
+      ? byPriority.filter((job) => job.__shipTypeKey !== "" && shipTypeSelection.includes(job.__shipTypeKey))
+      : byPriority;
+    return byShipType;
   }, [
     baseJobs,
     companyFilters,
@@ -1986,7 +2340,9 @@ export default function JobsBoard() {
     deferredFilter,
     departmentFilters,
     hasPriorityFilter,
+    hasShipTypeFilter,
     prioritySelection,
+    shipTypeSelection,
   ]);
 
   type SearchSuggestion = {
@@ -2351,6 +2707,7 @@ export default function JobsBoard() {
     companyFilters.length > 0 ||
     departmentFilters.length > 0 ||
     countryFilter.length > 0 ||
+    shipTypeFilters.length > 0 ||
     priorityFilters.length > 0;
 
   const clearAllFilters = useCallback(() => {
@@ -2358,6 +2715,7 @@ export default function JobsBoard() {
     setCompanyFilters([]);
     setDepartmentFilters([]);
     setCountryFilter("");
+    setShipTypeFilters([]);
     setPriorityFilters([]);
   }, []);
 
@@ -2413,6 +2771,15 @@ export default function JobsBoard() {
         onRemove: () => setCountryFilter(""),
       });
 
+    shipTypeFilters.forEach((key) => {
+      chips.push({
+        id: `ship-type:${key}`,
+        label: `Ship: ${JOB_SHIP_TYPE_LABELS[key]}`,
+        onRemove: () =>
+          setShipTypeFilters((prev) => prev.filter((value) => value !== key)),
+      });
+    });
+
     priorityFilters.forEach((key) => {
       const normalized = normalizePriorityKey(key);
       chips.push({
@@ -2436,6 +2803,7 @@ export default function JobsBoard() {
     filter,
     availablePriorityTypes,
     priorityFilters,
+    shipTypeFilters,
   ]);
 
   const selectedSummary = useMemo(() => {
@@ -2755,6 +3123,56 @@ export default function JobsBoard() {
                     />
 	              </div>
 
+                  <div className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Ship Type
+                  </div>
+                  <div className="mt-2 grid gap-2">
+                    {JOB_SHIP_TYPES.map((shipType) => {
+                      const count = shipTypeCounts.get(shipType) ?? 0;
+                      const checked = shipTypeFilters.includes(shipType);
+                      return (
+                        <label
+                          key={shipType}
+                          className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50"
+                        >
+                          <span className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
+                              checked={checked}
+                              disabled={count === 0}
+                              onChange={(event) =>
+                                setShipTypeFilters((prev) =>
+                                  event.target.checked
+                                    ? prev.includes(shipType)
+                                      ? prev
+                                      : [...prev, shipType]
+                                    : prev.filter((value) => value !== shipType)
+                                )
+                              }
+                            />
+                            <span className={count === 0 ? "text-slate-400" : ""}>
+                              {JOB_SHIP_TYPE_LABELS[shipType]}
+                            </span>
+                          </span>
+                          <span className={count === 0 ? "text-slate-400" : "text-slate-500"}>
+                            {count}
+                          </span>
+                        </label>
+                      );
+                    })}
+
+                    {shipTypeFilters.length > 0 ? (
+                      <button
+                        type="button"
+                        className="mt-1 w-full rounded-xl px-2 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                        onClick={() => setShipTypeFilters([])}
+                      >
+                        Clear ship type
+                      </button>
+                    ) : null}
+                  </div>
+
 		              <div className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">
 		                Priority
 		              </div>
@@ -2900,6 +3318,58 @@ export default function JobsBoard() {
 
               <div className="mt-5">
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Ship Type
+                </div>
+                <div className="mt-2 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+                  {JOB_SHIP_TYPES.map((shipType) => {
+                    const count = shipTypeCounts.get(shipType) ?? 0;
+                    const checked = shipTypeFilters.includes(shipType);
+                    return (
+                      <label
+                        key={shipType}
+                        className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50"
+                      >
+                        <span className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
+                            checked={checked}
+                            disabled={count === 0}
+                            onChange={(event) =>
+                              setShipTypeFilters((prev) =>
+                                event.target.checked
+                                  ? prev.includes(shipType)
+                                    ? prev
+                                    : [...prev, shipType]
+                                  : prev.filter((value) => value !== shipType)
+                              )
+                            }
+                          />
+                          <span className={count === 0 ? "text-slate-400" : ""}>
+                            {JOB_SHIP_TYPE_LABELS[shipType]}
+                          </span>
+                        </span>
+                        <span className={count === 0 ? "text-slate-400" : "text-slate-500"}>
+                          {count}
+                        </span>
+                      </label>
+                    );
+                  })}
+
+                  {shipTypeFilters.length > 0 ? (
+                    <button
+                      type="button"
+                      className="mt-1 w-full rounded-xl px-2 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      onClick={() => setShipTypeFilters([])}
+                    >
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Priority
                 </div>
                 <div className="mt-2 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
@@ -2992,6 +3462,12 @@ export default function JobsBoard() {
                 </div>
               ) : null}
 
+              {!loading && filtered.length > 0 && testimonials.length > 0 ? (
+                <div className="mt-5">
+                  <JobTestimonialStrip testimonial={testimonials[0] as JobTestimonial} variant="top" />
+                </div>
+              ) : null}
+
               <div className="mt-5 space-y-4">
                 {loading ? (
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
@@ -3019,8 +3495,8 @@ export default function JobsBoard() {
 	                      getJobShipTypeLabel(inferJobShipTypeFromText(job.company, job.name));
 
 	                    return (
+                    <Fragment key={job.id || `${job.name}-${index}`}>
                       <div
-                        key={job.id || `${job.name}-${index}`}
                         role="button"
                         tabIndex={0}
                         aria-pressed={isSelected}
@@ -3094,7 +3570,18 @@ export default function JobsBoard() {
 	                          </div>
 	                        </div>
 
-	                      </div>
+                      </div>
+                      {visibleJobs.length >= 10 &&
+                      shouldInsertInlineTestimonial(index) &&
+                      getInlineTestimonialIndex(index) < Math.max(0, testimonials.length - 1) ? (
+                        (() => {
+                          const testimonial = getInlineTestimonial(index, testimonials);
+                          return testimonial ? (
+                            <JobTestimonialStrip testimonial={testimonial} variant="inline" />
+                          ) : null;
+                        })()
+                      ) : null}
+                    </Fragment>
 	                    );
 	                  })
 	                )}

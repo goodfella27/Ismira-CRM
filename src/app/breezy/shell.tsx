@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   Webhook,
   FolderKanban,
+  MessageSquareQuote,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -46,6 +47,12 @@ const items = [
     href: "/breezy/email-templates",
     icon: Mail,
     description: "Sync & manage templates",
+  },
+  {
+    label: "Testimonials",
+    href: "/breezy/testimonials",
+    icon: MessageSquareQuote,
+    description: "Candidate proof for jobs",
   },
   {
     label: "Questionnaires",

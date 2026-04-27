@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Check, RefreshCw, Search } from "lucide-react";
 
+import JobCompaniesAdmin from "@/components/job-companies-admin";
 import { loadBreezyCompanyId, saveBreezyCompanyId } from "@/lib/breezy-storage";
 
 type BreezyCompany = Record<string, unknown> & {
@@ -252,6 +253,8 @@ export default function BreezyCompaniesPage() {
           )}
         </div>
       </div>
+
+      <JobCompaniesAdmin />
 
       {selectedId ? (
         <div
