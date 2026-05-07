@@ -33,7 +33,7 @@ export default function DetailsModalShell({
 
   return (
     <div
-      className={`fixed inset-0 ${zIndexClassName} flex items-center justify-center px-4 py-6 sm:px-6`}
+      className={`fixed inset-0 ${zIndexClassName} flex items-end justify-center p-2 sm:items-center sm:px-6 sm:py-6 xl:px-6 xl:py-6`}
       role="dialog"
       aria-modal="true"
       aria-labelledby={labelledBy}
@@ -41,10 +41,10 @@ export default function DetailsModalShell({
     >
       <div className={`absolute inset-0 ${backdropClassName}`} />
       <div
-        className={`relative z-10 w-full max-w-4xl overflow-hidden rounded-3xl ${panelClassName}`}
+        className={`relative z-10 w-full max-w-4xl overflow-hidden rounded-[28px] xl:rounded-3xl ${panelClassName}`}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="hide-scrollbar max-h-[80vh] overflow-auto">
+        <div className="hide-scrollbar max-h-[94svh] overflow-auto xl:max-h-[80vh]">
           <div className="relative overflow-hidden">
             {hero}
             {heroActions ? (
@@ -56,7 +56,7 @@ export default function DetailsModalShell({
 
           {stickyHeader}
 
-          <div className="bg-white px-6 py-6">{children}</div>
+          <div className="bg-white px-4 py-4 xl:px-6 xl:py-6">{children}</div>
           {footer}
         </div>
       </div>

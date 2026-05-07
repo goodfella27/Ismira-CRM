@@ -34,6 +34,7 @@ import {
   Compass,
   Quote,
   Star,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -319,13 +320,17 @@ function RichText({ content }: { content: string }) {
         className={[
           "text-[15px] leading-7 text-slate-800",
           "[&>*:first-child]:mt-0",
-          "[&_p]:mt-4",
-          "[&_h1]:mb-3 [&_h1]:mt-8 [&_h1]:border-l-4 [&_h1]:border-sky-300 [&_h1]:pl-4 [&_h1]:text-[1.1rem] [&_h1]:font-extrabold [&_h1]:uppercase [&_h1]:tracking-[0.08em] [&_h1]:text-slate-900",
-          "[&_h2]:mb-3 [&_h2]:mt-8 [&_h2]:border-l-4 [&_h2]:border-sky-300 [&_h2]:pl-4 [&_h2]:text-[1.05rem] [&_h2]:font-extrabold [&_h2]:uppercase [&_h2]:tracking-[0.08em] [&_h2]:text-slate-900",
-          "[&_h3]:mb-2 [&_h3]:mt-6 [&_h3]:border-l-4 [&_h3]:border-sky-200 [&_h3]:pl-4 [&_h3]:text-base [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-[0.06em] [&_h3]:text-slate-800",
-          "[&_h4]:mb-1 [&_h4]:mt-4 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:uppercase [&_h4]:tracking-[0.08em] [&_h4]:text-slate-600",
-          "[&_ul]:mt-4 [&_ul]:list-disc [&_ul]:space-y-3 [&_ul]:pl-7",
-          "[&_ol]:mt-4 [&_ol]:list-decimal [&_ol]:space-y-3 [&_ol]:pl-7",
+          "[&_p]:mt-3",
+          "[&_h1]:mb-2 [&_h1]:mt-6 [&_h1]:text-xl [&_h1]:font-extrabold [&_h1]:uppercase [&_h1]:tracking-wide [&_h1]:text-slate-950",
+          "xl:[&_h1]:mb-3 xl:[&_h1]:mt-8 xl:[&_h1]:border-l-4 xl:[&_h1]:border-sky-300 xl:[&_h1]:pl-4 xl:[&_h1]:text-[1.1rem] xl:[&_h1]:tracking-[0.08em] xl:[&_h1]:text-slate-900",
+          "[&_h2]:mb-2 [&_h2]:mt-6 [&_h2]:text-lg [&_h2]:font-extrabold [&_h2]:uppercase [&_h2]:tracking-wide [&_h2]:text-slate-950",
+          "xl:[&_h2]:mb-3 xl:[&_h2]:mt-8 xl:[&_h2]:border-l-4 xl:[&_h2]:border-sky-300 xl:[&_h2]:pl-4 xl:[&_h2]:text-[1.05rem] xl:[&_h2]:tracking-[0.08em] xl:[&_h2]:text-slate-900",
+          "[&_h3]:mb-2 [&_h3]:mt-5 [&_h3]:text-base [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-wide [&_h3]:text-slate-800",
+          "xl:[&_h3]:mt-6 xl:[&_h3]:border-l-4 xl:[&_h3]:border-sky-200 xl:[&_h3]:pl-4 xl:[&_h3]:tracking-[0.06em]",
+          "[&_h4]:mb-1 [&_h4]:mt-4 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:uppercase [&_h4]:tracking-wide [&_h4]:text-slate-600",
+          "xl:[&_h4]:tracking-[0.08em]",
+          "[&_ul]:mt-3 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5 xl:[&_ul]:mt-4 xl:[&_ul]:space-y-3 xl:[&_ul]:pl-7",
+          "[&_ol]:mt-3 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-5 xl:[&_ol]:mt-4 xl:[&_ol]:space-y-3 xl:[&_ol]:pl-7",
           "[&_li]:leading-7 [&_li]:marker:text-sky-500",
           "[&_strong]:font-extrabold [&_strong]:text-slate-900",
           "[&_a]:font-semibold [&_a]:text-emerald-700 [&_a:hover]:underline",
@@ -707,14 +712,14 @@ function MultiSelectModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-[2000] flex items-end justify-center bg-slate-950/50 p-2 backdrop-blur-sm sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={title}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-white shadow-[0_30px_80px_-55px_rgba(0,0,0,0.85)]"
+        className="max-h-[92svh] w-full max-w-4xl overflow-hidden rounded-[24px] border border-white/10 bg-white shadow-[0_30px_80px_-55px_rgba(0,0,0,0.85)] sm:rounded-3xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
@@ -758,7 +763,7 @@ function MultiSelectModal({
           </div>
         </div>
 
-        <div className="hide-scrollbar max-h-[60vh] overflow-auto px-5 py-5">
+        <div className="hide-scrollbar max-h-[50svh] overflow-auto px-3 py-3 sm:max-h-[60vh] sm:px-5 sm:py-5">
           <div className={`grid ${gridClass} gap-2`}>
             {filteredOptions.map((opt) => {
               const isSelected = draftSet.has(opt.value);
@@ -928,10 +933,18 @@ function getBenefitTagIcon(tag: string) {
 
 function BenefitTagDatapoints({ tags }: { tags: string[] }) {
   if (tags.length === 0) return null;
-  const maxWidthClass = tags.length >= 6 ? "max-w-[520px]" : "max-w-[360px]";
+  const desktopMaxWidthClass = tags.length >= 6 ? "xl:max-w-[520px]" : "xl:max-w-[360px]";
+  const desktopBasisClass =
+    tags.length >= 6 ? "xl:basis-[calc(33.333%-0.7rem)]" : "xl:basis-[calc(50%-0.5rem)]";
 
   return (
-    <div className={["mt-5 flex flex-wrap gap-x-4 gap-y-2.5", maxWidthClass].join(" ")}>
+    <div
+      className={[
+        "mt-4 grid grid-cols-2 gap-2.5",
+        "xl:mt-5 xl:flex xl:flex-wrap xl:gap-x-4 xl:gap-y-2.5",
+        desktopMaxWidthClass,
+      ].join(" ")}
+    >
       {tags.map((tag) => {
         const Icon = getBenefitTagIcon(tag);
         const label = formatBenefitTag(tag);
@@ -939,14 +952,15 @@ function BenefitTagDatapoints({ tags }: { tags: string[] }) {
           <span
             key={tag}
             className={[
-              "inline-flex min-w-0 items-center gap-2 px-1 py-0.5 text-slate-950",
-              tags.length >= 6 ? "basis-[calc(33.333%-0.7rem)]" : "basis-[calc(50%-0.5rem)]",
+              "inline-flex min-w-0 items-center gap-2 rounded-2xl bg-slate-50 px-2.5 py-2 text-slate-950 ring-1 ring-slate-100",
+              "xl:rounded-none xl:bg-transparent xl:px-1 xl:py-0.5 xl:ring-0",
+              desktopBasisClass,
             ].join(" ")}
           >
-            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-950">
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-slate-950 ring-1 ring-slate-200 xl:bg-slate-100 xl:ring-0">
               <Icon className="h-3.5 w-3.5" />
             </span>
-            <span className="min-w-0 truncate text-[11px] font-semibold leading-none text-slate-950">
+            <span className="min-w-0 text-[11px] font-semibold leading-tight text-slate-950 xl:truncate xl:leading-none">
               {label}
             </span>
           </span>
@@ -960,7 +974,7 @@ function BenefitTagFeatureList({ tags }: { tags: string[] }) {
   if (tags.length === 0) return null;
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="flex flex-wrap gap-2 xl:grid xl:gap-3 xl:grid-cols-3">
       {tags.map((tag) => {
         const Icon = getBenefitTagIcon(tag);
         const label = formatBenefitTag(tag);
@@ -968,12 +982,15 @@ function BenefitTagFeatureList({ tags }: { tags: string[] }) {
         return (
           <div
             key={tag}
-            className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
+            className="inline-flex min-w-0 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 xl:flex xl:gap-3 xl:rounded-2xl xl:bg-white xl:px-4 xl:py-3"
           >
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700">
-              <Icon className="h-4.5 w-4.5" />
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-slate-900 ring-1 ring-slate-200 xl:h-10 xl:w-10 xl:border xl:border-sky-200 xl:bg-sky-50 xl:text-sky-700 xl:ring-0">
+              <Icon className="h-3.5 w-3.5 xl:h-4.5 xl:w-4.5" />
             </span>
-            <div className="min-w-0">
+            <span className="min-w-0 truncate text-xs font-semibold text-slate-900 xl:hidden">
+              {label}
+            </span>
+            <div className="hidden min-w-0 xl:block">
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                 You Get
               </div>
@@ -996,7 +1013,7 @@ function CountryChips({ items }: { items: Array<{ code: string; name: string }> 
         return (
           <span
             key={`${code}:${name}`}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 xl:bg-white"
             title={name}
           >
             <span aria-hidden="true">{flag || "🏳️"}</span>
@@ -1270,6 +1287,7 @@ export default function JobsBoard() {
 
   const [companyModalOpen, setCompanyModalOpen] = useState(false);
   const [departmentModalOpen, setDepartmentModalOpen] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [searchSuggestOpen, setSearchSuggestOpen] = useState(false);
   const [searchActiveIndex, setSearchActiveIndex] = useState<number>(-1);
   const [searchCaretAtEnd, setSearchCaretAtEnd] = useState(true);
@@ -2870,11 +2888,11 @@ export default function JobsBoard() {
   }, [selectedId]);
 
   return (
-    <div className="min-h-screen bg-slate-50 px-3 pb-10 pt-28 text-slate-900 sm:px-5 lg:px-8">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 px-2.5 pb-10 pt-20 text-slate-900 sm:px-5 sm:pt-28 lg:px-8">
       <StickyJobsHeader />
       <div className="mx-auto w-full max-w-[1280px]">
         <section
-          className="relative overflow-hidden rounded-[36px] px-6 pb-16 pt-12 text-center shadow-[0_30px_80px_-55px_rgba(0,0,0,0.75)] sm:px-10 sm:pb-20 sm:pt-14"
+          className="relative overflow-hidden rounded-[28px] px-5 pb-12 pt-9 text-center shadow-[0_30px_80px_-55px_rgba(0,0,0,0.75)] sm:rounded-[36px] sm:px-10 sm:pb-20 sm:pt-14"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-[#ff9f2f] via-[#58d0d8] to-[#3ea4e6]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_40%,rgba(255,255,255,0.30),transparent_56%)] opacity-95" />
@@ -2882,10 +2900,10 @@ export default function JobsBoard() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_88%_30%,rgba(0,0,0,0.18),transparent_58%)] opacity-90" />
 
           <div className="relative">
-            <h1 className="text-balance text-4xl font-extrabold tracking-tight text-white drop-shadow-sm sm:text-6xl">
+            <h1 className="mx-auto max-w-[12ch] text-balance text-3xl font-extrabold leading-tight tracking-tight text-white drop-shadow-sm sm:max-w-none sm:text-6xl">
               Find Your Dream Jobs
             </h1>
-	            <p className="mx-auto mt-4 max-w-2xl text-pretty text-sm leading-6 text-white/85 sm:text-base">
+            <p className="mx-auto mt-4 max-w-[28ch] text-pretty text-sm leading-6 text-white/85 sm:max-w-2xl sm:text-base">
 	              Browse open positions and view full job details.
 	            </p>
 
@@ -2898,7 +2916,7 @@ export default function JobsBoard() {
 		        </section>
 
         <form
-          className="relative z-10 mx-auto -mt-10 w-full max-w-[820px] rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)] sm:-mt-12 sm:p-5"
+          className="relative z-10 mx-auto -mt-8 w-full max-w-[820px] rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)] sm:-mt-12 sm:rounded-[28px] sm:p-5"
           onSubmit={(event) => {
             event.preventDefault();
             setVisibleCount(JOBS_PAGE_SIZE);
@@ -2907,11 +2925,11 @@ export default function JobsBoard() {
           }}
         >
           <div ref={searchRootRef} className="relative">
-            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sky-50 text-sky-700 ring-1 ring-sky-100">
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:gap-3 sm:px-4 sm:py-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-sky-50 text-sky-700 ring-1 ring-sky-100 sm:h-10 sm:w-10">
                 <Search className="h-4 w-4" />
               </span>
-              <div className="relative w-full">
+              <div className="relative min-w-0 flex-1">
                 {inlineAutocomplete ? (
                   <div
                     aria-hidden="true"
@@ -3003,7 +3021,7 @@ export default function JobsBoard() {
               </div>
               <button
                 type="submit"
-                className="h-10 shrink-0 rounded-2xl bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-7 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(47,125,225,0.7)] transition hover:from-[#256fd2] hover:to-[#55bbff]"
+                className="hidden h-10 shrink-0 rounded-2xl bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(47,125,225,0.7)] transition hover:from-[#256fd2] hover:to-[#55bbff] sm:block sm:px-7"
               >
                 Search
               </button>
@@ -3093,9 +3111,36 @@ export default function JobsBoard() {
             </div>
           ) : null}
 
-			          <div className="mt-3 xl:hidden">
-			            <div className="rounded-2xl border border-slate-200 bg-white p-3">
-		              <div className="grid gap-4">
+          <div className="mt-3 xl:hidden">
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-2">
+              <button
+                type="button"
+                className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-sm"
+                onClick={() => setMobileFiltersOpen((open) => !open)}
+                aria-expanded={mobileFiltersOpen}
+              >
+                <SlidersHorizontal className="h-4 w-4 shrink-0" />
+                <span>{mobileFiltersOpen ? "Hide filters" : "Filter Jobs"}</span>
+                {activeFilterChips.length > 0 ? (
+                  <span className="rounded-full bg-white/15 px-2 py-0.5 text-[11px]">
+                    {activeFilterChips.length}
+                  </span>
+                ) : null}
+              </button>
+              {hasAnyFilter ? (
+                <button
+                  type="button"
+                  className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs font-semibold text-slate-700 shadow-sm"
+                  onClick={clearAllFilters}
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+
+            {mobileFiltersOpen ? (
+              <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="grid gap-4">
                     <MultiSelectTrigger
                       label="Company"
                       valueLabel={companyValueLabel}
@@ -3121,21 +3166,21 @@ export default function JobsBoard() {
                         })),
                       ]}
                     />
-	              </div>
+                </div>
 
-                  <div className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Ship Type
-                  </div>
-                  <div className="mt-2 grid gap-2">
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
                     {JOB_SHIP_TYPES.map((shipType) => {
                       const count = shipTypeCounts.get(shipType) ?? 0;
                       const checked = shipTypeFilters.includes(shipType);
                       return (
                         <label
                           key={shipType}
-                          className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50"
+                          className="flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 hover:bg-slate-50"
                         >
-                          <span className="flex items-center gap-3">
+                          <span className="flex min-w-0 items-center gap-2">
                             <input
                               type="checkbox"
                               className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
@@ -3151,7 +3196,7 @@ export default function JobsBoard() {
                                 )
                               }
                             />
-                            <span className={count === 0 ? "text-slate-400" : ""}>
+                            <span className={count === 0 ? "truncate text-slate-400" : "truncate"}>
                               {JOB_SHIP_TYPE_LABELS[shipType]}
                             </span>
                           </span>
@@ -3171,12 +3216,12 @@ export default function JobsBoard() {
                         Clear ship type
                       </button>
                     ) : null}
-                  </div>
+                </div>
 
-		              <div className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-		                Priority
-		              </div>
-	              <div className="mt-2 grid gap-2">
+                <div className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Priority
+                </div>
+                <div className="mt-2 grid gap-2">
                 {availablePriorityTypes.map((type) => {
                   const key = normalizePriorityKey(type.key);
                   const count = priorityCounts.get(key) ?? 0;
@@ -3184,9 +3229,9 @@ export default function JobsBoard() {
                   return (
                     <label
                       key={key}
-                      className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50"
+                      className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 hover:bg-slate-50"
                     >
-                      <span className="flex items-center gap-3">
+                      <span className="flex min-w-0 items-center gap-2">
                         <input
                           type="checkbox"
                           className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
@@ -3202,7 +3247,9 @@ export default function JobsBoard() {
                             )
                           }
                         />
-                        <span className={count === 0 ? "text-slate-400" : ""}>{type.label}</span>
+                        <span className={count === 0 ? "truncate text-slate-400" : "truncate"}>
+                          {type.label}
+                        </span>
                       </span>
                       <span className={count === 0 ? "text-slate-400" : "text-slate-500"}>
                         {count}
@@ -3220,25 +3267,13 @@ export default function JobsBoard() {
                     Clear priority
 	                  </button>
 	                ) : null}
-	              </div>
-
-	                <div className="mt-4 overflow-hidden rounded-2xl bg-white">
-	                  <div className="relative h-[396px] w-full bg-white">
-	                    <Image
-	                      src={jobBanner}
-	                      alt="Job banner"
-	                      fill
-	                      sizes="(max-width: 1279px) 100vw, 280px"
-	                      className="object-contain object-bottom"
-	                      priority={false}
-	                    />
-	                  </div>
-	                </div>
-	            </div>
-	          </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
 	        </form>
 
-		        <div className="mt-8 grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start">
+        <div className="mt-5 grid gap-6 sm:mt-8 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start">
 				          <aside className="sticky top-6 hidden xl:block self-start">
 					            <div className="hide-scrollbar max-h-[calc(100vh-3rem)] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -3437,7 +3472,7 @@ export default function JobsBoard() {
 		          </aside>
 
 	          <main className="min-w-0">
-            <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-6 text-slate-900 shadow-sm">
+            <div className="min-w-0 rounded-[24px] border border-slate-200 bg-white p-3 text-slate-900 shadow-sm sm:rounded-3xl sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm text-slate-600">
                   <span className="font-semibold text-slate-900">
@@ -3501,7 +3536,7 @@ export default function JobsBoard() {
                         tabIndex={0}
                         aria-pressed={isSelected}
                         className={[
-                          "group flex w-full cursor-pointer items-start justify-between gap-4 rounded-3xl border bg-white p-5 text-left shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/25",
+                          "group w-full cursor-pointer rounded-[22px] border bg-white p-4 text-left shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/25 xl:flex xl:items-start xl:justify-between xl:gap-4 xl:rounded-3xl xl:p-5",
                           isSelected
                             ? "border-emerald-200 ring-inset ring-2 ring-emerald-500/20"
                             : "border-slate-200 hover:border-emerald-200",
@@ -3517,8 +3552,8 @@ export default function JobsBoard() {
                           pushSelectedIdInUrl(job.id);
                         }}
                       >
-	                        <div className="flex min-w-0 items-start gap-4">
-		                          <div className="mt-0.5 grid h-[calc(var(--spacing)*21)] w-[calc(var(--spacing)*21)] shrink-0 place-items-center overflow-hidden rounded-full bg-white text-sm font-bold text-slate-600 ring-1 ring-slate-200">
+                        <div className="min-w-0 xl:flex xl:items-start xl:gap-4">
+                          <div className="hidden mt-0.5 h-[calc(var(--spacing)*21)] w-[calc(var(--spacing)*21)] shrink-0 place-items-center overflow-hidden rounded-full bg-white text-sm font-bold text-slate-600 ring-1 ring-slate-200 xl:grid">
                             {companyLogoUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
@@ -3533,7 +3568,26 @@ export default function JobsBoard() {
                           </div>
 
                           <div className="min-w-0">
-	                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <div className="flex min-w-0 items-start gap-3 xl:block">
+                              <div className="mt-0.5 grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white text-sm font-bold text-slate-600 ring-1 ring-slate-200 xl:hidden">
+                            {companyLogoUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={companyLogoUrl}
+                                alt={company || job.name || "Company"}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              avatar
+                            )}
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                              <div className="min-w-0 break-words text-[19px] font-extrabold leading-[1.18] text-slate-950 xl:hidden">
+                                {job.name || "Position"}
+                              </div>
+                              <div className="mt-2 flex flex-wrap items-center gap-2 xl:mt-0">
                                 {priorityLabel ? (
                                   <span
                                     className={[
@@ -3544,16 +3598,19 @@ export default function JobsBoard() {
                                     {priorityLabel}
                                   </span>
                                 ) : null}
-		                              <div className="min-w-0 flex-1 break-words text-[18px] font-extrabold leading-snug text-slate-900">
-		                                {job.name || "Position"}
-		                              </div>
-		                            </div>
+                                <div className="hidden min-w-0 flex-1 break-words text-[18px] font-extrabold leading-snug text-slate-900 xl:block">
+                                  {job.name || "Position"}
+                                </div>
+                              </div>
+                              </div>
+                            </div>
+
                             <BenefitTagDatapoints tags={benefitTags} />
-			                            <div className="mt-5 flex flex-wrap items-center gap-2 text-[10px] font-semibold">
+                            <div className="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-semibold xl:mt-5">
 			                              {department ? (
 			                                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-gradient-to-r from-amber-100 to-[#ffc45c]/70 px-2.5 py-1.5 text-amber-950 shadow-sm shadow-amber-200/40">
 			                                  <UserRound className="h-3.5 w-3.5 text-amber-600" />
-		                                  <span className="max-w-[260px] truncate whitespace-nowrap">
+                                  <span className="max-w-[210px] truncate whitespace-nowrap xl:max-w-[260px]">
 		                                    {department}
 		                                  </span>
 		                                </span>
@@ -3561,7 +3618,7 @@ export default function JobsBoard() {
 		                              {shipTypeLabel ? (
 		                                <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-gradient-to-r from-cyan-100 to-sky-100 px-2.5 py-1.5 text-cyan-950 shadow-sm shadow-cyan-200/40">
 		                                  <Compass className="h-3.5 w-3.5 text-cyan-600" />
-		                                  <span className="max-w-[320px] truncate whitespace-nowrap">
+                                  <span className="max-w-[210px] truncate whitespace-nowrap xl:max-w-[320px]">
 		                                    {shipTypeLabel}
 		                                  </span>
 		                                </span>
@@ -3659,10 +3716,10 @@ export default function JobsBoard() {
             </>
           }
           stickyHeader={
-            <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 px-6 pb-5 pt-6 backdrop-blur">
-              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 px-4 py-4 backdrop-blur sm:px-6 sm:py-5 xl:px-6 xl:pb-5 xl:pt-6">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center xl:gap-4">
                 <div className="min-w-0">
-                  <div className="mb-3">
+                  <div className="mb-2">
                     {(() => {
                       const company = details
                         ? asString(isRecord(details) ? details["company"] : undefined).trim() ||
@@ -3681,20 +3738,20 @@ export default function JobsBoard() {
                                 <img
                                   src={companyLogo}
                                   alt={company}
-                                  className="h-8 w-8 flex-none rounded-full bg-white object-cover shadow-sm ring-1 ring-slate-200"
+                                  className="h-7 w-7 flex-none rounded-full bg-white object-cover shadow-sm ring-1 ring-slate-200 sm:h-8 sm:w-8"
                                   loading="lazy"
                                   decoding="async"
                                 />
                               ) : (
                                 <Building2 className="h-5 w-5 text-slate-500" />
                               )}
-                              <span className="max-w-[340px] whitespace-nowrap text-sm font-semibold text-slate-800 truncate">
+                              <span className="max-w-[190px] truncate whitespace-nowrap text-sm font-semibold text-slate-800 sm:max-w-[340px]">
                                 {company}
                               </span>
                               {modalPriorityLabel ? (
                                 <span
                                   className={[
-                                    "inline-flex items-center rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide shadow-sm",
+                                    "inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide shadow-sm sm:px-3 sm:py-1.5 sm:text-[11px]",
                                     getPriorityBadgeClass(
                                       details
                                         ? asString(isRecord(details) ? details["priority"] : undefined)
@@ -3714,7 +3771,7 @@ export default function JobsBoard() {
                   </div>
                   <div
                     id="job-details-title"
-                    className="mt-2 text-xl font-extrabold leading-tight text-slate-900 break-words sm:text-2xl"
+                    className="mt-1 break-words text-[22px] font-extrabold leading-tight text-slate-950 sm:mt-2 sm:text-2xl"
                   >
                     <div className="flex flex-wrap items-center gap-3">
                       <span className="min-w-0 break-words">
@@ -3726,7 +3783,7 @@ export default function JobsBoard() {
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
                       Position
                     </span>
                     {(() => {
@@ -3780,7 +3837,7 @@ export default function JobsBoard() {
                 {!modalIsHidden ? (
                   <button
                     type="button"
-                    className="inline-flex h-16 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-10 text-base font-semibold text-white shadow-xl shadow-sky-200/70 ring-1 ring-white/20 hover:from-[#256fd2] hover:to-[#55bbff] focus:outline-none focus:ring-2 focus:ring-sky-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70 sm:justify-self-end"
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-5 text-sm font-semibold text-white shadow-lg shadow-sky-200/60 ring-1 ring-white/20 hover:from-[#256fd2] hover:to-[#55bbff] focus:outline-none focus:ring-2 focus:ring-sky-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70 sm:h-14 sm:w-auto sm:rounded-full sm:px-8 sm:text-base sm:justify-self-end xl:h-16 xl:px-10 xl:shadow-xl xl:shadow-sky-200/70"
                     disabled={applyNavigating}
                     onClick={() => {
                       if (typeof window === "undefined") return;
@@ -3793,13 +3850,13 @@ export default function JobsBoard() {
                       <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading" />
                     ) : (
                       <>
-                        <Send className="h-5 w-5" aria-hidden="true" />
+                        <Send className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
                         <span>Apply Now</span>
                       </>
                     )}
                   </button>
                 ) : (
-                  <div className="inline-flex h-16 items-center justify-center rounded-full border border-amber-200 bg-amber-50 px-8 text-sm font-semibold text-amber-900 shadow-sm sm:justify-self-end">
+                  <div className="inline-flex h-12 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 px-5 text-sm font-semibold text-amber-900 shadow-sm sm:h-14 sm:rounded-full sm:px-8 sm:justify-self-end xl:h-16">
                     Not active
                   </div>
                 )}
@@ -3818,11 +3875,12 @@ export default function JobsBoard() {
               No details returned.
             </div>
           ) : (
-            <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="space-y-5 xl:space-y-6 xl:rounded-2xl xl:border xl:border-slate-200 xl:bg-white xl:p-5">
               {modalBenefitTags.length > 0 ? (
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Company Benefits
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <span className="xl:hidden">Benefits</span>
+                    <span className="hidden xl:inline">Company Benefits</span>
                   </div>
                   <div className="mt-3">
                     <BenefitTagFeatureList tags={modalBenefitTags} />
@@ -3856,10 +3914,10 @@ export default function JobsBoard() {
                 if (processable.length === 0 && blocked.length === 0) return null;
 
                 return (
-                  <div className="space-y-4">
+                  <div className="space-y-4 border-t border-slate-200 pt-5 xl:border-t-0 xl:pt-0">
                     {processable.length > 0 ? (
                       <div>
-                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                           Nationalities we process
                         </div>
                         <div className="mt-2">
@@ -3870,7 +3928,7 @@ export default function JobsBoard() {
 
                     {blocked.length > 0 ? (
                       <div>
-                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                           Nationalities we can’t process
                         </div>
                         <div className="mt-2">
@@ -3882,11 +3940,11 @@ export default function JobsBoard() {
                 );
               })()}
 
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              <div className="border-t border-slate-200 pt-5 xl:border-t-0 xl:pt-0">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   Description
                 </div>
-                <div className="mt-4 overflow-hidden rounded-[28px] border border-slate-200 bg-white p-8 shadow-[0_18px_40px_-34px_rgba(15,23,42,0.24)]">
+                <div className="mt-3 xl:mt-4 xl:overflow-hidden xl:rounded-[28px] xl:border xl:border-slate-200 xl:bg-white xl:p-8 xl:shadow-[0_18px_40px_-34px_rgba(15,23,42,0.24)]">
                   {modalDescription.bodyHtml ? (
                     <RichText content={modalDescription.bodyHtml} />
                   ) : (
