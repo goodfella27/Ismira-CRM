@@ -22,6 +22,7 @@ import {
   Send,
   Flame,
   AlertTriangle,
+  ClipboardList,
   House,
   UtensilsCrossed,
   Plane,
@@ -1250,6 +1251,132 @@ function JobTestimonialStrip({
   );
 }
 
+function ApplyDisclaimerModal({
+  open,
+  loading,
+  onApply,
+  onClose,
+}: {
+  open: boolean;
+  loading: boolean;
+  onApply: () => void;
+  onClose: () => void;
+}) {
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[10050] flex items-end justify-center bg-slate-950/50 p-2 backdrop-blur-sm sm:items-center sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Important notice"
+      onClick={() => {
+        if (loading) return;
+        onClose();
+      }}
+    >
+      <div
+        className="w-full max-w-2xl overflow-hidden rounded-[24px] border border-white/10 bg-white shadow-[0_30px_80px_-55px_rgba(0,0,0,0.85)] sm:rounded-3xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-white px-5 py-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+                <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-900">Before you apply</div>
+                <div className="mt-0.5 text-xs text-slate-500">
+                  A quick note to help us avoid duplicate profiles.
+                </div>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-white shadow-sm hover:bg-black disabled:opacity-60"
+            aria-label="Close"
+            onClick={onClose}
+            disabled={loading}
+          >
+            <span aria-hidden="true" className="text-lg leading-none">
+              ×
+            </span>
+          </button>
+        </div>
+
+        <div className="px-5 py-5">
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_18px_45px_-40px_rgba(15,23,42,0.25)]">
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-2xl bg-white text-amber-700 ring-1 ring-amber-200">
+                    <ClipboardList className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-900">
+                      Please apply to one position at a time
+                    </div>
+                    <div className="mt-1 text-sm leading-6 text-slate-700">
+                      Choose the role that best matches your current experience.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-2xl bg-slate-900 text-white shadow-sm">
+                    <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-900">Duplicate applications may not be processed</div>
+                    <div className="mt-1 text-sm leading-6 text-slate-700">
+                      If multiple applications are submitted, we may only process the most recent application.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-xs leading-5 text-slate-500">
+                Our recruiters can recommend other suitable roles during screening.
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <button
+              type="button"
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-60 sm:w-auto"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-5 text-sm font-semibold text-white shadow-lg shadow-sky-200/60 ring-1 ring-white/20 hover:from-[#256fd2] hover:to-[#55bbff] focus:outline-none focus:ring-2 focus:ring-sky-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70 sm:w-auto"
+              onClick={onApply}
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading" />
+              ) : (
+                <>
+                  <Send className="h-4 w-4" aria-hidden="true" />
+                  <span>Continue to Apply</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export default function JobsBoard() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1316,11 +1443,13 @@ export default function JobsBoard() {
   const detailsLoading = selectedId ? detailsLoadingId === selectedId : false;
   const [shareCopied, setShareCopied] = useState(false);
   const [applyNavigating, setApplyNavigating] = useState(false);
+  const [applyDisclaimerOpen, setApplyDisclaimerOpen] = useState(false);
 
   const [visibleCount, setVisibleCount] = useState(JOBS_PAGE_SIZE);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  const anyModalOpen = Boolean(selectedId) || companyModalOpen || departmentModalOpen;
+  const anyModalOpen =
+    Boolean(selectedId) || companyModalOpen || departmentModalOpen || applyDisclaimerOpen;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2885,6 +3014,7 @@ export default function JobsBoard() {
   useEffect(() => {
     setShareCopied(false);
     setApplyNavigating(false);
+    setApplyDisclaimerOpen(false);
   }, [selectedId]);
 
   return (
@@ -3835,26 +3965,27 @@ export default function JobsBoard() {
                 </div>
 
                 {!modalIsHidden ? (
-                  <button
-                    type="button"
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-5 text-sm font-semibold text-white shadow-lg shadow-sky-200/60 ring-1 ring-white/20 hover:from-[#256fd2] hover:to-[#55bbff] focus:outline-none focus:ring-2 focus:ring-sky-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70 sm:h-14 sm:w-auto sm:rounded-full sm:px-8 sm:text-base sm:justify-self-end xl:h-16 xl:px-10 xl:shadow-xl xl:shadow-sky-200/70"
-                    disabled={applyNavigating}
-                    onClick={() => {
-                      if (typeof window === "undefined") return;
-                      if (applyNavigating) return;
-                      setApplyNavigating(true);
-                      window.location.assign("https://www.ismira.lt/apply");
-                    }}
-                  >
-                    {applyNavigating ? (
-                      <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading" />
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
-                        <span>Apply Now</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="ml-auto flex w-full flex-col items-center sm:w-auto sm:items-end sm:justify-self-end">
+                    <button
+                      type="button"
+                      className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-5 text-sm font-semibold text-white shadow-lg shadow-sky-200/60 ring-1 ring-white/20 hover:from-[#256fd2] hover:to-[#55bbff] focus:outline-none focus:ring-2 focus:ring-sky-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70 sm:h-14 sm:w-auto sm:rounded-full sm:px-8 sm:text-base xl:h-16 xl:px-10 xl:shadow-xl xl:shadow-sky-200/70"
+                      disabled={applyNavigating}
+                      onClick={() => {
+                        if (typeof window === "undefined") return;
+                        if (applyNavigating) return;
+                        setApplyDisclaimerOpen(true);
+                      }}
+                    >
+                      {applyNavigating ? (
+                        <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading" />
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+                          <span>Apply Now</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 ) : (
                   <div className="inline-flex h-12 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 px-5 text-sm font-semibold text-amber-900 shadow-sm sm:h-14 sm:rounded-full sm:px-8 sm:justify-self-end xl:h-16">
                     Not active
@@ -3958,6 +4089,18 @@ export default function JobsBoard() {
           )}
         </DetailsModalShell>
       ) : null}
+
+      <ApplyDisclaimerModal
+        open={applyDisclaimerOpen}
+        loading={applyNavigating}
+        onClose={() => setApplyDisclaimerOpen(false)}
+        onApply={() => {
+          if (typeof window === "undefined") return;
+          if (applyNavigating) return;
+          setApplyNavigating(true);
+          window.location.assign("https://www.ismira.lt/apply");
+        }}
+      />
     </div>
   );
 }
