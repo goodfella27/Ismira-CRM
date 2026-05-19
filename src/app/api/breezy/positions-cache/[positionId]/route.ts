@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 
 import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
 import { ensureCompanyMembership } from "@/lib/company/membership";
+import { getPrimaryCompanyId } from "@/lib/company/primary";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { asTrimmedString, extractCompany, extractDepartment, extractOrgType } from "@/lib/breezy-position-fields";
 import { syncJobCompaniesFromPositions } from "@/lib/job-companies";
+import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 
 export const runtime = "nodejs";
 
@@ -119,7 +121,7 @@ export async function GET(
     const admin = createSupabaseAdminClient();
     const membership = await ensureCompanyMembership(admin, user.id);
     const canEdit = membership.role.toLowerCase() === "admin";
-    const companyId = membership.companyId;
+    const companyId = await getPrimaryCompanyId(admin);
 
     const { data, error } = await admin
       .from("breezy_positions")
@@ -259,6 +261,7 @@ export async function GET(
       merged.department = effectiveDepartment;
     }
 
+    clearJobsResponseCache();
     return NextResponse.json(
       {
         details: merged,
@@ -306,8 +309,8 @@ export async function POST(
     }
 
     const admin = createSupabaseAdminClient();
-    const membership = await ensureCompanyMembership(admin, user.id);
-    const companyId = membership.companyId;
+    await ensureCompanyMembership(admin, user.id);
+    const companyId = await getPrimaryCompanyId(admin);
 
     const breezy = await fetchBreezyDetails(breezyCompanyId, posId);
     if (!breezy.res.ok) {
@@ -398,10 +401,10 @@ export async function PATCH(
 
     const admin = createSupabaseAdminClient();
     const membership = await ensureCompanyMembership(admin, user.id);
-    const companyId = membership.companyId;
     if (membership.role.toLowerCase() !== "admin") {
       return NextResponse.json({ error: "Not authorized." }, { status: 403 });
     }
+    const companyId = await getPrimaryCompanyId(admin);
 
     const { data: existing, error: existingError } = await admin
       .from("breezy_positions")
@@ -487,6 +490,7 @@ export async function PATCH(
       // Best effort: override save should still succeed without company sync.
     }
 
+    clearJobsResponseCache();
     return NextResponse.json({ ok: true, overrides: nextOverrides }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -515,10 +519,10 @@ export async function DELETE(
 
     const admin = createSupabaseAdminClient();
     const membership = await ensureCompanyMembership(admin, user.id);
-    const companyId = membership.companyId;
     if (membership.role.toLowerCase() !== "admin") {
       return NextResponse.json({ error: "Not authorized." }, { status: 403 });
     }
+    const companyId = await getPrimaryCompanyId(admin);
 
     const { error } = await admin
       .from("breezy_positions")
@@ -540,6 +544,7 @@ export async function DELETE(
       throw new Error(error.message ?? "Failed to delete record.");
     }
 
+    clearJobsResponseCache();
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

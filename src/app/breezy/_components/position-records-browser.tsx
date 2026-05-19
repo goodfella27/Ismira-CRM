@@ -1,9 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
+  AlignJustify,
   RefreshCw,
   Search,
+  ChevronDown,
+  Check,
+  Coins,
+  Compass,
+  FileText,
+  GraduationCap,
+  HeartPulse,
+  House,
   Layers,
   MapPin,
   FolderKanban,
@@ -11,14 +21,19 @@ import {
   MoreHorizontal,
   Eye,
   EyeOff,
+  Plane,
   Plus,
+  Shield,
+  TrendingUp,
   Trash2,
+  UtensilsCrossed,
 } from "lucide-react";
 
 import DetailsModalShell from "@/components/details-modal-shell";
 import WysiwygEditor from "@/components/wysiwyg-editor";
 import { loadBreezyCompanyId, saveBreezyCompanyId } from "@/lib/breezy-storage";
 import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
+import { AVAILABLE_BENEFIT_TAGS, BENEFIT_TAG_LABELS, type BenefitTag } from "@/lib/job-benefits";
 import {
   DEFAULT_BREEZY_PRIORITY_TYPES,
   getPriorityLabel,
@@ -66,10 +81,38 @@ type CachedPositionDetailsResponse = {
 
 type JobCompanyLogoResponse = {
   companies?: Array<{
+    id?: string;
     name?: string;
     logoUrl?: string | null;
+    benefitTags?: string[];
   }>;
 };
+
+type JobCompanyPickerOption = {
+  id?: string;
+  name: string;
+  logoUrl: string;
+  count: number;
+  benefitTags: BenefitTag[];
+};
+
+const DEFAULT_PROCESSABLE_COUNTRIES = [
+  { code: "LT", name: "Lithuania" },
+  { code: "LV", name: "Latvia" },
+  { code: "EE", name: "Estonia" },
+  { code: "PL", name: "Poland" },
+  { code: "MD", name: "Moldova" },
+  { code: "KZ", name: "Kazakhstan" },
+  { code: "AM", name: "Armenia" },
+  { code: "GE", name: "Georgia" },
+  { code: "AZ", name: "Azerbaijan" },
+  { code: "TJ", name: "Tajikistan" },
+  { code: "UA", name: "Ukraine" },
+  { code: "RU", name: "Russia" },
+  { code: "BY", name: "Belarus" },
+] as const;
+
+const DEFAULT_PROCESSABLE_COUNTRY_CODES = DEFAULT_PROCESSABLE_COUNTRIES.map((country) => country.code);
 
 type CompanyCountsResponse = {
   companies?: Array<{ name?: string; count?: number }>;
@@ -93,6 +136,40 @@ type BreezyPositionRecordsBrowserProps = {
 
 function asString(value: unknown) {
   return typeof value === "string" ? value : "";
+}
+
+function toFlagEmoji(code: string) {
+  const normalized = code.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) return "";
+  return normalized
+    .split("")
+    .map((letter) => String.fromCodePoint(127397 + letter.charCodeAt(0)))
+    .join("");
+}
+
+function getBenefitIcon(tag: BenefitTag) {
+  switch (tag) {
+    case "accommodation":
+      return House;
+    case "meals":
+      return UtensilsCrossed;
+    case "travel_tickets":
+      return Plane;
+    case "visa_support":
+      return Shield;
+    case "medical_exam":
+      return HeartPulse;
+    case "certification":
+      return GraduationCap;
+    case "bonus_tips":
+      return Coins;
+    case "contract_length":
+      return FileText;
+    case "growth":
+      return TrendingUp;
+    case "travel_opportunity":
+      return Compass;
+  }
 }
 
 function getId(value: { _id?: string; id?: string } | null | undefined) {
@@ -121,6 +198,22 @@ function normalizePositions(payload: unknown): BreezyPosition[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function extractApiErrorMessage(payload: unknown, fallback: string) {
+  if (!isRecord(payload)) return fallback;
+  const direct = asString(payload.error).trim() || asString(payload.message).trim();
+  if (direct && direct !== "Breezy request failed") return direct;
+  const details = payload.details;
+  if (typeof details === "string" && details.trim()) return details.trim();
+  if (isRecord(details)) {
+    const detailMessage =
+      asString(details.message).trim() ||
+      asString(details.error).trim() ||
+      asString(details.description).trim();
+    if (detailMessage) return detailMessage;
+  }
+  return direct || fallback;
 }
 
 function parseHiddenFlag(value: unknown): boolean {
@@ -392,7 +485,6 @@ export default function BreezyPositionRecordsBrowser({
 }: BreezyPositionRecordsBrowserProps) {
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [loadingPositions, setLoadingPositions] = useState(false);
-  const [syncingPositions, setSyncingPositions] = useState(false);
   const [companies, setCompanies] = useState<BreezyCompany[]>([]);
   const [positions, setPositions] = useState<BreezyPosition[]>([]);
   // Don't read localStorage during the initial render; it causes hydration mismatches.
@@ -406,7 +498,9 @@ export default function BreezyPositionRecordsBrowser({
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const [loadMoreInView, setLoadMoreInView] = useState(false);
   const positionsQueryKeyRef = useRef<string>("");
-  const [jobCompanies, setJobCompanies] = useState<Array<{ name: string; logoUrl: string }>>([]);
+  const [jobCompanies, setJobCompanies] = useState<
+    Array<{ id?: string; name: string; logoUrl: string; benefitTags: BenefitTag[] }>
+  >([]);
   const [jobCompanyFilter, setJobCompanyFilter] = useState("");
   const [showAllCompanies, setShowAllCompanies] = useState(false);
   const [companyCounts, setCompanyCounts] = useState<Array<{ name: string; count: number }>>([]);
@@ -426,9 +520,44 @@ export default function BreezyPositionRecordsBrowser({
   );
   const [canEdit, setCanEdit] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [createOpeningOpen, setCreateOpeningOpen] = useState(false);
+  const [createOpeningSaving, setCreateOpeningSaving] = useState(false);
+  const [createOpeningError, setCreateOpeningError] = useState<string | null>(null);
+  const [createOpeningUploadingHero, setCreateOpeningUploadingHero] = useState(false);
+  const [createCompanyPickerOpen, setCreateCompanyPickerOpen] = useState(false);
+  const [createCompanyQuery, setCreateCompanyQuery] = useState("");
+  const [createPriorityPickerOpen, setCreatePriorityPickerOpen] = useState(false);
+  const [createPriorityQuery, setCreatePriorityQuery] = useState("");
+  const [createOpeningDraft, setCreateOpeningDraft] = useState(() => ({
+    name: "",
+    company: "",
+    department: "",
+    priority: "",
+    location_name: "",
+    benefit_tags: [] as BenefitTag[],
+    processable_country_codes: DEFAULT_PROCESSABLE_COUNTRY_CODES,
+    summary: "",
+    description: "",
+    responsibilities: "",
+    requirements: "",
+    hidden: false,
+    hero_image_url: "",
+  }));
   const [savingEdits, setSavingEdits] = useState(false);
   const [visibilityMenuOpen, setVisibilityMenuOpen] = useState(false);
   const [visibilitySaving, setVisibilitySaving] = useState(false);
+  const [cardMenuOpenId, setCardMenuOpenId] = useState<string | null>(null);
+  const [cardMenuAnchor, setCardMenuAnchor] = useState<{
+    top: number;
+    bottom: number;
+    right: number;
+  } | null>(null);
+  const cardMenuRef = useRef<HTMLDivElement | null>(null);
+  const cardMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [cardActionSavingId, setCardActionSavingId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<null | { positionId: string; label: string }>(
+    null
+  );
   const [inlineEditField, setInlineEditField] = useState<
     null | "title" | "company" | "department"
   >(null);
@@ -512,6 +641,12 @@ export default function BreezyPositionRecordsBrowser({
 
   const companyPickerOptions = useMemo(() => {
     const seen = new Map<string, string>();
+    for (const item of jobCompanies) {
+      const label = asString(item.name).trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (!seen.has(key)) seen.set(key, label);
+    }
     for (const pos of positions) {
       const label = asString(pos.company).trim();
       if (!label) continue;
@@ -521,7 +656,7 @@ export default function BreezyPositionRecordsBrowser({
     return Array.from(seen.values()).sort((a, b) =>
       a.localeCompare(b, undefined, { sensitivity: "base" })
     );
-  }, [positions]);
+  }, [jobCompanies, positions]);
 
   const departmentPickerCompany = useMemo(() => {
     const fromEdit = editForm.company.trim();
@@ -546,8 +681,27 @@ export default function BreezyPositionRecordsBrowser({
     );
   }, [departmentPickerCompany, positions]);
 
-  const companyFilterOptions = useMemo(() => {
+  const createDepartmentOptions = useMemo(() => {
+    const targetCompany = createOpeningDraft.company.trim().toLowerCase();
+    const seen = new Map<string, string>();
+    for (const pos of positions) {
+      const company = asString(pos.company).trim();
+      if (targetCompany && company.toLowerCase() !== targetCompany) continue;
+      const label = asString(pos.department).trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (!seen.has(key)) seen.set(key, label);
+    }
+    return Array.from(seen.values()).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+  }, [createOpeningDraft.company, positions]);
+
+  const companyFilterOptions = useMemo<JobCompanyPickerOption[]>(() => {
     const counts = new Map(companyCounts.map((item) => [item.name.toLowerCase(), item.count]));
+    const companiesByKey = new Map(
+      jobCompanies.map((item) => [item.name.trim().toLowerCase(), item])
+    );
 
     const byCount = (name: string) => counts.get(name.toLowerCase()) ?? 0;
     const uniqueNames = new Map<string, string>();
@@ -575,8 +729,15 @@ export default function BreezyPositionRecordsBrowser({
 
     const list = Array.from(uniqueNames.values()).map((name) => {
       const key = name.toLowerCase();
-      const logoUrl = companyLogoByName[key] ?? "";
-      return { name, logoUrl, count: byCount(name) };
+      const company = companiesByKey.get(key);
+      const logoUrl = company?.logoUrl || companyLogoByName[key] || "";
+      return {
+        id: company?.id,
+        name,
+        logoUrl,
+        count: byCount(name),
+        benefitTags: company?.benefitTags ?? [],
+      };
     });
 
     list.sort((a, b) => {
@@ -586,6 +747,20 @@ export default function BreezyPositionRecordsBrowser({
 
     return list;
   }, [companyCounts, companyLogoByName, jobCompanies, positions]);
+
+  const selectedCreateCompany = useMemo(() => {
+    const selected = createOpeningDraft.company.trim().toLowerCase();
+    if (!selected) return null;
+    return (
+      companyFilterOptions.find((item) => item.name.trim().toLowerCase() === selected) ?? null
+    );
+  }, [companyFilterOptions, createOpeningDraft.company]);
+
+  const createCompanyPickerOptions = useMemo(() => {
+    const query = createCompanyQuery.trim().toLowerCase();
+    if (!query) return companyFilterOptions;
+    return companyFilterOptions.filter((item) => item.name.toLowerCase().includes(query));
+  }, [companyFilterOptions, createCompanyQuery]);
 
   const collapsedCompanyOptions = useMemo(() => {
     const selected = jobCompanyFilter.trim().toLowerCase();
@@ -612,11 +787,23 @@ export default function BreezyPositionRecordsBrowser({
 
   const availablePriorityTypes = useMemo(() => priorityTypes, [priorityTypes]);
 
-  const closePositionModal = useCallback(() => {
-    setSelectedPositionId(null);
-    setSelectedPositionLabel(null);
-    setDetails(null);
-    setDetailsOverrides({});
+  const selectedCreatePriorityLabel = useMemo(() => {
+    const key = normalizePriorityKey(createOpeningDraft.priority);
+    return getPriorityLabel(key, availablePriorityTypes) || "None";
+  }, [availablePriorityTypes, createOpeningDraft.priority]);
+
+  const createPriorityPickerOptions = useMemo(() => {
+    const query = createPriorityQuery.trim().toLowerCase();
+    const options = [{ key: "", label: "None" }, ...availablePriorityTypes];
+    if (!query) return options;
+    return options.filter((item) => item.label.toLowerCase().includes(query));
+  }, [availablePriorityTypes, createPriorityQuery]);
+
+	  const closePositionModal = useCallback(() => {
+	    setSelectedPositionId(null);
+	    setSelectedPositionLabel(null);
+	    setDetails(null);
+	    setDetailsOverrides({});
     setCanEdit(false);
     setEditing(false);
     setInlineEditField(null);
@@ -625,9 +812,13 @@ export default function BreezyPositionRecordsBrowser({
     setOpeningTypePickerOpen(false);
     setCompanyPickerOpen(false);
     setDepartmentPickerOpen(false);
-    setPickerQuery("");
-    setVisibilityMenuOpen(false);
-  }, []);
+	    setPickerQuery("");
+	    setVisibilityMenuOpen(false);
+	    setCardMenuOpenId(null);
+	    setCardMenuAnchor(null);
+	    cardMenuButtonRef.current = null;
+	    setDeleteConfirm(null);
+	  }, []);
 
   const modalDescription = useMemo(() => {
     const raw = getFirstStringField(details, [
@@ -643,6 +834,55 @@ export default function BreezyPositionRecordsBrowser({
     const extracted = extractHeroImageFromSafeHtml(safeHtml);
     return { heroSrc: extracted.heroSrc, bodyHtml: extracted.bodyHtml, bodyText: "" };
   }, [details]);
+
+  useEffect(() => {
+    if (!cardMenuOpenId) return;
+
+	    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+	      const target = event.target as Node | null;
+	      const root = cardMenuRef.current;
+	      const button = cardMenuButtonRef.current;
+	      if (!target || !root) {
+	        setCardMenuOpenId(null);
+	        return;
+	      }
+	      if (button && button.contains(target)) return;
+	      if (root.contains(target)) return;
+	      setCardMenuOpenId(null);
+	    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setCardMenuOpenId(null);
+    };
+
+	    const close = () => {
+	      setCardMenuOpenId(null);
+	      setCardMenuAnchor(null);
+	      cardMenuButtonRef.current = null;
+	    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown, { passive: true });
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [cardMenuOpenId]);
+
+  useEffect(() => {
+    if (!deleteConfirm) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDeleteConfirm(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [deleteConfirm]);
 
   const isHidden = useMemo(() => {
     const override = (detailsOverrides as Record<string, unknown>)?.hidden;
@@ -812,29 +1052,145 @@ export default function BreezyPositionRecordsBrowser({
     positionsTotal,
   ]);
 
-  const syncPositions = async () => {
+  const createOpening = async () => {
     const target = companyId.trim();
     if (!target) return;
-    setSyncingPositions(true);
-    setError(null);
-    setWarning(null);
+    const name = createOpeningDraft.name.trim();
+    if (!name) {
+      setCreateOpeningError("Please enter a job title.");
+      return;
+    }
+    const companyLabel = createOpeningDraft.company.trim();
+    if (!companyLabel) {
+      setCreateOpeningError("Please select a company.");
+      return;
+    }
+    const descriptionText =
+      createOpeningDraft.description.trim() ||
+      createOpeningDraft.summary.trim() ||
+      name;
+
+    setCreateOpeningSaving(true);
+    setCreateOpeningError(null);
+
     try {
-      const url = `/api/breezy/positions-cache?companyId=${encodeURIComponent(
-        target
-      )}`;
-      const res = await fetch(url, { method: "POST", cache: "no-store" });
+      const res = await fetch("/api/breezy/positions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyId: target,
+          name,
+          description: descriptionText,
+          type: "contract",
+          job_company: companyLabel,
+          department: createOpeningDraft.department.trim() || undefined,
+          location_name: createOpeningDraft.location_name.trim() || undefined,
+          org_type: recordType,
+          hidden: createOpeningDraft.hidden,
+          benefit_tags: createOpeningDraft.benefit_tags,
+          processable_country_codes: createOpeningDraft.processable_country_codes,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(extractApiErrorMessage(data, "Failed to create opening."));
+      }
+
+      const createdId =
+        (data && typeof (data as { id?: unknown }).id === "string" && (data as { id: string }).id) ||
+        (data && typeof (data as { _id?: unknown })._id === "string" && (data as { _id: string })._id) ||
+        "";
+      if (!createdId) {
+        throw new Error("Created opening is missing an id.");
+      }
+
+      const overrides: Record<string, unknown> = {
+        name: createOpeningDraft.name,
+        company: createOpeningDraft.company,
+        department: createOpeningDraft.department,
+        priority: createOpeningDraft.priority,
+        location_name: createOpeningDraft.location_name,
+        summary: createOpeningDraft.summary,
+        description: createOpeningDraft.description,
+        responsibilities: createOpeningDraft.responsibilities,
+        requirements: createOpeningDraft.requirements,
+        benefit_tags: createOpeningDraft.benefit_tags,
+        processable_country_codes: createOpeningDraft.processable_country_codes,
+        hidden: createOpeningDraft.hidden ? true : false,
+      };
+
+      if (createOpeningDraft.hero_image_url.trim()) {
+        const img = `<p><img src="${createOpeningDraft.hero_image_url.trim()}" alt="" /></p>`;
+        const next = createOpeningDraft.description.trim()
+          ? `${img}\n${createOpeningDraft.description.trim()}`
+          : img;
+        overrides.description = next;
+      }
+
+      const saveRes = await fetch(
+        `/api/breezy/positions-cache/${encodeURIComponent(createdId)}?companyId=${encodeURIComponent(
+          target
+        )}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ overrides }),
+        }
+      );
+      const saveData = await saveRes.json().catch(() => null);
+      if (!saveRes.ok) {
+        throw new Error(
+          (saveData && typeof saveData?.error === "string" && saveData.error) ||
+            "Failed to save opening details."
+        );
+      }
+
+      setCreateOpeningOpen(false);
+      setCreateOpeningDraft({
+        name: "",
+        company: "",
+        department: "",
+        priority: "",
+        location_name: "",
+        benefit_tags: [],
+        processable_country_codes: DEFAULT_PROCESSABLE_COUNTRY_CODES,
+        summary: "",
+        description: "",
+        responsibilities: "",
+        requirements: "",
+        hidden: false,
+        hero_image_url: "",
+      });
+      await loadPositions(target);
+      await loadPositionDetails(createdId, name);
+      setEditing(true);
+    } catch (err) {
+      setCreateOpeningError(err instanceof Error ? err.message : "Failed to create opening.");
+    } finally {
+      setCreateOpeningSaving(false);
+    }
+  };
+
+  const uploadCreateHeroImage = async (file: File) => {
+    setCreateOpeningUploadingHero(true);
+    setCreateOpeningError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/job-assets/upload", { method: "POST", body: form });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(
-          (data && typeof data?.error === "string" && data.error) ||
-            "Failed to sync positions."
+          (data && typeof data?.error === "string" && data.error) || "Image upload failed."
         );
       }
-      await loadPositions(target);
+      const url = data && typeof (data as { url?: unknown }).url === "string" ? (data as { url: string }).url : "";
+      if (!url.trim()) throw new Error("Upload succeeded but no URL was returned.");
+      setCreateOpeningDraft((prev) => ({ ...prev, hero_image_url: url.trim() }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sync positions.");
+      setCreateOpeningError(err instanceof Error ? err.message : "Image upload failed.");
     } finally {
-      setSyncingPositions(false);
+      setCreateOpeningUploadingHero(false);
     }
   };
 
@@ -994,14 +1350,14 @@ export default function BreezyPositionRecordsBrowser({
           </div>
 
 	          <div className="mt-6 min-w-0">
-	            <div
-	              title={name}
-	              className={[
-	                "min-w-0 break-words text-[24px] font-semibold leading-[1.15] tracking-[-0.03em] text-slate-950",
-	                "[display:-webkit-box] [-webkit-box-orient:vertical] overflow-hidden",
-	                "[-webkit-line-clamp:3]",
-	              ].join(" ")}
-	            >
+		            <div
+		              title={name}
+		              className={[
+		                "min-w-0 break-words text-[19px] font-semibold leading-[1.2] tracking-[-0.03em] text-slate-950",
+		                "[display:-webkit-box] [-webkit-box-orient:vertical] overflow-hidden",
+		                "[-webkit-line-clamp:3]",
+		              ].join(" ")}
+		            >
 	              {name}
 	            </div>
 
@@ -1033,18 +1389,105 @@ export default function BreezyPositionRecordsBrowser({
 	                    ) : (
                         <span />
                       )}
-			                {id ? (
-			                  <button
-			                    type="button"
-		                    className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
-	                    onClick={(event) => {
-                      event.stopPropagation();
-                      void openPositionEditor(id, name);
-                    }}
-                  >
-                    <PencilLine className="h-4 w-4" />
-                    Edit
-                  </button>
+				                {id ? (
+                          <div className="relative shrink-0">
+                            <button
+                              type="button"
+                              aria-haspopup="menu"
+                              aria-expanded={cardMenuOpenId === id}
+                              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                const rect = (
+                                  event.currentTarget as HTMLButtonElement
+                                ).getBoundingClientRect();
+                                cardMenuButtonRef.current = event.currentTarget as HTMLButtonElement;
+                                setCardMenuOpenId((prev) => {
+                                  const next = prev === id ? null : id;
+                                  if (next) {
+                                    setCardMenuAnchor({
+                                      top: rect.top,
+                                      bottom: rect.bottom,
+                                      right: rect.right,
+                                    });
+                                  } else {
+                                    setCardMenuAnchor(null);
+                                    cardMenuButtonRef.current = null;
+                                  }
+                                  return next;
+                                });
+                              }}
+                              disabled={cardActionSavingId === id}
+                              title="Actions"
+                            >
+                              <AlignJustify className="h-5 w-5" />
+                            </button>
+
+                            {cardMenuOpenId === id ? (
+                              typeof document !== "undefined" && cardMenuAnchor
+                                ? createPortal(
+                                    <div
+                                      ref={cardMenuRef}
+                                      role="menu"
+                                      className={[
+                                        "fixed z-[80] w-56 origin-bottom-right -translate-x-full rounded-2xl border border-slate-200 bg-white shadow-xl",
+                                        cardMenuAnchor.top > 220 ? "-translate-y-full" : "",
+                                      ].join(" ")}
+                                      style={{
+                                        top: (() => {
+                                          const up = cardMenuAnchor.top > 220;
+                                          const target = up ? cardMenuAnchor.top - 8 : cardMenuAnchor.bottom + 8;
+                                          if (typeof window === "undefined") return Math.max(12, target);
+                                          return Math.max(12, Math.min(window.innerHeight - 12, target));
+                                        })(),
+                                        left: Math.min(
+                                          (typeof window !== "undefined" ? window.innerWidth : 9999) - 12,
+                                          cardMenuAnchor.right
+                                        ),
+                                      }}
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
+                                      <button
+                                        type="button"
+                                        role="menuitem"
+                                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                                        onClick={() => void openPositionEditor(id, name)}
+                                        disabled={cardActionSavingId === id}
+                                      >
+                                        <PencilLine className="h-4 w-4" />
+                                        Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        role="menuitem"
+                                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                                        onClick={() => void patchPositionHidden(id, !hidden)}
+                                        disabled={cardActionSavingId === id}
+                                      >
+                                        {hidden ? (
+                                          <Eye className="h-4 w-4" />
+                                        ) : (
+                                          <EyeOff className="h-4 w-4" />
+                                        )}
+                                        {hidden ? "Unhide" : "Hide"}
+                                      </button>
+                                      <div className="border-t border-slate-200" />
+                                      <button
+                                        type="button"
+                                        role="menuitem"
+                                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                                  onClick={() => requestDeletePosition(id, name)}
+                                  disabled={cardActionSavingId === id}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  Delete
+                                      </button>
+                                    </div>,
+                                    document.body
+                                  )
+                                : null
+                            ) : null}
+                          </div>
                 ) : null}
               </div>
             </div>
@@ -1052,14 +1495,19 @@ export default function BreezyPositionRecordsBrowser({
         </div>
       );
     });
-  }, [
-    availablePriorityTypes,
-    companyLogoByName,
-    filteredPositions,
-    loadPositionDetails,
-    openPositionEditor,
-    selectedPositionId,
-  ]);
+		  }, [
+		    availablePriorityTypes,
+		    cardActionSavingId,
+		    cardMenuOpenId,
+		    cardMenuAnchor,
+		    companyLogoByName,
+		    filteredPositions,
+		    loadPositionDetails,
+		    openPositionEditor,
+		    patchPositionHidden,
+		    requestDeletePosition,
+		    selectedPositionId,
+		  ]);
 
   const loadPriorityTypes = async () => {
     try {
@@ -1200,6 +1648,98 @@ export default function BreezyPositionRecordsBrowser({
       setVisibilityMenuOpen(false);
     }
   };
+
+  const deletePositionRecord = async () => {
+    const posId = (selectedPositionId ?? "").trim();
+    if (!posId) return;
+    const label =
+      selectedPositionLabel ||
+      getFirstStringField(details, ["name", "title"]) ||
+      posId;
+    requestDeletePosition(posId, label);
+    setVisibilityMenuOpen(false);
+  };
+
+  async function patchPositionHidden(posId: string, hidden: boolean) {
+    const target = posId.trim();
+    if (!target) return;
+    const targetCompanyId = companyId.trim();
+    if (!targetCompanyId) return;
+
+    setCardActionSavingId(target);
+    setError(null);
+    try {
+      const url = `/api/breezy/positions-cache/${encodeURIComponent(
+        target
+      )}?companyId=${encodeURIComponent(targetCompanyId)}`;
+      const res = await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ overrides: { hidden } }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          (data && typeof data?.error === "string" && data.error) ||
+            "Failed to update visibility."
+        );
+      }
+
+      setPositions((prev) =>
+        prev.map((pos) => (pos.id === target ? { ...pos, hidden, edited: true } : pos))
+      );
+
+      if ((selectedPositionId ?? "").trim() === target) {
+        setDetailsOverrides((prev) => ({ ...(prev ?? {}), hidden }));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update visibility.");
+    } finally {
+      setCardActionSavingId(null);
+      setCardMenuOpenId(null);
+    }
+  }
+
+  function requestDeletePosition(posId: string, label?: string) {
+    const target = posId.trim();
+    if (!target) return;
+    setDeleteConfirm({ positionId: target, label: (label ?? "").trim() || target });
+    setCardMenuOpenId(null);
+  }
+
+  async function performDeletePosition(posId: string) {
+    const target = posId.trim();
+    if (!target) return false;
+    const targetCompanyId = companyId.trim();
+    if (!targetCompanyId) return false;
+
+    setCardActionSavingId(target);
+    setError(null);
+    try {
+      const url = `/api/breezy/positions-cache/${encodeURIComponent(
+        target
+      )}?companyId=${encodeURIComponent(targetCompanyId)}`;
+      const res = await fetch(url, { method: "DELETE" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          (data && typeof data?.error === "string" && data.error) ||
+            "Failed to delete opening."
+        );
+      }
+
+      setPositions((prev) => prev.filter((pos) => pos.id !== target));
+      if ((selectedPositionId ?? "").trim() === target) {
+        closePositionModal();
+      }
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete opening.");
+      return false;
+    } finally {
+      setCardActionSavingId(null);
+    }
+  }
 
   const saveQuickOverride = useCallback(
     async (overrides: Record<string, unknown>) => {
@@ -1529,8 +2069,15 @@ export default function BreezyPositionRecordsBrowser({
 
         const nextList = data.companies
           .map((company) => ({
+            id: asString(company?.id).trim(),
             name: asString(company?.name).trim(),
             logoUrl: asString(company?.logoUrl).trim(),
+            benefitTags: Array.isArray(company?.benefitTags)
+              ? (company.benefitTags.filter((tag): tag is BenefitTag =>
+                  typeof tag === "string" &&
+                  AVAILABLE_BENEFIT_TAGS.includes(tag as BenefitTag)
+                ) as BenefitTag[])
+              : [],
           }))
           .filter((item) => item.name);
 
@@ -1584,107 +2131,189 @@ export default function BreezyPositionRecordsBrowser({
     };
   }, [selectedPositionId]);
 
-  return (
-    <div className="mx-auto w-full">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-            {title}
-          </h1>
-          <p className="mt-2 text-sm text-slate-600">
-            {description}
-          </p>
-        </div>
+	  return (
+	    <div className="mx-auto w-full">
+	      {deleteConfirm && typeof document !== "undefined"
+	        ? createPortal(
+	            <div
+	              className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm"
+	              role="dialog"
+	              aria-modal="true"
+	              aria-label="Delete opening"
+	              onClick={() => {
+	                if (cardActionSavingId === deleteConfirm.positionId) return;
+	                setDeleteConfirm(null);
+	              }}
+	            >
+	              <div
+	                className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
+	                onClick={(event) => event.stopPropagation()}
+	              >
+	                <div className="flex items-start justify-between gap-4">
+	                  <div>
+	                    <div className="text-base font-semibold text-slate-950">Delete opening?</div>
+	                    <div className="mt-2 text-sm text-slate-600">
+	                      This will remove{" "}
+	                      <span className="font-semibold text-slate-900">
+	                        {(deleteConfirm.label || deleteConfirm.positionId).trim()}
+	                      </span>{" "}
+	                      from the site and admin list.
+	                    </div>
+	                  </div>
+	                  <button
+	                    type="button"
+	                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+	                    onClick={() => setDeleteConfirm(null)}
+	                    disabled={cardActionSavingId === deleteConfirm.positionId}
+	                    aria-label="Close"
+	                  >
+	                    ×
+	                  </button>
+	                </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
-            onClick={() => void loadCompanies()}
-            disabled={loadingCompanies}
-          >
-            <RefreshCw
-              className={loadingCompanies ? "h-4 w-4 animate-spin" : "h-4 w-4"}
-            />
-            Refresh companies
-          </button>
-        </div>
-      </div>
+	                <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+	                  <button
+	                    type="button"
+	                    className="h-11 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+	                    onClick={() => setDeleteConfirm(null)}
+	                    disabled={cardActionSavingId === deleteConfirm.positionId}
+	                  >
+	                    Cancel
+	                  </button>
+	                  <button
+	                    type="button"
+	                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-60"
+	                    onClick={async () => {
+	                      const id = deleteConfirm.positionId;
+	                      const ok = await performDeletePosition(id);
+	                      if (ok) setDeleteConfirm(null);
+	                    }}
+	                    disabled={cardActionSavingId === deleteConfirm.positionId}
+	                  >
+	                    <Trash2 className="h-4 w-4" />
+	                    {cardActionSavingId === deleteConfirm.positionId ? "Deleting…" : "Delete"}
+	                  </button>
+	                </div>
+	              </div>
+	            </div>,
+	            document.body
+	          )
+	        : null}
+	      <div>
+	        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">{title}</h1>
+	        <p className="mt-2 text-sm text-slate-600">{description}</p>
+	      </div>
 
-      <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Company
-            </div>
-            <div className="mt-2 flex gap-2">
-              {companies.length > 0 ? (
-                <select
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                  value={companyId}
-                  onChange={(event) => setCompanyId(event.target.value)}
-                >
-                  <option value="">Select company…</option>
-                  {companies.map((company) => {
-                    const id = getId(company);
-                    const label = company.name || id || "Company";
-                    if (!id) return null;
-                    return (
-                      <option key={id} value={id}>
-                        {label} ({id})
-                      </option>
-                    );
-                  })}
-                </select>
-              ) : (
-                <input
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                  value={companyId}
-                  onChange={(event) => setCompanyId(event.target.value)}
-                  placeholder="Paste Breezy Company ID…"
-                />
-              )}
-              <button
-                type="button"
-                className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
-                onClick={() => void loadPositions()}
-                disabled={loadingPositions || !companyId.trim()}
-                title="Reload cached positions"
-              >
-                <RefreshCw
-                  className={loadingPositions ? "h-4 w-4 animate-spin" : "h-4 w-4"}
-                />
-              </button>
-              <button
-                type="button"
-                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-semibold text-emerald-800 shadow-sm transition hover:bg-emerald-100 disabled:opacity-60"
-                onClick={() => void syncPositions()}
-                disabled={syncingPositions || loadingPositions || !companyId.trim()}
-                title="Sync from Breezy into the database"
-              >
-                <RefreshCw
-                  className={syncingPositions ? "h-4 w-4 animate-spin" : "h-4 w-4"}
-                />
-                Sync
-              </button>
-            </div>
-          </div>
+	      <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+	        <div className="grid gap-4 lg:grid-cols-[minmax(260px,360px)_minmax(0,1fr)_auto] lg:items-end">
+	          <div>
+	            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+	              Company
+	            </div>
+	            <div className="mt-2 flex items-center gap-2">
+	              {companies.length > 0 ? (
+	                <select
+	                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+	                  value={companyId}
+	                  onChange={(event) => setCompanyId(event.target.value)}
+	                >
+	                  <option value="">Select company…</option>
+	                  {companies.map((company) => {
+	                    const id = getId(company);
+	                    const label = company.name || id || "Company";
+	                    if (!id) return null;
+	                    return (
+	                      <option key={id} value={id}>
+	                        {label} ({id})
+	                      </option>
+	                    );
+	                  })}
+	                </select>
+	              ) : (
+	                <input
+	                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+	                  value={companyId}
+	                  onChange={(event) => setCompanyId(event.target.value)}
+	                  placeholder="Paste Breezy Company ID…"
+	                />
+	              )}
+	              <button
+	                type="button"
+	                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+	                onClick={() => void loadCompanies()}
+	                disabled={loadingCompanies}
+	                title="Reload companies"
+	              >
+	                <RefreshCw
+	                  className={loadingCompanies ? "h-4 w-4 animate-spin" : "h-4 w-4"}
+	                />
+	              </button>
+	              <button
+	                type="button"
+	                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+	                onClick={() => void loadPositions()}
+	                disabled={loadingPositions || !companyId.trim()}
+	                title="Reload openings"
+	              >
+	                <RefreshCw
+	                  className={loadingPositions ? "h-4 w-4 animate-spin" : "h-4 w-4"}
+	                />
+	              </button>
+	            </div>
+	          </div>
 
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {recordType === "pool" ? "Filter pools" : "Filter positions"}
-            </div>
-            <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                className="h-11 w-full border-none bg-transparent text-sm text-slate-800 outline-none"
-                placeholder="Search by name, state, id…"
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
-              />
-            </div>
-          </div>
-        </div>
+	          <div>
+	            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+	              Search
+	            </div>
+	            <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4">
+	              <Search className="h-4 w-4 text-slate-400" />
+	              <input
+	                className="h-11 w-full border-none bg-transparent text-sm text-slate-800 outline-none"
+	                placeholder="Search openings…"
+	                value={filter}
+	                onChange={(event) => setFilter(event.target.value)}
+	              />
+	            </div>
+	          </div>
+
+	          <div className="flex items-center justify-end gap-2">
+	            {recordType === "position" ? (
+	              <button
+	                type="button"
+	                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
+	                onClick={() => {
+	                  setCreateOpeningError(null);
+	                  setCreateOpeningDraft({
+	                    name: "",
+	                    company: "",
+	                    department: "",
+	                    priority: "",
+	                    location_name: "",
+	                    benefit_tags: [],
+	                    processable_country_codes: DEFAULT_PROCESSABLE_COUNTRY_CODES,
+	                    summary: "",
+	                    description: "",
+	                    responsibilities: "",
+	                    requirements: "",
+	                    hidden: false,
+	                    hero_image_url: "",
+	                  });
+	                  setCreateCompanyQuery("");
+	                  setCreateCompanyPickerOpen(false);
+	                  setCreatePriorityQuery("");
+	                  setCreatePriorityPickerOpen(false);
+	                  setCreateOpeningOpen(true);
+	                }}
+	                disabled={loadingPositions || !companyId.trim()}
+	                title="Create a new opening"
+	              >
+	                <Plus className="h-4 w-4" />
+	                New opening
+	              </button>
+	            ) : null}
+	          </div>
+	        </div>
 
         {error ? (
           <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -1974,6 +2603,16 @@ export default function BreezyPositionRecordsBrowser({
                       <div className="px-4 pb-3 text-[11px] leading-4 text-slate-500">
                         Hidden jobs are removed from the public jobs page.
                       </div>
+                      <div className="border-t border-slate-200" />
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                        onClick={() => void deletePositionRecord()}
+                        disabled={visibilitySaving}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </button>
                     </div>
                   ) : null}
                 </div>
@@ -3029,8 +3668,584 @@ export default function BreezyPositionRecordsBrowser({
                 <div className="text-sm text-slate-500">No details returned.</div>
               )}
 
-        </DetailsModalShell>
+	        </DetailsModalShell>
+	      ) : null}
+
+      {createOpeningOpen ? (
+        <div
+          className="fixed inset-0 z-[12000] flex items-end justify-center bg-slate-950/50 p-4 backdrop-blur-sm sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Create job opening"
+          onClick={() => {
+            if (createOpeningSaving) return;
+            setCreateOpeningOpen(false);
+          }}
+        >
+          <div
+            className="flex max-h-[calc(100svh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+              <div>
+                <div className="text-sm font-semibold text-slate-900">Create job opening</div>
+                <div className="mt-1 text-xs text-slate-500">
+                  This creates a new position in Breezy for the selected company.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                onClick={() => setCreateOpeningOpen(false)}
+                disabled={createOpeningSaving}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto px-5 py-4">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Job title
+                </div>
+                <input
+                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+                  value={createOpeningDraft.name}
+                  onChange={(event) =>
+                    setCreateOpeningDraft((prev) => ({ ...prev, name: event.target.value }))
+                  }
+                  placeholder="e.g. Assistant Joiner"
+                  disabled={createOpeningSaving}
+                  autoFocus
+                />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Company
+                  </div>
+                  <div className="relative mt-2">
+                    <button
+                      type="button"
+                      className="flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-left text-sm text-slate-800 shadow-sm outline-none transition hover:bg-slate-50 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+                      onClick={() => setCreateCompanyPickerOpen((open) => !open)}
+                      disabled={createOpeningSaving}
+                      aria-haspopup="listbox"
+                      aria-expanded={createCompanyPickerOpen}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        {selectedCreateCompany?.logoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={selectedCreateCompany.logoUrl}
+                            alt=""
+                            className="h-7 w-7 shrink-0 rounded-full border border-slate-200 bg-white object-contain"
+                          />
+                        ) : (
+                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-slate-200 bg-slate-50 text-xs font-bold text-slate-600">
+                            {(createOpeningDraft.company.trim() || "?").slice(0, 1).toUpperCase()}
+                          </span>
+                        )}
+                        <span
+                          className={
+                            createOpeningDraft.company.trim()
+                              ? "min-w-0 truncate font-semibold"
+                              : "min-w-0 truncate text-slate-400"
+                          }
+                        >
+                          {createOpeningDraft.company.trim() || "Select company..."}
+                        </span>
+                      </span>
+                      <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                    </button>
+
+                    {createCompanyPickerOpen ? (
+                      <div className="absolute left-0 right-0 top-full z-[13000] mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                        <div className="border-b border-slate-200 p-3">
+                          <div className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3">
+                            <Search className="h-4 w-4 shrink-0 text-slate-400" />
+                            <input
+                              className="h-full min-w-0 flex-1 border-none bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+                              value={createCompanyQuery}
+                              onChange={(event) => setCreateCompanyQuery(event.target.value)}
+                              placeholder="Search companies..."
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-72 overflow-y-auto p-2" role="listbox">
+                          {createCompanyPickerOptions.length > 0 ? (
+                            createCompanyPickerOptions.map((item) => {
+                              const active =
+                                item.name.trim().toLowerCase() ===
+                                createOpeningDraft.company.trim().toLowerCase();
+                              const initial = item.name.trim().slice(0, 1).toUpperCase() || "?";
+                              return (
+                                <button
+                                  key={item.name}
+                                  type="button"
+                                  className={[
+                                    "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition",
+                                    active
+                                      ? "bg-sky-50 text-sky-950"
+                                      : "text-slate-800 hover:bg-slate-50",
+                                  ].join(" ")}
+                                  role="option"
+                                  aria-selected={active}
+                                  onClick={() => {
+                                    setCreateOpeningDraft((prev) => ({
+                                      ...prev,
+                                      company: item.name,
+                                      department: "",
+                                      benefit_tags:
+                                        item.benefitTags.length > 0
+                                          ? item.benefitTags
+                                          : prev.benefit_tags,
+                                    }));
+                                    setCreateCompanyQuery("");
+                                    setCreateCompanyPickerOpen(false);
+                                  }}
+                                >
+                                  {item.logoUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={item.logoUrl}
+                                      alt=""
+                                      className="h-9 w-9 shrink-0 rounded-full border border-slate-200 bg-white object-contain shadow-sm"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-200 bg-slate-50 text-xs font-bold text-slate-600">
+                                      {initial}
+                                    </span>
+                                  )}
+                                  <span className="min-w-0 flex-1 truncate font-semibold">
+                                    {item.name}
+                                  </span>
+                                  {typeof item.count === "number" && item.count > 0 ? (
+                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                                      {item.count}
+                                    </span>
+                                  ) : null}
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="px-3 py-6 text-center text-sm text-slate-500">
+                              No companies found.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Department
+                  </div>
+                  <input
+                    list="create-opening-departments"
+                    className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+                    value={createOpeningDraft.department}
+                    onChange={(event) =>
+                      setCreateOpeningDraft((prev) => ({ ...prev, department: event.target.value }))
+                    }
+                    placeholder="e.g. Technical"
+                    disabled={createOpeningSaving}
+                  />
+                  <datalist id="create-opening-departments">
+                    {createDepartmentOptions.map((label) => (
+                      <option key={label} value={label} />
+                    ))}
+                  </datalist>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Location
+                  </div>
+                  <input
+                    className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+                    value={createOpeningDraft.location_name}
+                    onChange={(event) =>
+                      setCreateOpeningDraft((prev) => ({
+                        ...prev,
+                        location_name: event.target.value,
+                      }))
+                    }
+                    placeholder="e.g. Astoria Grande, worldwide"
+                    disabled={createOpeningSaving}
+                  />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Opening type
+                  </div>
+                  <div className="relative mt-2">
+                    <button
+                      type="button"
+                      className="flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-left text-sm text-slate-800 shadow-sm outline-none transition hover:bg-slate-50 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+                      onClick={() => setCreatePriorityPickerOpen((open) => !open)}
+                      disabled={createOpeningSaving}
+                      aria-haspopup="listbox"
+                      aria-expanded={createPriorityPickerOpen}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-sky-100 bg-sky-50 text-sky-700">
+                          <FolderKanban className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 truncate font-semibold">
+                          {selectedCreatePriorityLabel}
+                        </span>
+                      </span>
+                      <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                    </button>
+
+                    {createPriorityPickerOpen ? (
+                      <div className="absolute left-0 right-0 top-full z-[13000] mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                        <div className="border-b border-slate-200 p-3">
+                          <div className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3">
+                            <Search className="h-4 w-4 shrink-0 text-slate-400" />
+                            <input
+                              className="h-full min-w-0 flex-1 border-none bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+                              value={createPriorityQuery}
+                              onChange={(event) => setCreatePriorityQuery(event.target.value)}
+                              placeholder="Search opening types..."
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto p-2" role="listbox">
+                          {createPriorityPickerOptions.map((type) => {
+                            const key = normalizePriorityKey(type.key);
+                            const active = key === normalizePriorityKey(createOpeningDraft.priority);
+                            return (
+                              <button
+                                key={key || "none"}
+                                type="button"
+                                className={[
+                                  "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition",
+                                  active
+                                    ? "bg-sky-50 text-sky-950"
+                                    : "text-slate-800 hover:bg-slate-50",
+                                ].join(" ")}
+                                role="option"
+                                aria-selected={active}
+                                onClick={() => {
+                                  setCreateOpeningDraft((prev) => ({ ...prev, priority: key }));
+                                  setCreatePriorityQuery("");
+                                  setCreatePriorityPickerOpen(false);
+                                }}
+                              >
+                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-sky-100 bg-sky-50 text-sky-700">
+                                  <FolderKanban className="h-4 w-4" />
+                                </span>
+                                <span className="min-w-0 flex-1 truncate font-semibold">
+                                  {type.label}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Company benefits
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      Select the cards that should appear in the job modal.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+                    disabled={createOpeningSaving}
+                    onClick={() =>
+                      setCreateOpeningDraft((prev) => ({
+                        ...prev,
+                        benefit_tags:
+                          selectedCreateCompany?.benefitTags.length
+                            ? selectedCreateCompany.benefitTags
+                            : AVAILABLE_BENEFIT_TAGS.slice(0, 6),
+                      }))
+                    }
+                  >
+                    Use company defaults
+                  </button>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {AVAILABLE_BENEFIT_TAGS.map((tag) => {
+                    const selected = createOpeningDraft.benefit_tags.includes(tag);
+                    const Icon = getBenefitIcon(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        className={[
+                          "flex items-center gap-3 rounded-2xl border px-3 py-2 text-left text-sm transition disabled:opacity-60",
+                          selected
+                            ? "border-sky-200 bg-white text-sky-950 shadow-sm"
+                            : "border-slate-200 bg-white/70 text-slate-700 hover:bg-white",
+                        ].join(" ")}
+                        disabled={createOpeningSaving}
+                        onClick={() =>
+                          setCreateOpeningDraft((prev) => ({
+                            ...prev,
+                            benefit_tags: selected
+                              ? prev.benefit_tags.filter((item) => item !== tag)
+                              : [...prev.benefit_tags, tag],
+                          }))
+                        }
+                      >
+                        <span
+                          className={[
+                            "grid h-9 w-9 shrink-0 place-items-center rounded-full border",
+                            selected
+                              ? "border-sky-200 bg-sky-50 text-sky-700"
+                              : "border-slate-200 bg-slate-50 text-slate-500",
+                          ].join(" ")}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 flex-1 font-semibold">
+                          {BENEFIT_TAG_LABELS[tag]}
+                        </span>
+                        {selected ? <Check className="h-4 w-4 text-sky-600" /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Nationalities we process
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      These chips appear above the description in the public job modal.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+                    disabled={createOpeningSaving}
+                    onClick={() =>
+                      setCreateOpeningDraft((prev) => ({
+                        ...prev,
+                        processable_country_codes:
+                          prev.processable_country_codes.length ===
+                          DEFAULT_PROCESSABLE_COUNTRY_CODES.length
+                            ? []
+                            : DEFAULT_PROCESSABLE_COUNTRY_CODES,
+                      }))
+                    }
+                  >
+                    {createOpeningDraft.processable_country_codes.length ===
+                    DEFAULT_PROCESSABLE_COUNTRY_CODES.length
+                      ? "Clear all"
+                      : "Select all"}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {DEFAULT_PROCESSABLE_COUNTRIES.map((country) => {
+                    const selected = createOpeningDraft.processable_country_codes.includes(
+                      country.code
+                    );
+                    return (
+                      <button
+                        key={country.code}
+                        type="button"
+                        className={[
+                          "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60",
+                          selected
+                            ? "border-sky-200 bg-sky-50 text-sky-950"
+                            : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                        ].join(" ")}
+                        disabled={createOpeningSaving}
+                        onClick={() =>
+                          setCreateOpeningDraft((prev) => ({
+                            ...prev,
+                            processable_country_codes: selected
+                              ? prev.processable_country_codes.filter(
+                                  (item) => item !== country.code
+                                )
+                              : [...prev.processable_country_codes, country.code],
+                          }))
+                        }
+                      >
+                        <span>{toFlagEmoji(country.code)}</span>
+                        <span>{country.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid gap-1">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Hero image (optional)
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-2xl file:border file:border-slate-200 file:bg-white file:px-4 file:py-2 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-50 disabled:opacity-60 sm:w-auto"
+                    disabled={createOpeningSaving || createOpeningUploadingHero}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      void uploadCreateHeroImage(file);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                  {createOpeningUploadingHero ? (
+                    <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Uploading…
+                    </span>
+                  ) : createOpeningDraft.hero_image_url ? (
+                    <a
+                      href={createOpeningDraft.hero_image_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold text-sky-700 underline underline-offset-2"
+                    >
+                      View uploaded image
+                    </a>
+                  ) : (
+                    <span className="text-xs text-slate-500">
+                      Uploads to a public bucket and will be shown at the top of the description.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid gap-1">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Summary
+                </div>
+                <textarea
+                  className="min-h-[90px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+                  value={createOpeningDraft.summary}
+                  disabled={createOpeningSaving}
+                  onChange={(event) =>
+                    setCreateOpeningDraft((prev) => ({ ...prev, summary: event.target.value }))
+                  }
+                  placeholder="Short summary shown in lists…"
+                />
+              </div>
+
+              <div className="grid gap-1">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Description
+                </div>
+                <WysiwygEditor
+                  value={createOpeningDraft.description}
+                  disabled={createOpeningSaving}
+                  placeholder="Write the full description…"
+                  minHeightClassName="min-h-[160px]"
+                  onChange={(next) =>
+                    setCreateOpeningDraft((prev) => ({ ...prev, description: next }))
+                  }
+                />
+              </div>
+
+              <div className="grid gap-1">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Responsibilities
+                </div>
+                <WysiwygEditor
+                  value={createOpeningDraft.responsibilities}
+                  disabled={createOpeningSaving}
+                  placeholder="List responsibilities…"
+                  minHeightClassName="min-h-[130px]"
+                  onChange={(next) =>
+                    setCreateOpeningDraft((prev) => ({ ...prev, responsibilities: next }))
+                  }
+                />
+              </div>
+
+              <div className="grid gap-1">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Requirements
+                </div>
+                <WysiwygEditor
+                  value={createOpeningDraft.requirements}
+                  disabled={createOpeningSaving}
+                  placeholder="List requirements…"
+                  minHeightClassName="min-h-[130px]"
+                  onChange={(next) =>
+                    setCreateOpeningDraft((prev) => ({ ...prev, requirements: next }))
+                  }
+                />
+              </div>
+
+              <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <span className="text-sm font-semibold text-slate-900">Active</span>
+                <button
+                  type="button"
+                  className={[
+                    "inline-flex h-10 items-center rounded-full border px-4 text-xs font-semibold transition",
+                    createOpeningDraft.hidden
+                      ? "border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100"
+                      : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100",
+                  ].join(" ")}
+                  onClick={() =>
+                    setCreateOpeningDraft((prev) => ({ ...prev, hidden: !prev.hidden }))
+                  }
+                  disabled={createOpeningSaving}
+                  title="Visibility on public jobs page"
+                >
+                  {createOpeningDraft.hidden ? "Not active" : "Active"}
+                </button>
+              </label>
+
+              {createOpeningError ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {createOpeningError}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-4">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                onClick={() => setCreateOpeningOpen(false)}
+                disabled={createOpeningSaving}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-950 bg-slate-950 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                onClick={() => void createOpening()}
+                disabled={createOpeningSaving || !companyId.trim()}
+              >
+                {createOpeningSaving ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                {createOpeningSaving ? "Creating…" : "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
-    </div>
-  );
+	    </div>
+	  );
 }

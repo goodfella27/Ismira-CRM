@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 
 import { ensureCompanyMembership } from "@/lib/company/membership";
+import { getPrimaryCompanyId } from "@/lib/company/primary";
+import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -70,7 +72,7 @@ export async function POST(
       return NextResponse.json({ error: "Not authorized." }, { status: 403 });
     }
 
-    const companyId = membership.companyId;
+    const companyId = await getPrimaryCompanyId(admin);
     const { data, error } = await admin
       .from("breezy_positions")
       .select(
@@ -133,6 +135,7 @@ export async function POST(
     ]);
     if (insertError) throw new Error(insertError.message ?? "Failed to duplicate record.");
 
+    clearJobsResponseCache();
     const overrideCompany =
       typeof overrides.company === "string" ? overrides.company.trim() : "";
     const overrideDepartment =
@@ -164,4 +167,3 @@ export async function POST(
     return NextResponse.json({ error: message }, { status });
   }
 }
-

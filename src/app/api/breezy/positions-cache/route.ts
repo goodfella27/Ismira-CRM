@@ -7,6 +7,7 @@ import { extractCompany, extractDepartment, extractOrgType, isRecord } from "@/l
 import { pickPositionDescription } from "@/lib/breezy-position-description";
 import { buildCountryRows, extractNationalityCountryGroups } from "@/lib/nationality-countries";
 import { syncJobCompaniesFromPositions } from "@/lib/job-companies";
+import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -330,8 +331,8 @@ export async function POST(request: Request) {
     }
 
     const admin = createSupabaseAdminClient();
-    const membership = await ensureCompanyMembership(admin, user.id);
-    const companyId = membership.companyId;
+    await ensureCompanyMembership(admin, user.id);
+    const companyId = await getPrimaryCompanyId(admin);
 
     const listUrl = `https://api.breezy.hr/v3/company/${encodeURIComponent(
       breezyCompanyId
@@ -488,6 +489,7 @@ export async function POST(request: Request) {
 
     const failed = detailResults.filter((r) => !r.ok);
 
+    clearJobsResponseCache();
     return NextResponse.json(
       {
         positions: breezyList.length,

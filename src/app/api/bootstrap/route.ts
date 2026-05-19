@@ -67,6 +67,26 @@ export async function GET() {
       }
     }
 
+    step = "storage:ensureJobAssetsBucket";
+    {
+      const bucketName = "job-assets";
+      const { data: buckets, error: bucketsError } = await admin.storage.listBuckets();
+      if (bucketsError) {
+        throw new Error(bucketsError.message ?? "Failed to list storage buckets");
+      }
+
+      const hasBucket =
+        (buckets ?? []).some((bucket) => bucket.id === bucketName || bucket.name === bucketName);
+      if (!hasBucket) {
+        const { error: createBucketError } = await admin.storage.createBucket(bucketName, {
+          public: true,
+        });
+        if (createBucketError && !/already exists/i.test(createBucketError.message ?? "")) {
+          throw new Error(createBucketError.message ?? `Failed to create bucket "${bucketName}"`);
+        }
+      }
+    }
+
     step = "pipelines:select";
     const { data: existingPipelines, error: existingPipelinesError } = await admin
       .from("pipelines")

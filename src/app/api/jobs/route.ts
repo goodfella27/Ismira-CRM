@@ -270,7 +270,7 @@ async function loadPriorityTypes(
 
 // Cache aggressively at the CDN while keeping client-side revalidation cheap (ETag + 304).
 const LIST_CACHE_CONTROL =
-  "public, max-age=60, s-maxage=300, stale-while-revalidate=3600";
+  "public, max-age=60, s-maxage=60, stale-while-revalidate=300";
 
 function applyPublicCors(headers: Headers) {
   headers.set("Access-Control-Allow-Origin", "*");
