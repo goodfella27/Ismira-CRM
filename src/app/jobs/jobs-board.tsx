@@ -3282,7 +3282,7 @@ export default function JobsBoard() {
                       onClick={() => setDepartmentModalOpen(true)}
                     />
                     <FilterDropdown
-                      label="Country"
+                      label="Citizenship"
                       value={countryFilter}
                       placeholder="All countries"
                       onChange={setCountryFilter}
@@ -3428,7 +3428,7 @@ export default function JobsBoard() {
                   onClick={() => setDepartmentModalOpen(true)}
                 />
                 <FilterDropdown
-                  label="Country"
+                  label="Citizenship"
                   value={countryFilter}
                   placeholder="All countries"
                   onChange={setCountryFilter}
