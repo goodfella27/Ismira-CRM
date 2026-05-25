@@ -2204,67 +2204,12 @@ export default function BreezyPositionRecordsBrowser({
 	        <p className="mt-2 text-sm text-slate-600">{description}</p>
 	      </div>
 
-	      <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-	        <div className="grid gap-4 lg:grid-cols-[minmax(260px,360px)_minmax(0,1fr)_auto] lg:items-end">
-	          <div>
-	            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-	              Company
-	            </div>
-	            <div className="mt-2 flex items-center gap-2">
-	              {companies.length > 0 ? (
-	                <select
-	                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-	                  value={companyId}
-	                  onChange={(event) => setCompanyId(event.target.value)}
-	                >
-	                  <option value="">Select company…</option>
-	                  {companies.map((company) => {
-	                    const id = getId(company);
-	                    const label = company.name || id || "Company";
-	                    if (!id) return null;
-	                    return (
-	                      <option key={id} value={id}>
-	                        {label} ({id})
-	                      </option>
-	                    );
-	                  })}
-	                </select>
-	              ) : (
-	                <input
-	                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-	                  value={companyId}
-	                  onChange={(event) => setCompanyId(event.target.value)}
-	                  placeholder="Paste Breezy Company ID…"
-	                />
-	              )}
-	              <button
-	                type="button"
-	                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
-	                onClick={() => void loadCompanies()}
-	                disabled={loadingCompanies}
-	                title="Reload companies"
-	              >
-	                <RefreshCw
-	                  className={loadingCompanies ? "h-4 w-4 animate-spin" : "h-4 w-4"}
-	                />
-	              </button>
-	              <button
-	                type="button"
-	                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
-	                onClick={() => void loadPositions()}
-	                disabled={loadingPositions || !companyId.trim()}
-	                title="Reload openings"
-	              >
-	                <RefreshCw
-	                  className={loadingPositions ? "h-4 w-4 animate-spin" : "h-4 w-4"}
-	                />
-	              </button>
-	            </div>
-	          </div>
+		      <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+		        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
 
-	          <div>
-	            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-	              Search
+		          <div>
+		            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+		              Search
 	            </div>
 	            <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4">
 	              <Search className="h-4 w-4 text-slate-400" />
@@ -2277,10 +2222,21 @@ export default function BreezyPositionRecordsBrowser({
 	            </div>
 	          </div>
 
-	          <div className="flex items-center justify-end gap-2">
-	            {recordType === "position" ? (
-	              <button
-	                type="button"
+		          <div className="flex items-center justify-end gap-2">
+		            <button
+		              type="button"
+		              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+		              onClick={() => void loadPositions()}
+		              disabled={loadingPositions || !companyId.trim()}
+		              title="Reload openings"
+		            >
+		              <RefreshCw
+		                className={loadingPositions ? "h-4 w-4 animate-spin" : "h-4 w-4"}
+		              />
+		            </button>
+		            {recordType === "position" ? (
+		              <button
+		                type="button"
 	                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
 	                onClick={() => {
 	                  setCreateOpeningError(null);

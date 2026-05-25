@@ -8,11 +8,13 @@ import {
   ClipboardList,
   Database,
   FileText,
+  GitMerge,
   ListTodo,
   Plus,
   Save,
   Shield,
   Trash2,
+  Undo2,
   Upload,
   Users2,
 } from "lucide-react";
@@ -66,6 +68,17 @@ type JobCompanyAdminItem = {
   shipType: JobShipType | "";
   benefitTags: BenefitTag[];
   positionsCount: number;
+};
+
+type JobCompanyMergeItem = {
+  id: string;
+  sourceCompanyId: string;
+  targetCompanyId: string;
+  sourceName: string;
+  targetName: string;
+  positionsMoved: number;
+  benefitsCopied: number;
+  createdAt: string | null;
 };
 
 type JobsHeroLogoAdminItem = {
@@ -274,6 +287,9 @@ export default function CompanyPage() {
   const [jobCompaniesActionId, setJobCompaniesActionId] = useState<string | null>(null);
   const [expandedJobCompanyId, setExpandedJobCompanyId] = useState<string | null>(null);
   const [newJobCompanyName, setNewJobCompanyName] = useState("");
+  const [jobCompanyMergeTargets, setJobCompanyMergeTargets] = useState<Record<string, string>>({});
+  const [recentJobCompanyMerges, setRecentJobCompanyMerges] = useState<JobCompanyMergeItem[]>([]);
+  const [lastJobCompanyMerge, setLastJobCompanyMerge] = useState<JobCompanyMergeItem | null>(null);
   const [jobCompanyNameDrafts, setJobCompanyNameDrafts] = useState<Record<string, string>>({});
   const [jobCompanyShipTypeDrafts, setJobCompanyShipTypeDrafts] = useState<Record<string, JobShipType | "">>({});
   const [jobCompanyBenefitDrafts, setJobCompanyBenefitDrafts] = useState<
@@ -572,8 +588,7 @@ export default function CompanyPage() {
         throw new Error(data?.error ?? "Failed to load job companies.");
       }
       const list: unknown[] = Array.isArray(data?.companies) ? (data.companies as unknown[]) : [];
-      setJobCompanies(
-        list.map((item) => {
+      const nextCompanies = list.map((item) => {
           const row = isRecord(item) ? item : {};
           const positionsCount = row.positionsCount;
           const benefitTagsRaw = Array.isArray(row.benefitTags) ? row.benefitTags : [];
@@ -594,8 +609,53 @@ export default function CompanyPage() {
                 ? positionsCount
                 : 0,
           } satisfies JobCompanyAdminItem;
-        })
+        });
+      setJobCompanies(nextCompanies);
+      const mergeList: unknown[] = Array.isArray(data?.recentMerges)
+        ? (data.recentMerges as unknown[])
+        : [];
+      setRecentJobCompanyMerges(
+        mergeList
+          .map((item) => {
+            const row = isRecord(item) ? item : {};
+            const positionsMoved = row.positionsMoved;
+            const benefitsCopied = row.benefitsCopied;
+            return {
+              id: typeof row.id === "string" ? row.id : "",
+              sourceCompanyId:
+                typeof row.sourceCompanyId === "string" ? row.sourceCompanyId : "",
+              targetCompanyId:
+                typeof row.targetCompanyId === "string" ? row.targetCompanyId : "",
+              sourceName:
+                typeof row.sourceName === "string" ? row.sourceName : "Merged company",
+              targetName:
+                typeof row.targetName === "string" ? row.targetName : "Target company",
+              positionsMoved:
+                typeof positionsMoved === "number" && Number.isFinite(positionsMoved)
+                  ? positionsMoved
+                  : 0,
+              benefitsCopied:
+                typeof benefitsCopied === "number" && Number.isFinite(benefitsCopied)
+                  ? benefitsCopied
+                  : 0,
+              createdAt: typeof row.createdAt === "string" ? row.createdAt : null,
+            } satisfies JobCompanyMergeItem;
+          })
+          .filter((item) => item.id)
       );
+      setJobCompanyMergeTargets((prev) => {
+        const companyIds = new Set(nextCompanies.map((item) => item.id));
+        const next: Record<string, string> = {};
+        for (const item of nextCompanies) {
+          const existing = prev[item.id];
+          if (existing && existing !== item.id && companyIds.has(existing)) {
+            next[item.id] = existing;
+            continue;
+          }
+          next[item.id] = nextCompanies.find((candidate) => candidate.id !== item.id)?.id ?? "";
+        }
+        return next;
+      });
       setJobCompanyNameDrafts(
         Object.fromEntries(
           list.map((item) => {
@@ -853,6 +913,93 @@ export default function CompanyPage() {
       } catch (err) {
         setJobCompaniesError(
           err instanceof Error ? err.message : "Failed to delete job company."
+        );
+      } finally {
+        setJobCompaniesActionId(null);
+      }
+    },
+    [loadJobCompanies]
+  );
+
+  const handleMergeJobCompany = useCallback(
+    async (sourceCompanyId: string) => {
+      const source = jobCompanies.find((item) => item.id === sourceCompanyId);
+      const targetCompanyId = jobCompanyMergeTargets[sourceCompanyId] ?? "";
+      const target = jobCompanies.find((item) => item.id === targetCompanyId);
+      if (!source || !target || source.id === target.id) {
+        setJobCompaniesError("Choose a different target company to merge into.");
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `Merge "${source.name}" into "${target.name}"? This will move ${source.positionsCount} positions and can be undone from Recent merges.`
+      );
+      if (!confirmed) return;
+
+      setJobCompaniesActionId(sourceCompanyId);
+      setJobCompaniesError(null);
+      try {
+        const res = await fetch("/api/company/job-companies/merge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sourceCompanyId, targetCompanyId }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(getApiErrorMessage(data, "Failed to merge job companies."));
+        }
+
+        const merge = isRecord(data?.merge) ? data.merge : {};
+        const positionsMoved = merge.positionsMoved;
+        const benefitsCopied = merge.benefitsCopied;
+        setLastJobCompanyMerge({
+          id: typeof merge.mergeId === "string" ? merge.mergeId : "",
+          sourceCompanyId,
+          targetCompanyId,
+          sourceName: typeof merge.sourceName === "string" ? merge.sourceName : source.name,
+          targetName: typeof merge.targetName === "string" ? merge.targetName : target.name,
+          positionsMoved:
+            typeof positionsMoved === "number" && Number.isFinite(positionsMoved)
+              ? positionsMoved
+              : source.positionsCount,
+          benefitsCopied:
+            typeof benefitsCopied === "number" && Number.isFinite(benefitsCopied)
+              ? benefitsCopied
+              : 0,
+          createdAt: new Date().toISOString(),
+        });
+        setExpandedJobCompanyId(targetCompanyId);
+        await loadJobCompanies();
+      } catch (err) {
+        setJobCompaniesError(
+          err instanceof Error ? err.message : "Failed to merge job companies."
+        );
+      } finally {
+        setJobCompaniesActionId(null);
+      }
+    },
+    [jobCompanies, jobCompanyMergeTargets, loadJobCompanies]
+  );
+
+  const handleUndoJobCompanyMerge = useCallback(
+    async (mergeId: string) => {
+      if (!mergeId) return;
+      setJobCompaniesActionId(`undo:${mergeId}`);
+      setJobCompaniesError(null);
+      try {
+        const res = await fetch(
+          `/api/company/job-companies/merge/${encodeURIComponent(mergeId)}/undo`,
+          { method: "POST" }
+        );
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(getApiErrorMessage(data, "Failed to undo job company merge."));
+        }
+        setLastJobCompanyMerge(null);
+        await loadJobCompanies();
+      } catch (err) {
+        setJobCompaniesError(
+          err instanceof Error ? err.message : "Failed to undo job company merge."
         );
       } finally {
         setJobCompaniesActionId(null);
@@ -2827,7 +2974,7 @@ export default function CompanyPage() {
                 )}
               </div>
 
-              <div className="hidden">
+              <div>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold text-slate-900">
@@ -2879,6 +3026,51 @@ export default function CompanyPage() {
                   </div>
                 ) : null}
 
+                {lastJobCompanyMerge ? (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                    <div className="text-xs font-semibold text-emerald-800">
+                      {lastJobCompanyMerge.sourceName} was merged into {lastJobCompanyMerge.targetName}.{" "}
+                      {lastJobCompanyMerge.positionsMoved} positions moved.
+                    </div>
+                    <button
+                      type="button"
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-800 transition hover:bg-emerald-50 disabled:opacity-60"
+                      onClick={() => void handleUndoJobCompanyMerge(lastJobCompanyMerge.id)}
+                      disabled={jobCompaniesActionId === `undo:${lastJobCompanyMerge.id}`}
+                    >
+                      <Undo2 className="h-4 w-4" />
+                      {jobCompaniesActionId === `undo:${lastJobCompanyMerge.id}` ? "Undoing..." : "Undo merge"}
+                    </button>
+                  </div>
+                ) : recentJobCompanyMerges.length > 0 ? (
+                  <div className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                      Recent merges
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      {recentJobCompanyMerges.map((merge) => (
+                        <div
+                          key={merge.id}
+                          className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600"
+                        >
+                          <span>
+                            {merge.sourceName} into {merge.targetName} · {merge.positionsMoved} positions
+                          </span>
+                          <button
+                            type="button"
+                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 text-[11px] font-bold text-slate-700 transition hover:bg-white disabled:opacity-60"
+                            onClick={() => void handleUndoJobCompanyMerge(merge.id)}
+                            disabled={jobCompaniesActionId === `undo:${merge.id}`}
+                          >
+                            <Undo2 className="h-3.5 w-3.5" />
+                            {jobCompaniesActionId === `undo:${merge.id}` ? "Undoing..." : "Undo"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
                 {jobCompaniesLoading ? (
                   <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
                     Loading companies...
@@ -2895,6 +3087,10 @@ export default function CompanyPage() {
                       const draftName = jobCompanyNameDrafts[item.id] ?? item.name;
                       const draftShipType = jobCompanyShipTypeDrafts[item.id] ?? item.shipType;
                       const draftBenefitTags = jobCompanyBenefitDrafts[item.id] ?? [];
+                      const mergeTargetId = jobCompanyMergeTargets[item.id] ?? "";
+                      const mergeTarget = jobCompanies.find(
+                        (candidate) => candidate.id === mergeTargetId
+                      );
                       const hasChanges =
                         draftName.trim() !== item.name.trim() ||
                         draftShipType !== item.shipType ||
@@ -3124,6 +3320,47 @@ export default function CompanyPage() {
                                     >
                                       Remove logo
                                     </button>
+                                  ) : null}
+                                  {jobCompanies.length > 1 ? (
+                                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                                      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">
+                                        <GitMerge className="h-3.5 w-3.5" />
+                                        Merge company
+                                      </div>
+                                      <select
+                                        value={mergeTargetId}
+                                        disabled={isBusy}
+                                        onChange={(event) =>
+                                          setJobCompanyMergeTargets((prev) => ({
+                                            ...prev,
+                                            [item.id]: event.target.value,
+                                          }))
+                                        }
+                                        className="mt-2 h-10 w-full rounded-xl border border-amber-200 bg-white px-3 text-xs font-bold text-slate-800 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                                      >
+                                        {jobCompanies
+                                          .filter((candidate) => candidate.id !== item.id)
+                                          .map((candidate) => (
+                                            <option key={candidate.id} value={candidate.id}>
+                                              {candidate.name}
+                                            </option>
+                                          ))}
+                                      </select>
+                                      <div className="mt-2 text-[11px] font-semibold leading-5 text-amber-800">
+                                        Move {item.positionsCount} positions
+                                        {mergeTarget ? ` into ${mergeTarget.name}` : ""}. Undo is available
+                                        from Recent merges.
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-3 text-xs font-bold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
+                                        onClick={() => void handleMergeJobCompany(item.id)}
+                                        disabled={isBusy || !mergeTargetId}
+                                      >
+                                        <GitMerge className="h-4 w-4" />
+                                        {isBusy ? "Merging..." : "Merge into selected"}
+                                      </button>
+                                    </div>
                                   ) : null}
                                   <button
                                     type="button"

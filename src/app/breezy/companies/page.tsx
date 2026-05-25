@@ -40,9 +40,8 @@ export default function BreezyCompaniesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selected, setSelected] = useState<BreezyCompany | null>(null);
   const [showRaw, setShowRaw] = useState(false);
-  const [storedCompanyId, setStoredCompanyId] = useState(() =>
-    loadBreezyCompanyId()
-  );
+  const [hasMounted, setHasMounted] = useState(false);
+  const [storedCompanyId, setStoredCompanyId] = useState<string>("");
 
   const filtered = useMemo(() => {
     const query = filter.trim().toLowerCase();
@@ -78,6 +77,11 @@ export default function BreezyCompaniesPage() {
 
   useEffect(() => {
     void load();
+  }, []);
+
+  useEffect(() => {
+    setHasMounted(true);
+    setStoredCompanyId(loadBreezyCompanyId());
   }, []);
 
   useEffect(() => {
@@ -175,7 +179,7 @@ export default function BreezyCompaniesPage() {
             </div>
             <p className="mt-2 text-xs text-slate-500">
               Current default company id:{" "}
-              <span className="font-mono">{storedCompanyId || "—"}</span>
+              <span className="font-mono">{hasMounted ? storedCompanyId || "—" : "—"}</span>
             </p>
           </div>
         </div>

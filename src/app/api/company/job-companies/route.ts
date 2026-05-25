@@ -40,6 +40,10 @@ const normalizeJobCompaniesError = (raw?: string | null) => {
   return message;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export async function GET() {
   try {
     const user = await requireUser();
@@ -59,18 +63,25 @@ export async function GET() {
     }
 
     const rows = Array.isArray(data) ? (data as JobCompanyRow[]) : [];
-    const logoUrls = await signJobCompanyLogoUrls(admin, rows);
+    const activeRows = rows.filter((row) => {
+      const metadata =
+        row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+          ? row.metadata
+          : {};
+      return typeof metadata.merged_into_job_company_id !== "string";
+    });
+    const logoUrls = await signJobCompanyLogoUrls(admin, activeRows);
     let benefits = await fetchJobCompanyBenefits(
       admin,
       membership.companyId,
-      rows.map((row) => row.id)
+      activeRows.map((row) => row.id)
     ).catch((benefitsError) => {
       const message =
         benefitsError instanceof Error ? benefitsError.message : "Failed to load job company benefits.";
       throw new Error(normalizeJobCompaniesError(message));
     });
     let benefitTagsByCompanyId = mapBenefitTagsByJobCompanyId(benefits);
-    const companiesMissingBenefits = rows.filter((row) => !benefitTagsByCompanyId.has(row.id));
+    const companiesMissingBenefits = activeRows.filter((row) => !benefitTagsByCompanyId.has(row.id));
 
     if (companiesMissingBenefits.length > 0) {
       await syncAutoBenefitsFromCachedPositions(admin, {
@@ -87,7 +98,7 @@ export async function GET() {
       benefits = await fetchJobCompanyBenefits(
         admin,
         membership.companyId,
-        rows.map((row) => row.id)
+        activeRows.map((row) => row.id)
       ).catch((benefitsError) => {
         throw new Error(
           normalizeJobCompaniesError(
@@ -132,9 +143,40 @@ export async function GET() {
       countsByName.set(normalizedName, (countsByName.get(normalizedName) ?? 0) + 1);
     }
 
+    const { data: mergeRows } = await admin
+      .from("job_company_merge_logs")
+      .select("id,source_job_company_id,target_job_company_id,source_snapshot,target_snapshot,position_snapshots,copied_benefits,created_at")
+      .eq("company_id", membership.companyId)
+      .is("undone_at", null)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    const recentMerges = Array.isArray(mergeRows)
+      ? mergeRows.map((row) => {
+          const sourceSnapshot = isRecord(row.source_snapshot) ? row.source_snapshot : {};
+          const targetSnapshot = isRecord(row.target_snapshot) ? row.target_snapshot : {};
+          const positions = Array.isArray(row.position_snapshots) ? row.position_snapshots : [];
+          const benefits = Array.isArray(row.copied_benefits) ? row.copied_benefits : [];
+          return {
+            id: typeof row.id === "string" ? row.id : "",
+            sourceCompanyId:
+              typeof row.source_job_company_id === "string" ? row.source_job_company_id : "",
+            targetCompanyId:
+              typeof row.target_job_company_id === "string" ? row.target_job_company_id : "",
+            sourceName:
+              typeof sourceSnapshot.name === "string" ? sourceSnapshot.name : "Merged company",
+            targetName:
+              typeof targetSnapshot.name === "string" ? targetSnapshot.name : "Target company",
+            positionsMoved: positions.length,
+            benefitsCopied: benefits.length,
+            createdAt: typeof row.created_at === "string" ? row.created_at : null,
+          };
+        })
+      : [];
+
     return NextResponse.json(
       {
-        companies: rows.map((row) => ({
+        companies: activeRows.map((row) => ({
           id: row.id,
           name: row.name,
           slug: row.slug,
@@ -150,6 +192,7 @@ export async function GET() {
           createdAt: row.created_at ?? null,
           updatedAt: row.updated_at ?? null,
         })),
+        recentMerges,
       },
       { status: 200 }
     );
