@@ -9,7 +9,7 @@ import {
   replacePositionTitleCompany,
 } from "@/lib/breezy-position-fields";
 import { applyPublicCacheControl } from "@/lib/http/public-api";
-import { pickPositionDescription } from "@/lib/breezy-position-description";
+import { pickPositionDescription, scrubBreezyPositionDetails } from "@/lib/breezy-position-description";
 import { buildCountryRows, extractNationalityCountryGroups } from "@/lib/nationality-countries";
 import { buildBreezyPublicPositionUrl } from "@/lib/breezy-public";
 import { extractBenefitTagsFromDescription } from "@/lib/job-benefits";
@@ -403,7 +403,9 @@ export async function GET(
             return jsonResponse(request, { error: "Not found" }, { status: 404 });
           }
 
-          const merged = applyOverrides(row.details, row.overrides) as Record<string, unknown>;
+          const merged = scrubBreezyPositionDetails(
+            applyOverrides(row.details, row.overrides)
+          ) as Record<string, unknown>;
           const mergedCompany =
             typeof merged.company === "string" ? merged.company.trim() : "";
           const mergedDepartment =
@@ -485,14 +487,15 @@ export async function GET(
           }
         }
 
-        const record = isRecord(body) ? (body as Record<string, unknown>) : null;
+        const scrubbedBody = scrubBreezyPositionDetails(body);
+        const record = isRecord(scrubbedBody) ? (scrubbedBody as Record<string, unknown>) : null;
         await admin.from("breezy_positions").upsert(
           [
             {
               company_id: primaryCompanyId,
               breezy_company_id: companyId,
               breezy_position_id: positionId,
-              details: body,
+              details: scrubbedBody,
               company: extractCompany(record) || null,
               department: extractDepartment(record) || null,
               details_synced_at: new Date().toISOString(),
@@ -508,7 +511,9 @@ export async function GET(
           details: isRecord(body) ? (body as Record<string, unknown>) : null,
         });
 
-        const merged = applyOverrides(body, row.overrides) as Record<string, unknown>;
+        const merged = scrubBreezyPositionDetails(
+          applyOverrides(scrubbedBody, row.overrides)
+        ) as Record<string, unknown>;
         const mergedCompany = typeof merged.company === "string" ? merged.company.trim() : "";
         const mergedDepartment =
           typeof merged.department === "string" ? merged.department.trim() : "";

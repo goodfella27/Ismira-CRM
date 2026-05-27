@@ -4,7 +4,7 @@ import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import { getPrimaryCompanyId } from "@/lib/company/primary";
 import { extractCompany, extractDepartment, extractOrgType, isRecord } from "@/lib/breezy-position-fields";
-import { pickPositionDescription } from "@/lib/breezy-position-description";
+import { pickPositionDescription, scrubBreezyPositionDetails } from "@/lib/breezy-position-description";
 import { buildCountryRows, extractNationalityCountryGroups } from "@/lib/nationality-countries";
 import { syncJobCompaniesFromPositions } from "@/lib/job-companies";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
@@ -404,7 +404,7 @@ export async function POST(request: Request) {
     const detailRows = detailResults
       .filter((r) => r.ok)
       .map((r) => {
-        const details = r.details ?? null;
+        const details = scrubBreezyPositionDetails(r.details ?? null);
         const record = isRecord(details) ? (details as Record<string, unknown>) : null;
         return {
           company_id: companyId,

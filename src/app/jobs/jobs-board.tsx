@@ -1462,6 +1462,22 @@ export default function JobsBoard() {
 
   const deferredFilter = useDeferredValue(filter);
 
+  const parseUrlList = useCallback((key: string) => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    const values = params.getAll(key).flatMap((value) =>
+      value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    );
+    return Array.from(new Set(values));
+  }, [searchParams]);
+
+  const parseUrlValue = useCallback((key: string) => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    return (params.get(key) ?? "").trim();
+  }, [searchParams]);
+
   const urlSelectedId = useMemo(() => {
     const value = (searchParams?.get("job") ?? "").trim();
     return value ? value : null;
@@ -1474,6 +1490,70 @@ export default function JobsBoard() {
   useEffect(() => {
     setSelectedId(urlSelectedId);
   }, [urlSelectedId]);
+
+  useEffect(() => {
+    const nextFilter = parseUrlValue("q");
+    const nextCompanies = parseUrlList("company");
+    const nextDepartments = parseUrlList("department");
+    const nextShipTypes = parseUrlList("ship").filter(
+      (value): value is JobShipType => JOB_SHIP_TYPES.includes(value as JobShipType)
+    );
+    const nextPriorities = parseUrlList("priority");
+    const nextCountry = parseUrlValue("country").toUpperCase();
+
+    setFilter(nextFilter);
+    setCompanyFilters(nextCompanies);
+    setDepartmentFilters(nextDepartments);
+    setShipTypeFilters(nextShipTypes);
+    setPriorityFilters(nextPriorities);
+    setCountryFilter(nextCountry);
+    setVisibleCount(JOBS_PAGE_SIZE);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const urlSyncRef = useRef<string>("");
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+
+      const nextFilter = filter.trim();
+      if (nextFilter) params.set("q", nextFilter);
+      else params.delete("q");
+
+      const replaceList = (key: string, values: string[]) => {
+        params.delete(key);
+        values
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .forEach((value) => params.append(key, value));
+      };
+
+      replaceList("company", companyFilters);
+      replaceList("department", departmentFilters);
+      replaceList("ship", shipTypeFilters);
+      replaceList("priority", priorityFilters);
+
+      const nextCountry = countryFilter.trim().toUpperCase();
+      if (nextCountry) params.set("country", nextCountry);
+      else params.delete("country");
+
+      const qs = params.toString();
+      if (qs === urlSyncRef.current) return;
+      urlSyncRef.current = qs;
+      router.replace(qs ? `/jobs?${qs}` : "/jobs", { scroll: false });
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    router,
+    searchParams,
+    filter,
+    companyFilters,
+    departmentFilters,
+    countryFilter,
+    shipTypeFilters,
+    priorityFilters,
+  ]);
 
   const [detailsById, setDetailsById] = useState<Record<string, Record<string, unknown>>>({});
   const [detailsLoadingId, setDetailsLoadingId] = useState<string | null>(null);

@@ -6,6 +6,7 @@ import { getPrimaryCompanyId } from "@/lib/company/primary";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { asTrimmedString, extractCompany, extractDepartment, extractOrgType } from "@/lib/breezy-position-fields";
+import { scrubBreezyPositionDetails } from "@/lib/breezy-position-description";
 import { syncJobCompaniesFromPositions } from "@/lib/job-companies";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 
@@ -209,7 +210,7 @@ export async function GET(
     }
 
     const now = new Date().toISOString();
-    const payload = breezy.body;
+    const payload = scrubBreezyPositionDetails(breezy.body);
     const name = isRecord(payload) && typeof payload.name === "string" ? payload.name.trim() : null;
     const state =
       isRecord(payload) && typeof payload.state === "string" ? payload.state.trim() : null;
@@ -321,7 +322,7 @@ export async function POST(
     }
 
     const now = new Date().toISOString();
-    const payload = breezy.body;
+    const payload = scrubBreezyPositionDetails(breezy.body);
     const name = isRecord(payload) && typeof payload.name === "string" ? payload.name.trim() : null;
     const state =
       isRecord(payload) && typeof payload.state === "string" ? payload.state.trim() : null;
