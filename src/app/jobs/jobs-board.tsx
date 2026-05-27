@@ -59,6 +59,44 @@ import {
   normalizeJobShipType,
   type JobShipType,
 } from "@/lib/job-ship-types";
+
+function HeroCoverImage({ src }: { src: string }) {
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+
+  useEffect(() => {
+    setAspectRatio(null);
+  }, [src]);
+
+  if (!src) {
+    return (
+      <div className="w-full bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6] sm:aspect-[16/7]" />
+    );
+  }
+
+  return (
+    <div
+      className="w-full overflow-hidden bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6]"
+      style={aspectRatio ? { aspectRatio: String(aspectRatio) } : { aspectRatio: "16 / 7" }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        className="h-full w-full object-cover"
+        loading="eager"
+        decoding="async"
+        onLoad={(event) => {
+          const width = event.currentTarget.naturalWidth || 0;
+          const height = event.currentTarget.naturalHeight || 0;
+          if (!width || !height) return;
+          const next = width / height;
+          if (!Number.isFinite(next) || next <= 0) return;
+          setAspectRatio(next);
+        }}
+      />
+    </div>
+  );
+}
 import { getCountryCode } from "@/lib/country";
 import jobBanner from "@/images/job_abnner.png";
 import StickyJobsHeader from "./sticky-jobs-header";
@@ -3811,18 +3849,7 @@ export default function JobsBoard() {
           labelledBy="job-details-title"
           onClose={closeDetails}
           hero={
-            <div className="h-40 w-full bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6] sm:h-56">
-              {modalDescription.heroSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={modalDescription.heroSrc}
-                  alt=""
-                  className="h-full w-full object-cover object-top"
-                  loading="eager"
-                  decoding="async"
-                />
-              ) : null}
-            </div>
+            <HeroCoverImage src={modalDescription.heroSrc} />
           }
           heroActions={
             <>
