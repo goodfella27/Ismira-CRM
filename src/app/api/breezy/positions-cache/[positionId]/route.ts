@@ -7,7 +7,12 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { asTrimmedString, extractCompany, extractDepartment, extractOrgType } from "@/lib/breezy-position-fields";
 import { scrubBreezyPositionDetails } from "@/lib/breezy-position-description";
-import { syncJobCompaniesFromPositions } from "@/lib/job-companies";
+import {
+  ensureJobCompaniesByName,
+  fetchPositionJobCompanyNames,
+  setPositionJobCompanies,
+  syncJobCompaniesFromPositions,
+} from "@/lib/job-companies";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 
 export const runtime = "nodejs";
@@ -183,6 +188,19 @@ export async function GET(
       if (row.department && !asTrimmedString((merged as Record<string, unknown>)?.department)) {
         (merged as Record<string, unknown>).department = row.department;
       }
+      const linkedCompanies = await fetchPositionJobCompanyNames(admin, {
+        companyId,
+        breezyPositionId: posId,
+      }).catch(() => []);
+      const companies =
+        linkedCompanies.length > 0
+          ? linkedCompanies
+          : row.company && row.company.trim()
+            ? [row.company.trim()]
+            : [];
+      if (companies.length > 0) {
+        (merged as Record<string, unknown>).companies = companies;
+      }
       return NextResponse.json(
         {
           details: merged,
@@ -194,6 +212,7 @@ export async function GET(
             details_synced_at: row.details_synced_at,
             updated_at: row.updated_at,
             canEdit,
+            companies,
           },
         },
         { status: 200 }
@@ -261,6 +280,17 @@ export async function GET(
     if (effectiveDepartment && !asTrimmedString(merged.department)) {
       merged.department = effectiveDepartment;
     }
+    const linkedCompanies = await fetchPositionJobCompanyNames(admin, {
+      companyId,
+      breezyPositionId: posId,
+    }).catch(() => []);
+    const companies =
+      linkedCompanies.length > 0
+        ? linkedCompanies
+        : effectiveCompany
+          ? [effectiveCompany]
+          : [];
+    if (companies.length > 0) merged.companies = companies;
 
     clearJobsResponseCache();
     return NextResponse.json(
@@ -274,6 +304,7 @@ export async function GET(
           details_synced_at: now,
           updated_at: null,
           canEdit,
+          companies,
         },
       },
       { status: 200 }
@@ -388,7 +419,7 @@ export async function PATCH(
     }
 
     const payload = (await request.json().catch(() => null)) as
-      | { overrides?: unknown; reset?: unknown }
+      | { overrides?: unknown; reset?: unknown; companies?: unknown }
       | null;
     if (!payload) {
       return NextResponse.json({ error: "Missing JSON body" }, { status: 400 });
@@ -482,13 +513,40 @@ export async function PATCH(
     );
     if (upsertError) throw new Error(upsertError.message ?? "Failed to save overrides");
 
-    try {
-      await syncJobCompaniesFromPositions(admin, {
-        companyId,
+    const companyNamesInput = Array.isArray(payload.companies)
+      ? payload.companies
+          .map((item) => (typeof item === "string" ? item.trim() : ""))
+          .filter(Boolean)
+      : [];
+    const nextCompany =
+      typeof nextOverrides.company === "string" && nextOverrides.company.trim()
+        ? nextOverrides.company.trim()
+        : extractCompany(currentDetails) || "";
+    const hasExplicitCompanies = Array.isArray(payload.companies);
+    const companyNames =
+      companyNamesInput.length > 0 ? companyNamesInput : nextCompany ? [nextCompany] : [];
+    if (hasExplicitCompanies || companyNames.length > 0) {
+      const companies = await ensureJobCompaniesByName(admin, companyId, companyNames, {
         breezyCompanyId,
       });
-    } catch {
-      // Best effort: override save should still succeed without company sync.
+      const jobCompanyIds = companies.map((company) => company.id).filter(Boolean);
+      await setPositionJobCompanies(admin, {
+        companyId,
+        breezyPositionId: posId,
+        jobCompanyIds,
+        primaryJobCompanyId: jobCompanyIds[0] ?? null,
+      });
+    }
+
+    if (!hasExplicitCompanies) {
+      try {
+        await syncJobCompaniesFromPositions(admin, {
+          companyId,
+          breezyCompanyId,
+        });
+      } catch {
+        // Best effort: override save should still succeed without company sync.
+      }
     }
 
     clearJobsResponseCache();

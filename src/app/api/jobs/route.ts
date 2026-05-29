@@ -33,6 +33,7 @@ export const runtime = "nodejs";
 
 type JobListItem = {
   id: string;
+  view_id?: string;
   name: string;
   state?: string;
   friendly_id?: string;
@@ -40,6 +41,7 @@ type JobListItem = {
   company?: string;
   department?: string;
   priority?: string;
+  job_company_id?: string;
   company_logo_url?: string;
   company_slug?: string;
   application_url?: string;
@@ -236,6 +238,73 @@ async function attachJobCompanyBranding(
   });
 }
 
+async function expandPositionCompanyJoins(
+  items: JobListItem[],
+  init: {
+    admin: ReturnType<typeof createSupabaseAdminClient>;
+    companyId: string;
+  }
+) {
+  const positionIds = Array.from(new Set(items.map((item) => item.id).filter(Boolean)));
+  if (positionIds.length === 0) return items;
+
+  const { data: joinData, error: joinError } = await init.admin
+    .from("job_position_companies")
+    .select("breezy_position_id,job_company_id,is_primary")
+    .eq("company_id", init.companyId)
+    .in("breezy_position_id", positionIds);
+  if (joinError || !Array.isArray(joinData) || joinData.length === 0) return items;
+
+  const joins = joinData as Array<{
+    breezy_position_id: string | null;
+    job_company_id: string | null;
+    is_primary: boolean | null;
+  }>;
+  const companyIds = Array.from(
+    new Set(joins.map((row) => row.job_company_id ?? "").filter(Boolean))
+  );
+  if (companyIds.length === 0) return items;
+
+  const { data: companyData, error: companyError } = await init.admin
+    .from("job_companies")
+    .select("id,name,normalized_name")
+    .eq("company_id", init.companyId)
+    .in("id", companyIds);
+  if (companyError || !Array.isArray(companyData)) return items;
+
+  const companyById = new Map(
+    (companyData as Array<{ id: string; name: string | null; normalized_name: string | null }>).map(
+      (row) => [row.id, row] as const
+    )
+  );
+  const joinsByPosition = new Map<string, typeof joins>();
+  for (const row of joins) {
+    const positionId = (row.breezy_position_id ?? "").trim();
+    if (!positionId || !row.job_company_id || !companyById.has(row.job_company_id)) continue;
+    const list = joinsByPosition.get(positionId) ?? [];
+    list.push(row);
+    joinsByPosition.set(positionId, list);
+  }
+
+  return items.flatMap((item) => {
+    const positionJoins = joinsByPosition.get(item.id) ?? [];
+    if (positionJoins.length === 0) return [item];
+    return positionJoins
+      .sort((a, b) => Number(b.is_primary === true) - Number(a.is_primary === true))
+      .map((join) => {
+        const company = join.job_company_id ? companyById.get(join.job_company_id) : null;
+        const companyName = (company?.name ?? "").trim();
+        if (!company || !companyName) return item;
+        return {
+          ...item,
+          view_id: `${item.id}:${company.id}`,
+          job_company_id: company.id,
+          company: companyName,
+        };
+      });
+  });
+}
+
 const isMissingPriorityTypesTableError = (message: string) =>
   /could not find the table/i.test(message) && /breezy_priority_types/i.test(message);
 
@@ -379,7 +448,7 @@ export async function GET(request: Request) {
       const { data, error } = await admin
         .from("breezy_positions")
         .select(
-          "breezy_position_id,name,state,friendly_id,org_type,company,department,overrides,updated_at"
+          "breezy_position_id,name,state,friendly_id,org_type,company,department,job_company_id,overrides,updated_at"
         )
         .eq("company_id", primaryCompanyId)
         .eq("breezy_company_id", companyId)
@@ -397,6 +466,7 @@ export async function GET(request: Request) {
           org_type: string | null;
           company: string | null;
           department: string | null;
+          job_company_id: string | null;
           overrides: unknown;
           updated_at: string | null;
         };
@@ -431,6 +501,7 @@ export async function GET(request: Request) {
                 undefined,
               department: overrideDepartment || row.department || undefined,
               priority: overridePriority || undefined,
+              job_company_id: row.job_company_id ?? undefined,
               updated_at: row.updated_at ?? undefined,
             } satisfies JobListItem;
           })
@@ -440,6 +511,14 @@ export async function GET(request: Request) {
           .filter((pos) => (pos.org_type || "").toLowerCase() !== "pool");
 
         let enriched = attachPublicApplyUrls(mapped);
+        try {
+          enriched = await expandPositionCompanyJoins(enriched, {
+            admin,
+            companyId: primaryCompanyId,
+          });
+        } catch {
+          // Ignore join overlay failures and keep legacy single-company data.
+        }
         try {
           enriched = await attachJobCompanyBranding(enriched, {
             admin,

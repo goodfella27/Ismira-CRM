@@ -93,6 +93,141 @@ export async function fetchJobCompaniesByNormalizedName(
   return Array.isArray(data) ? (data as JobCompanyRow[]) : [];
 }
 
+export async function ensureJobCompaniesByName(
+  admin: AdminClient,
+  companyId: string,
+  names: string[],
+  options: { breezyCompanyId?: string | null } = {}
+) {
+  const labelsByNormalized = new Map<string, string>();
+  for (const name of names) {
+    const label = typeof name === "string" ? name.trim().replace(/\s+/g, " ") : "";
+    const normalized = normalizeJobCompanyName(label);
+    if (!normalized || labelsByNormalized.has(normalized)) continue;
+    labelsByNormalized.set(normalized, label);
+  }
+
+  const normalizedNames = Array.from(labelsByNormalized.keys());
+  if (normalizedNames.length === 0) return [] as JobCompanyRow[];
+
+  const existingCompanies = await fetchJobCompaniesByNormalizedName(
+    admin,
+    companyId,
+    normalizedNames
+  );
+  const existingByName = new Map(
+    existingCompanies.map((item) => [item.normalized_name, item] as const)
+  );
+  const existingSlugs = new Set(existingCompanies.map((item) => item.slug).filter(Boolean));
+
+  const missingRows = normalizedNames
+    .filter((normalizedName) => !existingByName.has(normalizedName))
+    .map((normalizedName) => {
+      const name = labelsByNormalized.get(normalizedName) ?? normalizedName;
+      return {
+        company_id: companyId,
+        breezy_company_id: options.breezyCompanyId ?? null,
+        name,
+        normalized_name: normalizedName,
+        slug: buildUniqueSlug(name, existingSlugs),
+        metadata: {},
+      };
+    });
+
+  if (missingRows.length > 0) {
+    const { error } = await admin.from("job_companies").insert(missingRows);
+    if (error) throw new Error(error.message ?? "Failed to create job companies");
+  }
+
+  return fetchJobCompaniesByNormalizedName(admin, companyId, normalizedNames);
+}
+
+export async function setPositionJobCompanies(
+  admin: AdminClient,
+  init: {
+    companyId: string;
+    breezyPositionId: string;
+    jobCompanyIds: string[];
+    primaryJobCompanyId?: string | null;
+  }
+) {
+  const uniqueIds = Array.from(new Set(init.jobCompanyIds.map((id) => id.trim()).filter(Boolean)));
+
+  await admin
+    .from("job_position_companies")
+    .delete()
+    .eq("company_id", init.companyId)
+    .eq("breezy_position_id", init.breezyPositionId);
+
+  if (uniqueIds.length === 0) return;
+
+  const primary = init.primaryJobCompanyId && uniqueIds.includes(init.primaryJobCompanyId)
+    ? init.primaryJobCompanyId
+    : uniqueIds[0] ?? null;
+
+  const { error } = await admin.from("job_position_companies").insert(
+    uniqueIds.map((jobCompanyId) => ({
+      company_id: init.companyId,
+      breezy_position_id: init.breezyPositionId,
+      job_company_id: jobCompanyId,
+      is_primary: jobCompanyId === primary,
+    }))
+  );
+  if (error) throw new Error(error.message ?? "Failed to link position companies");
+
+  await admin
+    .from("breezy_positions")
+    .update({ job_company_id: primary })
+    .eq("company_id", init.companyId)
+    .eq("breezy_position_id", init.breezyPositionId);
+}
+
+export async function fetchPositionJobCompanyNames(
+  admin: AdminClient,
+  init: {
+    companyId: string;
+    breezyPositionId: string;
+  }
+) {
+  const { data: joinRows, error: joinError } = await admin
+    .from("job_position_companies")
+    .select("job_company_id,is_primary,created_at")
+    .eq("company_id", init.companyId)
+    .eq("breezy_position_id", init.breezyPositionId)
+    .order("is_primary", { ascending: false })
+    .order("created_at", { ascending: true });
+
+  if (joinError) throw new Error(joinError.message ?? "Failed to load position company links");
+
+  const ids = Array.from(
+    new Set(
+      (Array.isArray(joinRows) ? joinRows : [])
+        .map((row) => (typeof row.job_company_id === "string" ? row.job_company_id.trim() : ""))
+        .filter(Boolean)
+    )
+  );
+  if (ids.length === 0) return [];
+
+  const { data: companies, error: companyError } = await admin
+    .from("job_companies")
+    .select("id,name")
+    .eq("company_id", init.companyId)
+    .in("id", ids);
+
+  if (companyError) throw new Error(companyError.message ?? "Failed to load linked companies");
+
+  const nameById = new Map(
+    (Array.isArray(companies) ? companies : [])
+      .map((row) => [
+        typeof row.id === "string" ? row.id : "",
+        typeof row.name === "string" ? row.name.trim() : "",
+      ] as const)
+      .filter(([id, name]) => Boolean(id && name))
+  );
+
+  return ids.map((id) => nameById.get(id) ?? "").filter(Boolean);
+}
+
 export async function syncJobCompaniesFromPositions(
   admin: AdminClient,
   options: { companyId: string; breezyCompanyId?: string | null }
@@ -207,8 +342,39 @@ export async function syncJobCompaniesFromPositions(
     if (linkError) throw new Error(linkError.message ?? "Failed to link job companies");
   }
 
+  const joinRows = rows
+    .map((row) => {
+      const companyLabel =
+        (typeof row.company === "string" && row.company.trim()) ||
+        inferCompanyFromPositionName(row.name ?? "") ||
+        "";
+      const normalizedName = normalizeJobCompanyName(companyLabel);
+      const jobCompanyId = normalizedName ? companyIdByNormalizedName.get(normalizedName) ?? null : null;
+      if (!jobCompanyId) return null;
+      return {
+        company_id: options.companyId,
+        breezy_position_id: row.breezy_position_id,
+        job_company_id: jobCompanyId,
+        is_primary: true,
+      };
+    })
+    .filter(Boolean) as Array<{
+      company_id: string;
+      breezy_position_id: string;
+      job_company_id: string;
+      is_primary: boolean;
+    }>;
+
+  if (joinRows.length > 0) {
+    const { error: joinError } = await admin.from("job_position_companies").upsert(joinRows, {
+      onConflict: "company_id,breezy_position_id,job_company_id",
+      defaultToNull: false,
+    });
+    if (joinError) throw new Error(joinError.message ?? "Failed to sync position company joins");
+  }
+
   return {
     companiesUpserted: upsertRows.length,
-    positionsLinked: positionUpdates.length,
+    positionsLinked: positionUpdates.length + joinRows.length,
   };
 }

@@ -110,6 +110,7 @@ import StickyJobsHeader from "./sticky-jobs-header";
 
 type JobListItem = {
   id: string;
+  view_id?: string;
   name: string;
   state?: string;
   friendly_id?: string;
@@ -3600,7 +3601,7 @@ export default function JobsBoard() {
                   columns={2}
                   options={companyOptions.map((opt) => ({
                     value: opt.key,
-                    label: opt.label,
+                    label: opt.label.toUpperCase(),
                     prefix: companyOptionPrefix(opt.label, opt.logo),
                     searchText: opt.label,
                     suffix: opt.count ? String(opt.count) : "",
@@ -3810,7 +3811,7 @@ export default function JobsBoard() {
 	                      getJobShipTypeLabel(inferJobShipTypeFromText(job.company, job.name));
 
 	                    return (
-                    <Fragment key={job.id || `${job.name}-${index}`}>
+                    <Fragment key={job.view_id || job.id || `${job.name}-${index}`}>
                       <div
                         role="button"
                         tabIndex={0}
@@ -4011,7 +4012,7 @@ export default function JobsBoard() {
                               ) : (
                                 <Building2 className="h-5 w-5 text-slate-500" />
                               )}
-                              <span className="max-w-[190px] truncate whitespace-nowrap text-sm font-semibold text-slate-800 sm:max-w-[340px]">
+                              <span className="max-w-[190px] truncate whitespace-nowrap text-sm font-semibold text-slate-800 uppercase tracking-wide sm:max-w-[340px]">
                                 {company}
                               </span>
                               {modalPriorityLabel ? (

@@ -5,7 +5,10 @@ import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import { canonicalizeCountry } from "@/lib/country";
 import { normalizeBenefitTags } from "@/lib/job-company-benefits";
-import { normalizeJobCompanyName } from "@/lib/job-companies";
+import {
+  ensureJobCompaniesByName,
+  setPositionJobCompanies,
+} from "@/lib/job-companies";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
@@ -65,6 +68,7 @@ export async function POST(request: Request) {
           location_name?: string;
           org_type?: string;
           hidden?: boolean;
+          job_companies?: unknown;
           benefit_tags?: unknown;
           processable_country_codes?: unknown;
         }
@@ -76,6 +80,12 @@ export async function POST(request: Request) {
     const description = (payload?.description ?? "").trim();
     const type = (payload?.type ?? "").trim() || "contract";
     const jobCompany = (payload?.job_company ?? "").trim();
+    const jobCompaniesInput = Array.isArray(payload?.job_companies)
+      ? payload.job_companies
+          .map((item) => (typeof item === "string" ? item.trim() : ""))
+          .filter(Boolean)
+      : [];
+    const jobCompanyNames = jobCompaniesInput.length > 0 ? jobCompaniesInput : jobCompany ? [jobCompany] : [];
     const department = (payload?.department ?? "").trim();
     const locationName = (payload?.location_name ?? "").trim();
     const orgType = (payload?.org_type ?? "").trim() || "position";
@@ -122,17 +132,13 @@ export async function POST(request: Request) {
         const now = new Date().toISOString();
         const localId = `local_${randomUUID().slice(0, 8)}`;
         const state = orgType === "position" && !hidden ? "published" : "draft";
-        const normalizedJobCompany = normalizeJobCompanyName(jobCompany);
-        const { data: jobCompanyRow } = normalizedJobCompany
-          ? await admin
-              .from("job_companies")
-              .select("id,metadata")
-              .eq("company_id", membership.companyId)
-              .eq("normalized_name", normalizedJobCompany)
-              .maybeSingle()
-          : { data: null };
-        const jobCompanyId =
-          jobCompanyRow && typeof jobCompanyRow.id === "string" ? jobCompanyRow.id : null;
+        const jobCompanies = jobCompanyNames.length > 0
+          ? await ensureJobCompaniesByName(admin, membership.companyId, jobCompanyNames, {
+              breezyCompanyId: companyId,
+            })
+          : [];
+        const jobCompanyRow = jobCompanies[0] ?? null;
+        const jobCompanyId = jobCompanyRow?.id ?? null;
         const nationalityCountries = processableCountryCodes.map((code) => ({
           code,
           name: canonicalizeCountry(code) ?? code,
@@ -164,7 +170,7 @@ export async function POST(request: Request) {
             name,
             state,
             org_type: orgType,
-            company: jobCompany || null,
+            company: (jobCompanyNames[0] ?? jobCompany) || null,
             department: department || null,
             job_company_id: jobCompanyId,
             details,
@@ -178,6 +184,15 @@ export async function POST(request: Request) {
             { error: insertError.message ?? "Failed to create local opening" },
             { status: 500 }
           );
+        }
+
+        if (jobCompanies.length > 0) {
+          await setPositionJobCompanies(admin, {
+            companyId: membership.companyId,
+            breezyPositionId: localId,
+            jobCompanyIds: jobCompanies.map((company) => company.id),
+            primaryJobCompanyId: jobCompanyId,
+          });
         }
 
         if (jobCompanyId && benefitTags.length > 0) {
@@ -255,6 +270,67 @@ export async function POST(request: Request) {
         },
         { status: res.status }
       );
+    }
+
+    try {
+      const user = await requireUser();
+      const admin = createSupabaseAdminClient();
+      const membership = await ensureCompanyMembership(admin, user.id);
+      const record = typeof resBody === "object" && resBody !== null
+        ? (resBody as Record<string, unknown>)
+        : {};
+      const createdId =
+        (typeof record.id === "string" && record.id.trim()) ||
+        (typeof record._id === "string" && record._id.trim()) ||
+        "";
+      if (createdId) {
+        const jobCompanies = jobCompanyNames.length > 0
+          ? await ensureJobCompaniesByName(admin, membership.companyId, jobCompanyNames, {
+              breezyCompanyId: companyId,
+            })
+          : [];
+        const primaryJobCompany = jobCompanies[0] ?? null;
+        const now = new Date().toISOString();
+        const details = {
+          ...record,
+          company: (jobCompanyNames[0] ?? jobCompany) || record.company,
+          department: department || record.department,
+          location_name: locationName || record.location_name,
+          org_type: orgType,
+          benefit_tags: benefitTags,
+        };
+
+        await admin.from("breezy_positions").upsert(
+          [
+            {
+              company_id: membership.companyId,
+              breezy_company_id: companyId,
+              breezy_position_id: createdId,
+              name,
+              state: typeof record.state === "string" ? record.state : "published",
+              org_type: orgType,
+              company: (jobCompanyNames[0] ?? jobCompany) || null,
+              department: department || null,
+              job_company_id: primaryJobCompany?.id ?? null,
+              details,
+              synced_at: now,
+              details_synced_at: now,
+            },
+          ],
+          { onConflict: "company_id,breezy_position_id", defaultToNull: false }
+        );
+
+        if (jobCompanies.length > 0) {
+          await setPositionJobCompanies(admin, {
+            companyId: membership.companyId,
+            breezyPositionId: createdId,
+            jobCompanyIds: jobCompanies.map((company) => company.id),
+            primaryJobCompanyId: primaryJobCompany?.id ?? null,
+          });
+        }
+      }
+    } catch {
+      // Best effort: Breezy creation succeeded, so do not fail the request if local cache linking fails.
     }
 
     clearJobsResponseCache();

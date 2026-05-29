@@ -113,7 +113,7 @@ export async function GET() {
 
     const { data: positionRows, error: positionError } = await admin
       .from("breezy_positions")
-      .select("job_company_id,company,state,org_type")
+      .select("breezy_position_id,job_company_id,company,state,org_type")
       .eq("company_id", membership.companyId);
 
     if (positionError) {
@@ -124,6 +124,7 @@ export async function GET() {
     const countsByName = new Map<string, number>();
     const positionList = Array.isArray(positionRows)
       ? (positionRows as Array<{
+          breezy_position_id: string | null;
           job_company_id: string | null;
           company: string | null;
           state: string | null;
@@ -141,6 +142,29 @@ export async function GET() {
       const normalizedName = normalizeJobCompanyName(row.company);
       if (!normalizedName) continue;
       countsByName.set(normalizedName, (countsByName.get(normalizedName) ?? 0) + 1);
+    }
+
+    const { data: joinRows } = await admin
+      .from("job_position_companies")
+      .select("job_company_id,breezy_position_id")
+      .eq("company_id", membership.companyId);
+    const publishedPositionIds = new Set(
+      positionList
+        .filter((row) => (row.state ?? "").toLowerCase() === "published")
+        .filter((row) => (row.org_type ?? "").toLowerCase() !== "pool")
+        .map((row) => row.breezy_position_id ?? "")
+        .filter(Boolean)
+    );
+    if (Array.isArray(joinRows) && publishedPositionIds.size > 0) {
+      countsById.clear();
+      for (const row of joinRows) {
+        const jobCompanyId =
+          typeof row.job_company_id === "string" ? row.job_company_id : "";
+        const positionId =
+          typeof row.breezy_position_id === "string" ? row.breezy_position_id : "";
+        if (!jobCompanyId || !positionId || !publishedPositionIds.has(positionId)) continue;
+        countsById.set(jobCompanyId, (countsById.get(jobCompanyId) ?? 0) + 1);
+      }
     }
 
     const { data: mergeRows } = await admin

@@ -199,6 +199,20 @@ function normalizeCompanies(payload: unknown): BreezyCompany[] {
   return [];
 }
 
+function normalizeStringList(payload: unknown) {
+  if (!Array.isArray(payload)) return [];
+  const seen = new Set<string>();
+  const list: string[] = [];
+  for (const item of payload) {
+    const value = typeof item === "string" ? item.trim().replace(/\s+/g, " ") : "";
+    const key = value.toLowerCase();
+    if (!value || seen.has(key)) continue;
+    seen.add(key);
+    list.push(value);
+  }
+  return list;
+}
+
 function normalizePositions(payload: unknown): BreezyPosition[] {
   if (Array.isArray(payload)) return payload as BreezyPosition[];
   if (payload && typeof payload === "object") {
@@ -530,6 +544,7 @@ export default function BreezyPositionRecordsBrowser({
   const [detailsOverrides, setDetailsOverrides] = useState<Record<string, unknown>>(
     {}
   );
+  const [detailsCompanyNames, setDetailsCompanyNames] = useState<string[]>([]);
   const [canEdit, setCanEdit] = useState(false);
   const [editing, setEditing] = useState(false);
   const [createOpeningOpen, setCreateOpeningOpen] = useState(false);
@@ -538,6 +553,8 @@ export default function BreezyPositionRecordsBrowser({
   const [createOpeningUploadingHero, setCreateOpeningUploadingHero] = useState(false);
   const [createCompanyPickerOpen, setCreateCompanyPickerOpen] = useState(false);
   const [createCompanyQuery, setCreateCompanyQuery] = useState("");
+  const [createDepartmentPickerOpen, setCreateDepartmentPickerOpen] = useState(false);
+  const [createDepartmentQuery, setCreateDepartmentQuery] = useState("");
   const [createPriorityPickerOpen, setCreatePriorityPickerOpen] = useState(false);
   const [createPriorityQuery, setCreatePriorityQuery] = useState("");
   const [createOpeningDraft, setCreateOpeningDraft] = useState(() => ({
@@ -593,6 +610,7 @@ export default function BreezyPositionRecordsBrowser({
   const [editForm, setEditForm] = useState({
     name: "",
     company: "",
+    companies: [] as string[],
     department: "",
     priority: "",
     location_name: "",
@@ -608,6 +626,7 @@ export default function BreezyPositionRecordsBrowser({
     const merged = details;
     const name = getFirstStringField(merged, ["name", "title"]);
     const company = extractCompany(merged);
+    const companies = detailsCompanyNames.length > 0 ? detailsCompanyNames : company ? [company] : [];
     const department = extractDepartment(merged);
     const priority = getFirstStringField(merged, ["priority"]);
     const locationName =
@@ -638,7 +657,8 @@ export default function BreezyPositionRecordsBrowser({
 
     setEditForm({
       name: name || selectedPositionLabel || selectedPositionId || "",
-      company: company || "",
+      company: companies[0] ?? company ?? "",
+      companies,
       department: department || "",
       priority: normalizePriorityKey(priority || ""),
       location_name: locationName || "",
@@ -650,7 +670,7 @@ export default function BreezyPositionRecordsBrowser({
 
     setInlineEditField(null);
     setEditing(true);
-  }, [details, selectedPositionId, selectedPositionLabel]);
+  }, [details, detailsCompanyNames, selectedPositionId, selectedPositionLabel]);
 
   const companyPickerOptions = useMemo(() => {
     const seen = new Map<string, string>();
@@ -672,11 +692,11 @@ export default function BreezyPositionRecordsBrowser({
   }, [jobCompanies, positions]);
 
   const departmentPickerCompany = useMemo(() => {
-    const fromEdit = editForm.company.trim();
+    const fromEdit = (editForm.companies[0] ?? editForm.company).trim();
     if (fromEdit) return fromEdit;
     const fromDetails = details ? extractCompany(details) : "";
     return asString(fromDetails).trim();
-  }, [details, editForm.company]);
+  }, [details, editForm.company, editForm.companies]);
 
   const departmentPickerOptions = useMemo(() => {
     const targetCompany = departmentPickerCompany.trim().toLowerCase();
@@ -723,6 +743,17 @@ export default function BreezyPositionRecordsBrowser({
       a.localeCompare(b, undefined, { sensitivity: "base" })
     );
   }, [createOpeningDraft.company, managedDepartments, positions]);
+
+  const createDepartmentPickerOptions = useMemo(() => {
+    const query = createDepartmentQuery.trim().toLowerCase();
+    const list = query
+      ? createDepartmentOptions.filter((label) => label.toLowerCase().includes(query))
+      : createDepartmentOptions;
+    const normalized = new Set(list.map((label) => label.trim().toLowerCase()).filter(Boolean));
+    const custom =
+      query && !normalized.has(query) ? [createDepartmentQuery.trim().replace(/\s+/g, " ")] : [];
+    return [...custom, ...list];
+  }, [createDepartmentOptions, createDepartmentQuery]);
 
   const companyFilterOptions = useMemo<JobCompanyPickerOption[]>(() => {
     const counts = new Map(companyCounts.map((item) => [item.name.toLowerCase(), item.count]));
@@ -831,6 +862,7 @@ export default function BreezyPositionRecordsBrowser({
 	    setSelectedPositionLabel(null);
 	    setDetails(null);
 	    setDetailsOverrides({});
+    setDetailsCompanyNames([]);
     setCanEdit(false);
     setEditing(false);
     setInlineEditField(null);
@@ -1110,6 +1142,7 @@ export default function BreezyPositionRecordsBrowser({
           description: descriptionText,
           type: "contract",
           job_company: companyLabel,
+          job_companies: [companyLabel],
           department: createOpeningDraft.department.trim() || undefined,
           location_name: createOpeningDraft.location_name.trim() || undefined,
           org_type: recordType,
@@ -1161,7 +1194,7 @@ export default function BreezyPositionRecordsBrowser({
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ overrides }),
+          body: JSON.stringify({ overrides, companies: [createOpeningDraft.company.trim()] }),
         }
       );
       const saveData = await saveRes.json().catch(() => null);
@@ -1235,6 +1268,7 @@ export default function BreezyPositionRecordsBrowser({
     setWarning(null);
     setDetails(null);
     setDetailsOverrides({});
+    setDetailsCompanyNames([]);
     setCanEdit(false);
     setEditing(false);
     setInlineEditField(null);
@@ -1253,7 +1287,20 @@ export default function BreezyPositionRecordsBrowser({
       }
       const parsed = isRecord(data) ? (data as CachedPositionDetailsResponse) : null;
       const nextDetails = parsed && isRecord(parsed.details) ? parsed.details : null;
+      const meta = parsed?.meta && isRecord(parsed.meta) ? parsed.meta : {};
+      const linkedCompanyNames =
+        normalizeStringList(meta.companies).length > 0
+          ? normalizeStringList(meta.companies)
+          : normalizeStringList(nextDetails?.companies);
+      const fallbackCompany = nextDetails ? extractCompany(nextDetails) : "";
+      const nextCompanyNames =
+        linkedCompanyNames.length > 0
+          ? linkedCompanyNames
+          : fallbackCompany
+            ? [fallbackCompany]
+            : [];
       setDetails(nextDetails ?? { data });
+      setDetailsCompanyNames(nextCompanyNames);
       setDetailsOverrides(
         parsed && isRecord(parsed.overrides) ? (parsed.overrides as Record<string, unknown>) : {}
       );
@@ -1270,7 +1317,8 @@ export default function BreezyPositionRecordsBrowser({
 
         setEditForm({
           name: pick("name"),
-          company: pick("company"),
+          company: nextCompanyNames[0] ?? pick("company"),
+          companies: nextCompanyNames,
           department: pick("department"),
           priority: pick("priority"),
           location_name: pick("location_name"),
@@ -1753,7 +1801,7 @@ export default function BreezyPositionRecordsBrowser({
   }
 
   const saveQuickOverride = useCallback(
-    async (overrides: Record<string, unknown>) => {
+    async (overrides: Record<string, unknown>, options: { companies?: string[] } = {}) => {
       const posId = (selectedPositionId ?? "").trim();
       if (!posId) return;
       const targetCompanyId = companyId.trim();
@@ -1861,7 +1909,14 @@ export default function BreezyPositionRecordsBrowser({
         const res = await fetch(url, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ overrides: sanitizedOverrides }),
+          body: JSON.stringify({
+            overrides: sanitizedOverrides,
+            companies:
+              options.companies ??
+              (typeof sanitizedOverrides.company === "string" && sanitizedOverrides.company.trim()
+                ? [sanitizedOverrides.company.trim()]
+                : undefined),
+          }),
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) {
@@ -1909,7 +1964,15 @@ export default function BreezyPositionRecordsBrowser({
       const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ overrides }),
+        body: JSON.stringify({
+          overrides,
+          companies:
+            editForm.companies.length > 0
+              ? editForm.companies
+              : editForm.company.trim()
+                ? [editForm.company.trim()]
+                : [],
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -2652,21 +2715,30 @@ export default function BreezyPositionRecordsBrowser({
                   <div className="mb-3">
                     {(() => {
                       const baseCompany = details ? extractCompany(details) : "";
-                      const company =
-                        editing && editForm.company.trim()
-                          ? editForm.company.trim()
-                          : baseCompany;
-                      const logoSrc = company
-                        ? companyLogoByName[company.toLowerCase()] ?? ""
+                      const companies =
+                        editing && editForm.companies.length > 0
+                          ? editForm.companies
+                          : detailsCompanyNames.length > 0
+                            ? detailsCompanyNames
+                            : baseCompany
+                              ? [baseCompany]
+                              : [];
+                      const primaryCompany = companies[0] ?? "";
+                      const companyLabel =
+                        companies.length > 1
+                          ? `${primaryCompany} + ${companies.length - 1} more`
+                          : primaryCompany;
+                      const logoSrc = primaryCompany
+                        ? companyLogoByName[primaryCompany.toLowerCase()] ?? ""
                         : "";
-                      return company ? (
+                      return primaryCompany ? (
                         <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
                           <span className="inline-flex items-center gap-2">
                             {logoSrc ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={logoSrc}
-                                alt={company}
+                                alt={primaryCompany}
                                 className="h-8 w-8 flex-none rounded-full bg-white object-cover shadow-sm ring-1 ring-slate-200"
                                 loading="lazy"
                                 decoding="async"
@@ -2687,13 +2759,13 @@ export default function BreezyPositionRecordsBrowser({
                                 disabled={detailsLoading || savingEdits}
                               >
                                 <span className="max-w-[340px] whitespace-nowrap truncate">
-                                  {company}
+                                  {companyLabel}
                                 </span>
                                 <PencilLine className="h-4 w-4 text-slate-500" />
                               </button>
                             ) : (
                               <span className="max-w-[340px] whitespace-nowrap text-sm font-semibold text-slate-800 truncate">
-                                {company}
+                                {companyLabel}
                               </span>
                             )}
                           </span>
@@ -3156,7 +3228,7 @@ export default function BreezyPositionRecordsBrowser({
                         </div>
                         <div className="mt-1 text-xs text-slate-500">
                           {companyPickerOpen
-                            ? "Pick an existing company name."
+                            ? "Pick one or more companies for this job."
                             : departmentPickerCompany
                               ? `Pick a department for ${departmentPickerCompany}.`
                               : "Pick an existing department."}
@@ -3189,55 +3261,62 @@ export default function BreezyPositionRecordsBrowser({
                       <div className="mt-4 max-h-[320px] overflow-auto rounded-2xl border border-slate-200">
                         {filteredPickerOptions.length > 0 ? (
                           <div className="divide-y divide-slate-100">
-                            {filteredPickerOptions.map((label) => (
-                              <button
-                                key={label}
-                                type="button"
-                                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                                onClick={() => {
-                                  if (companyPickerOpen) {
-                                    const companyKey = label.trim().toLowerCase();
-                                    const allowedDepartments = new Set(
-                                      positions
-                                        .filter(
-                                          (pos) =>
-                                            asString(pos.company).trim().toLowerCase() ===
-                                            companyKey
-                                        )
-                                        .map((pos) =>
-                                          asString(pos.department).trim().toLowerCase()
-                                        )
-                                        .filter(Boolean)
-                                    );
-                                    const nextDept = editForm.department.trim();
-                                    const keepDept =
-                                      !nextDept ||
-                                      allowedDepartments.size === 0 ||
-                                      allowedDepartments.has(nextDept.toLowerCase());
+                            {filteredPickerOptions.map((label) => {
+                              const selected = editForm.companies.some(
+                                (item) => item.trim().toLowerCase() === label.trim().toLowerCase()
+                              );
+                              return (
+                                <button
+                                  key={label}
+                                  type="button"
+                                  className={[
+                                    "flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold transition",
+                                    selected && companyPickerOpen
+                                      ? "bg-emerald-50 text-emerald-800"
+                                      : "text-slate-800 hover:bg-slate-50",
+                                  ].join(" ")}
+                                  onClick={() => {
+                                    if (companyPickerOpen) {
+                                      setEditForm((prev) => {
+                                        const exists = prev.companies.some(
+                                          (item) =>
+                                            item.trim().toLowerCase() === label.trim().toLowerCase()
+                                        );
+                                        const companies = exists
+                                          ? prev.companies.filter(
+                                              (item) =>
+                                                item.trim().toLowerCase() !==
+                                                label.trim().toLowerCase()
+                                            )
+                                          : [...prev.companies, label];
+                                        return {
+                                          ...prev,
+                                          company: companies[0] ?? "",
+                                          companies,
+                                        };
+                                      });
+                                      return;
+                                    }
 
-                                    setEditForm((prev) => ({
-                                      ...prev,
-                                      company: label,
-                                      department: keepDept ? prev.department : "",
-                                    }));
-                                    void saveQuickOverride({
-                                      company: label,
-                                      department: keepDept ? editForm.department : "",
-                                    });
-                                  } else {
                                     setEditForm((prev) => ({ ...prev, department: label }));
                                     void saveQuickOverride({ department: label });
-                                  }
-                                  setCompanyPickerOpen(false);
-                                  setDepartmentPickerOpen(false);
-                                  setPickerQuery("");
-                                  setInlineEditField(null);
-                                }}
-                              >
-                                <span className="min-w-0 truncate">{label}</span>
-                                <span className="text-slate-400">Select</span>
-                              </button>
-                            ))}
+                                    setDepartmentPickerOpen(false);
+                                    setPickerQuery("");
+                                    setInlineEditField(null);
+                                  }}
+                                >
+                                  <span className="min-w-0 truncate">{label}</span>
+                                  {companyPickerOpen && selected ? (
+                                    <span className="inline-flex items-center gap-1 text-emerald-700">
+                                      <Check className="h-4 w-4" />
+                                      Selected
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400">Select</span>
+                                  )}
+                                </button>
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className="px-4 py-6 text-sm text-slate-500">No matches found.</div>
@@ -3250,28 +3329,76 @@ export default function BreezyPositionRecordsBrowser({
                           className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
                           onClick={() => {
                             if (companyPickerOpen) {
-                              setEditForm((prev) => ({ ...prev, company: "" }));
+                              setEditForm((prev) => ({ ...prev, company: "", companies: [] }));
                             } else {
                               setEditForm((prev) => ({ ...prev, department: "" }));
                             }
-                            setCompanyPickerOpen(false);
-                            setDepartmentPickerOpen(false);
-                            setPickerQuery("");
+                            if (!companyPickerOpen) {
+                              setDepartmentPickerOpen(false);
+                              setPickerQuery("");
+                            }
                           }}
                         >
                           Clear
                         </button>
-                        <button
-                          type="button"
-                          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                          onClick={() => {
-                            setCompanyPickerOpen(false);
-                            setDepartmentPickerOpen(false);
-                            setPickerQuery("");
-                          }}
-                        >
-                          Cancel
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                            onClick={() => {
+                              setCompanyPickerOpen(false);
+                              setDepartmentPickerOpen(false);
+                              setPickerQuery("");
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          {companyPickerOpen ? (
+                            <button
+                              type="button"
+                              className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                              onClick={() => {
+                                const selectedCompanies = editForm.companies;
+                                const primary = selectedCompanies[0] ?? "";
+                                const companyKey = primary.trim().toLowerCase();
+                                const allowedDepartments = new Set(
+                                  positions
+                                    .filter(
+                                      (pos) =>
+                                        !companyKey ||
+                                        asString(pos.company).trim().toLowerCase() === companyKey
+                                    )
+                                    .map((pos) => asString(pos.department).trim().toLowerCase())
+                                    .filter(Boolean)
+                                );
+                                const nextDept = editForm.department.trim();
+                                const keepDept =
+                                  !nextDept ||
+                                  allowedDepartments.size === 0 ||
+                                  allowedDepartments.has(nextDept.toLowerCase());
+
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  company: primary,
+                                  department: keepDept ? prev.department : "",
+                                }));
+                                setDetailsCompanyNames(selectedCompanies);
+                                void saveQuickOverride(
+                                  {
+                                    company: primary,
+                                    department: keepDept ? editForm.department : "",
+                                  },
+                                  { companies: selectedCompanies }
+                                );
+                                setCompanyPickerOpen(false);
+                                setPickerQuery("");
+                                setInlineEditField(null);
+                              }}
+                            >
+                              Apply
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -3860,21 +3987,102 @@ export default function BreezyPositionRecordsBrowser({
                   <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Department
                   </div>
-                  <input
-                    list="create-opening-departments"
-                    className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
-                    value={createOpeningDraft.department}
-                    onChange={(event) =>
-                      setCreateOpeningDraft((prev) => ({ ...prev, department: event.target.value }))
-                    }
-                    placeholder="e.g. Technical"
-                    disabled={createOpeningSaving}
-                  />
-                  <datalist id="create-opening-departments">
-                    {createDepartmentOptions.map((label) => (
-                      <option key={label} value={label} />
-                    ))}
-                  </datalist>
+                  <div className="relative mt-2">
+                    <button
+                      type="button"
+                      className="flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-left text-sm text-slate-800 shadow-sm outline-none transition hover:bg-slate-50 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+                      onClick={() => {
+                        setCreateDepartmentPickerOpen((open) => !open);
+                        setCreateCompanyPickerOpen(false);
+                        setCreatePriorityPickerOpen(false);
+                      }}
+                      disabled={createOpeningSaving}
+                      aria-haspopup="listbox"
+                      aria-expanded={createDepartmentPickerOpen}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-sky-100 bg-sky-50 text-sky-700">
+                          <Layers className="h-4 w-4" />
+                        </span>
+                        <span
+                          className={
+                            createOpeningDraft.department.trim()
+                              ? "min-w-0 truncate font-semibold"
+                              : "min-w-0 truncate text-slate-400"
+                          }
+                        >
+                          {createOpeningDraft.department.trim() || "Select department..."}
+                        </span>
+                      </span>
+                      <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                    </button>
+
+                    {createDepartmentPickerOpen ? (
+                      <div className="absolute left-0 right-0 top-full z-[13000] mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                        <div className="border-b border-slate-200 p-3">
+                          <div className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3">
+                            <Search className="h-4 w-4 shrink-0 text-slate-400" />
+                            <input
+                              className="h-full min-w-0 flex-1 border-none bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+                              value={createDepartmentQuery}
+                              onChange={(event) => setCreateDepartmentQuery(event.target.value)}
+                              placeholder="Search departments..."
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto p-2" role="listbox">
+                          {createDepartmentPickerOptions.length > 0 ? (
+                            createDepartmentPickerOptions.map((label) => {
+                              const active =
+                                label.trim().toLowerCase() ===
+                                createOpeningDraft.department.trim().toLowerCase();
+                              const isCustom =
+                                createDepartmentQuery.trim() &&
+                                label.trim().toLowerCase() ===
+                                  createDepartmentQuery.trim().toLowerCase() &&
+                                !createDepartmentOptions.some(
+                                  (item) => item.trim().toLowerCase() === label.trim().toLowerCase()
+                                );
+                              return (
+                                <button
+                                  key={label}
+                                  type="button"
+                                  className={[
+                                    "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition",
+                                    active
+                                      ? "bg-sky-50 text-sky-950"
+                                      : "text-slate-800 hover:bg-slate-50",
+                                  ].join(" ")}
+                                  role="option"
+                                  aria-selected={active}
+                                  onClick={() => {
+                                    setCreateOpeningDraft((prev) => ({
+                                      ...prev,
+                                      department: label,
+                                    }));
+                                    setCreateDepartmentQuery("");
+                                    setCreateDepartmentPickerOpen(false);
+                                  }}
+                                >
+                                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-sky-100 bg-sky-50 text-sky-700">
+                                    <Layers className="h-4 w-4" />
+                                  </span>
+                                  <span className="min-w-0 flex-1 truncate font-semibold">
+                                    {isCustom ? `Use “${label}”` : label}
+                                  </span>
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="px-3 py-6 text-center text-sm text-slate-500">
+                              No departments found.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
