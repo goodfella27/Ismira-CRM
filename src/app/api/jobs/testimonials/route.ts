@@ -11,6 +11,7 @@ import {
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
@@ -41,7 +42,7 @@ export async function GET() {
       {
         status: 200,
         headers: {
-          "Cache-Control": "public, max-age=300, stale-while-revalidate=600",
+          "Cache-Control": "no-store",
         },
       }
     );

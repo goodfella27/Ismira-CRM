@@ -70,24 +70,6 @@ export async function POST(request: Request) {
     const country = typeof payload?.country === "string" ? payload.country.trim().slice(0, 80) : "";
     const quote = typeof payload?.quote === "string" ? payload.quote.trim().slice(0, 500) : "";
 
-    const { data: existing, error: existingError } = await admin
-      .from("job_testimonials")
-      .select("sort_order")
-      .eq("company_id", membership.companyId)
-      .order("sort_order", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (existingError) {
-      throw new Error(normalizeJobTestimonialsError(existingError.message));
-    }
-
-    const prevOrder =
-      typeof existing?.sort_order === "number" && Number.isFinite(existing.sort_order)
-        ? existing.sort_order
-        : null;
-    const nextOrder = prevOrder !== null ? prevOrder + 1 : 0;
-
     const { data: created, error: createError } = await admin
       .from("job_testimonials")
       .insert({
@@ -97,7 +79,7 @@ export async function POST(request: Request) {
         country,
         quote,
         is_active: true,
-        sort_order: nextOrder,
+        sort_order: -1,
       })
       .select(JOB_TESTIMONIALS_SELECT)
       .single();

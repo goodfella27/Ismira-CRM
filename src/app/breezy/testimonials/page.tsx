@@ -48,7 +48,7 @@ function toDraft(item: JobTestimonialAdminItem): Draft {
     country: getCountryCode(item.country) ?? item.country,
     quote: item.quote,
     isActive: item.isActive,
-    sortOrder: String(item.sortOrder ?? 0),
+    sortOrder: item.sortOrder < 0 ? "" : String(item.sortOrder ?? 0),
   };
 }
 
@@ -68,7 +68,7 @@ function normalizeTestimonials(payload: unknown): JobTestimonialAdminItem[] {
         quote: asString(row.quote),
         imageUrl: asString(row.imageUrl) || null,
         isActive: row.isActive !== false,
-        sortOrder: typeof row.sortOrder === "number" && Number.isFinite(row.sortOrder) ? row.sortOrder : 0,
+          sortOrder: typeof row.sortOrder === "number" && Number.isFinite(row.sortOrder) ? row.sortOrder : 0,
         createdAt: asString(row.createdAt) || null,
         updatedAt: asString(row.updatedAt) || null,
       };
@@ -128,7 +128,7 @@ export default function BreezyTestimonialsPage() {
           country: "",
           quote: "",
           isActive: true,
-          sortOrder: "0",
+          sortOrder: "",
         }),
         ...patch,
       },
@@ -401,14 +401,18 @@ export default function BreezyTestimonialsPage() {
                       </label>
                       <label>
                         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          Sort order
+                          Placement after job #
                         </span>
                         <input
                           type="number"
+                          min="0"
                           className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none focus:border-emerald-300"
                           value={draft.sortOrder}
                           onChange={(event) => updateDraft(item.id, { sortOrder: event.target.value })}
                         />
+                        <span className="mt-1 block text-xs font-medium text-slate-500">
+                          Leave blank for automatic every 5 jobs. Use 0 for top placement.
+                        </span>
                       </label>
                     </div>
 

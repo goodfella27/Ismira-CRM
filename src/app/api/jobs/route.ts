@@ -26,6 +26,7 @@ import {
   normalizeJobCompanyName,
   signJobCompanyLogoUrls,
 } from "@/lib/job-companies";
+import { applyDepartmentOverridesToJobs } from "@/lib/job-departments";
 import { resolveJobShipType } from "@/lib/job-ship-types";
 
 export const runtime = "nodejs";
@@ -459,6 +460,11 @@ export async function GET(request: Request) {
         }
 
         enriched = attachPublicApplyUrls(enriched);
+        try {
+          enriched = await applyDepartmentOverridesToJobs(admin, primaryCompanyId, enriched);
+        } catch {
+          // Ignore department overlay failures so jobs remain available.
+        }
 
         const priorityTypes = await loadPriorityTypes(admin, primaryCompanyId);
         const payload = { jobs: enriched, priorityTypes };
@@ -549,6 +555,11 @@ export async function GET(request: Request) {
           companyId: primaryCompanyId,
           breezyCompanyId: companyId,
         });
+      } catch {
+        // ignore
+      }
+      try {
+        enriched = await applyDepartmentOverridesToJobs(admin, primaryCompanyId, enriched);
       } catch {
         // ignore
       }

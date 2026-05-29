@@ -108,8 +108,13 @@ export async function POST(
     if (typeof country === "string") update.country = country.trim().slice(0, 80);
     if (typeof quote === "string") update.quote = quote.trim().slice(0, 500);
     if (typeof sortOrder === "string") {
-      const nextSortOrder = Number.parseInt(sortOrder, 10);
-      if (Number.isFinite(nextSortOrder)) update.sort_order = nextSortOrder;
+      const trimmedSortOrder = sortOrder.trim();
+      if (!trimmedSortOrder) {
+        update.sort_order = -1;
+      } else {
+        const nextSortOrder = Number.parseInt(trimmedSortOrder, 10);
+        if (Number.isFinite(nextSortOrder)) update.sort_order = nextSortOrder;
+      }
     }
     update.is_active = parseBoolean(form.get("isActive"), existing.is_active !== false);
     if (nextImagePath !== undefined) update.image_path = nextImagePath;

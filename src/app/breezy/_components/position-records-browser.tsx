@@ -120,6 +120,18 @@ type CompanyCountsResponse = {
   error?: string;
 };
 
+type JobDepartmentOption = {
+  key: string;
+  label: string;
+  count: number;
+  isHidden: boolean;
+};
+
+type JobDepartmentsResponse = {
+  departments?: JobDepartmentOption[];
+  error?: string;
+};
+
 type PriorityTypesResponse = {
   priorityTypes?: BreezyPriorityType[];
   warning?: string;
@@ -130,8 +142,8 @@ export type BreezyRecordType = "position" | "pool";
 
 type BreezyPositionRecordsBrowserProps = {
   recordType: BreezyRecordType;
-  title: string;
-  description: string;
+  title?: string;
+  description?: string;
 };
 
 function asString(value: unknown) {
@@ -571,6 +583,7 @@ export default function BreezyPositionRecordsBrowser({
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [departmentPickerOpen, setDepartmentPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
+  const [managedDepartments, setManagedDepartments] = useState<JobDepartmentOption[]>([]);
   const [priorityDrafts, setPriorityDrafts] = useState<Record<string, string>>({});
   const [newPriorityLabel, setNewPriorityLabel] = useState("");
   const [prioritySaving, setPrioritySaving] = useState(false);
@@ -668,6 +681,13 @@ export default function BreezyPositionRecordsBrowser({
   const departmentPickerOptions = useMemo(() => {
     const targetCompany = departmentPickerCompany.trim().toLowerCase();
     const seen = new Map<string, string>();
+    for (const item of managedDepartments) {
+      if (item.isHidden) continue;
+      const label = asString(item.label).trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (!seen.has(key)) seen.set(key, label);
+    }
     for (const pos of positions) {
       const company = asString(pos.company).trim();
       if (targetCompany && company.toLowerCase() !== targetCompany) continue;
@@ -679,11 +699,18 @@ export default function BreezyPositionRecordsBrowser({
     return Array.from(seen.values()).sort((a, b) =>
       a.localeCompare(b, undefined, { sensitivity: "base" })
     );
-  }, [departmentPickerCompany, positions]);
+  }, [departmentPickerCompany, managedDepartments, positions]);
 
   const createDepartmentOptions = useMemo(() => {
     const targetCompany = createOpeningDraft.company.trim().toLowerCase();
     const seen = new Map<string, string>();
+    for (const item of managedDepartments) {
+      if (item.isHidden) continue;
+      const label = asString(item.label).trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (!seen.has(key)) seen.set(key, label);
+    }
     for (const pos of positions) {
       const company = asString(pos.company).trim();
       if (targetCompany && company.toLowerCase() !== targetCompany) continue;
@@ -695,7 +722,7 @@ export default function BreezyPositionRecordsBrowser({
     return Array.from(seen.values()).sort((a, b) =>
       a.localeCompare(b, undefined, { sensitivity: "base" })
     );
-  }, [createOpeningDraft.company, positions]);
+  }, [createOpeningDraft.company, managedDepartments, positions]);
 
   const companyFilterOptions = useMemo<JobCompanyPickerOption[]>(() => {
     const counts = new Map(companyCounts.map((item) => [item.name.toLowerCase(), item.count]));
@@ -1278,8 +1305,6 @@ export default function BreezyPositionRecordsBrowser({
       const company = asString(pos.company).trim();
       const companyLogoUrl = companyLogoByName[company.toLowerCase()] ?? "";
       const department = asString(pos.department).trim();
-      const priority = asString(pos.priority).trim().toLowerCase();
-      const priorityLabel = getPriorityLabel(priority, availablePriorityTypes);
       const hidden = Boolean(pos.hidden) && orgType !== "pool";
       const stateNormalized = asString(pos.state).trim().toLowerCase();
       const statusTone = hidden
@@ -1294,17 +1319,15 @@ export default function BreezyPositionRecordsBrowser({
       const avatar = avatarSeed.slice(0, 1).toUpperCase();
 
       return (
-        <div
+        <tr
           key={id || `${name}-${index}`}
           role="button"
           tabIndex={id ? 0 : -1}
           aria-pressed={active}
           className={[
-            "group relative flex h-full min-h-[320px] w-full flex-col rounded-[30px] border bg-white p-6 text-left shadow-[0_16px_40px_rgba(15,23,42,0.08)] transition duration-200",
-            id ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/25" : "",
-            active
-              ? "border-emerald-200 ring-2 ring-emerald-500/15"
-              : "border-slate-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_18px_46px_rgba(15,23,42,0.12)]",
+            "group align-middle transition",
+            id ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/25" : "",
+            active ? "bg-emerald-50" : "hover:bg-slate-50",
           ].join(" ")}
           onClick={() => (id ? void loadPositionDetails(id, name) : undefined)}
           onKeyDown={(event) => {
@@ -1314,9 +1337,9 @@ export default function BreezyPositionRecordsBrowser({
             void loadPositionDetails(id, name);
           }}
         >
-          <div className="flex min-w-0 items-start justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-200 bg-white text-lg font-bold text-slate-600 shadow-sm">
+          <td className="whitespace-nowrap px-4 py-3">
+            <div className="flex items-center gap-3" title={company || "Position"}>
+              <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm">
                 {companyLogoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -1329,174 +1352,141 @@ export default function BreezyPositionRecordsBrowser({
                   avatar
                 )}
               </div>
-
-              <div className="min-w-0">
-                <div className="truncate text-base font-semibold text-slate-900">
-                  {company || "Position"}
-                </div>
-              </div>
+              <span className="sr-only">{company || "Position"}</span>
             </div>
+          </td>
 
-            <div className="flex shrink-0 items-center gap-2">
+          <td className="min-w-[320px] px-4 py-3">
+            <div className="min-w-0">
+              <div title={name} className="truncate text-sm font-semibold text-slate-950">
+                {name}
+              </div>
+              {department ? (
+                <div className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-lg bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-800 ring-1 ring-sky-100">
+                  <Layers className="h-3.5 w-3.5 text-sky-600" />
+                  <span className="truncate">{department}</span>
+                </div>
+              ) : null}
+            </div>
+          </td>
+
+          <td className="whitespace-nowrap px-4 py-3 text-right">
+            <div className="flex items-center justify-end gap-2">
               {pos.edited ? (
                 <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700 ring-1 ring-amber-100">
                   Edited
                 </span>
               ) : null}
-              <span className={`rounded-full px-3 py-1 text-[11px] font-semibold capitalize ${statusTone}`}>
+              <span
+                className={`rounded-full px-3 py-1 text-[11px] font-semibold capitalize ${statusTone}`}
+              >
                 {statusLabel}
               </span>
             </div>
-          </div>
+          </td>
 
-	          <div className="mt-6 min-w-0">
-		            <div
-		              title={name}
-		              className={[
-		                "min-w-0 break-words text-[19px] font-semibold leading-[1.2] tracking-[-0.03em] text-slate-950",
-		                "[display:-webkit-box] [-webkit-box-orient:vertical] overflow-hidden",
-		                "[-webkit-line-clamp:3]",
-		              ].join(" ")}
-		            >
-	              {name}
-	            </div>
+          <td className="whitespace-nowrap px-4 py-3 text-right">
+            {id ? (
+              <div className="relative inline-flex">
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={cardMenuOpenId === id}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                    cardMenuButtonRef.current = event.currentTarget as HTMLButtonElement;
+                    setCardMenuOpenId((prev) => {
+                      const next = prev === id ? null : id;
+                      if (next) {
+                        setCardMenuAnchor({
+                          top: rect.top,
+                          bottom: rect.bottom,
+                          right: rect.right,
+                        });
+                      } else {
+                        setCardMenuAnchor(null);
+                        cardMenuButtonRef.current = null;
+                      }
+                      return next;
+                    });
+                  }}
+                  disabled={cardActionSavingId === id}
+                  title="Actions"
+                >
+                  <AlignJustify className="h-5 w-5" />
+                </button>
 
-              <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-700">
-                {department ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-50 px-3 py-2 text-[11px] font-semibold text-sky-800 ring-1 ring-sky-100">
-                    <Layers className="h-3.5 w-3.5 text-sky-600" />
-                    <span className="max-w-[220px] truncate whitespace-nowrap">
-                      {department}
-                    </span>
-                  </span>
-                ) : null}
-
-              </div>
-	          </div>
-
-			          <div className="mt-auto pt-8">
-			            <div className="border-t border-slate-200 pt-5">
-			              <div className="flex flex-wrap items-end justify-between gap-4">
-	                    {priorityLabel ? (
-	                      <span
+                {cardMenuOpenId === id ? (
+                  typeof document !== "undefined" && cardMenuAnchor
+                    ? createPortal(
+                        <div
+                          ref={cardMenuRef}
+                          role="menu"
                           className={[
-                            "inline-flex items-center rounded-full px-3 py-2 text-[10px] font-semibold uppercase tracking-wide shadow-sm",
-                            "bg-gradient-to-r from-[#ffbf5f] to-[#ff9d2e] text-white shadow-orange-200/40",
+                            "fixed z-[80] w-56 origin-bottom-right -translate-x-full rounded-2xl border border-slate-200 bg-white shadow-xl",
+                            cardMenuAnchor.top > 220 ? "-translate-y-full" : "",
                           ].join(" ")}
+                          style={{
+                            top: (() => {
+                              const up = cardMenuAnchor.top > 220;
+                              const target = up
+                                ? cardMenuAnchor.top - 8
+                                : cardMenuAnchor.bottom + 8;
+                              if (typeof window === "undefined") return Math.max(12, target);
+                              return Math.max(12, Math.min(window.innerHeight - 12, target));
+                            })(),
+                            left: Math.min(
+                              (typeof window !== "undefined" ? window.innerWidth : 9999) - 12,
+                              cardMenuAnchor.right
+                            ),
+                          }}
+                          onClick={(event) => event.stopPropagation()}
                         >
-	                        {priorityLabel}
-	                      </span>
-	                    ) : (
-                        <span />
-                      )}
-				                {id ? (
-                          <div className="relative shrink-0">
-                            <button
-                              type="button"
-                              aria-haspopup="menu"
-                              aria-expanded={cardMenuOpenId === id}
-                              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                const rect = (
-                                  event.currentTarget as HTMLButtonElement
-                                ).getBoundingClientRect();
-                                cardMenuButtonRef.current = event.currentTarget as HTMLButtonElement;
-                                setCardMenuOpenId((prev) => {
-                                  const next = prev === id ? null : id;
-                                  if (next) {
-                                    setCardMenuAnchor({
-                                      top: rect.top,
-                                      bottom: rect.bottom,
-                                      right: rect.right,
-                                    });
-                                  } else {
-                                    setCardMenuAnchor(null);
-                                    cardMenuButtonRef.current = null;
-                                  }
-                                  return next;
-                                });
-                              }}
-                              disabled={cardActionSavingId === id}
-                              title="Actions"
-                            >
-                              <AlignJustify className="h-5 w-5" />
-                            </button>
-
-                            {cardMenuOpenId === id ? (
-                              typeof document !== "undefined" && cardMenuAnchor
-                                ? createPortal(
-                                    <div
-                                      ref={cardMenuRef}
-                                      role="menu"
-                                      className={[
-                                        "fixed z-[80] w-56 origin-bottom-right -translate-x-full rounded-2xl border border-slate-200 bg-white shadow-xl",
-                                        cardMenuAnchor.top > 220 ? "-translate-y-full" : "",
-                                      ].join(" ")}
-                                      style={{
-                                        top: (() => {
-                                          const up = cardMenuAnchor.top > 220;
-                                          const target = up ? cardMenuAnchor.top - 8 : cardMenuAnchor.bottom + 8;
-                                          if (typeof window === "undefined") return Math.max(12, target);
-                                          return Math.max(12, Math.min(window.innerHeight - 12, target));
-                                        })(),
-                                        left: Math.min(
-                                          (typeof window !== "undefined" ? window.innerWidth : 9999) - 12,
-                                          cardMenuAnchor.right
-                                        ),
-                                      }}
-                                      onClick={(event) => event.stopPropagation()}
-                                    >
-                                      <button
-                                        type="button"
-                                        role="menuitem"
-                                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
-                                        onClick={() => void openPositionEditor(id, name)}
-                                        disabled={cardActionSavingId === id}
-                                      >
-                                        <PencilLine className="h-4 w-4" />
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        role="menuitem"
-                                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
-                                        onClick={() => void patchPositionHidden(id, !hidden)}
-                                        disabled={cardActionSavingId === id}
-                                      >
-                                        {hidden ? (
-                                          <Eye className="h-4 w-4" />
-                                        ) : (
-                                          <EyeOff className="h-4 w-4" />
-                                        )}
-                                        {hidden ? "Unhide" : "Hide"}
-                                      </button>
-                                      <div className="border-t border-slate-200" />
-                                      <button
-                                        type="button"
-                                        role="menuitem"
-                                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
-                                  onClick={() => requestDeletePosition(id, name)}
-                                  disabled={cardActionSavingId === id}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  Delete
-                                      </button>
-                                    </div>,
-                                    document.body
-                                  )
-                                : null
-                            ) : null}
-                          </div>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                            onClick={() => void openPositionEditor(id, name)}
+                            disabled={cardActionSavingId === id}
+                          >
+                            <PencilLine className="h-4 w-4" />
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                            onClick={() => void patchPositionHidden(id, !hidden)}
+                            disabled={cardActionSavingId === id}
+                          >
+                            {hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                            {hidden ? "Unhide" : "Hide"}
+                          </button>
+                          <div className="border-t border-slate-200" />
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                            onClick={() => requestDeletePosition(id, name)}
+                            disabled={cardActionSavingId === id}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </button>
+                        </div>,
+                        document.body
+                      )
+                    : null
                 ) : null}
               </div>
-            </div>
-          </div>
-        </div>
+            ) : null}
+          </td>
+        </tr>
       );
     });
 		  }, [
-		    availablePriorityTypes,
 		    cardActionSavingId,
 		    cardMenuOpenId,
 		    cardMenuAnchor,
@@ -1532,6 +1522,27 @@ export default function BreezyPositionRecordsBrowser({
         )
       );
       setPriorityTypesWarning(err instanceof Error ? err.message : "Failed to load priority types.");
+    }
+  };
+
+  const loadManagedDepartments = async () => {
+    try {
+      const res = await fetch("/api/company/job-departments", { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as JobDepartmentsResponse | null;
+      if (!res.ok) throw new Error(data?.error || "Failed to load departments.");
+      const departments = Array.isArray(data?.departments)
+        ? data.departments
+            .map((item) => ({
+              key: asString(item.key).trim(),
+              label: asString(item.label).trim(),
+              count: typeof item.count === "number" && Number.isFinite(item.count) ? item.count : 0,
+              isHidden: item.isHidden === true,
+            }))
+            .filter((item) => item.key && item.label)
+        : [];
+      setManagedDepartments(departments);
+    } catch {
+      setManagedDepartments([]);
     }
   };
 
@@ -1957,6 +1968,7 @@ export default function BreezyPositionRecordsBrowser({
   useEffect(() => {
     void loadCompanies();
     void loadPriorityTypes();
+    void loadManagedDepartments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -2199,12 +2211,27 @@ export default function BreezyPositionRecordsBrowser({
 	            document.body
 	          )
 	        : null}
-	      <div>
-	        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">{title}</h1>
-	        <p className="mt-2 text-sm text-slate-600">{description}</p>
-	      </div>
+        {title || description ? (
+          <div>
+            {title ? (
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+                {title}
+              </h1>
+            ) : null}
+            {description ? (
+              <p className={title ? "mt-2 text-sm text-slate-600" : "text-sm text-slate-600"}>
+                {description}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
-		      <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+		      <div
+            className={[
+              title || description ? "mt-8" : "mt-0",
+              "rounded-3xl border border-slate-200 bg-white p-6 shadow-sm",
+            ].join(" ")}
+          >
 		        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
 
 		          <div>
@@ -2452,18 +2479,50 @@ export default function BreezyPositionRecordsBrowser({
             </div>
           </div>
 
-          <div className="mt-5 grid gap-5 grid-cols-[repeat(auto-fit,minmax(280px,1fr))]">
-            {loadingPositions ? (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                Loading positions…
-              </div>
-            ) : filteredPositions.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                No {recordType === "pool" ? "pools" : "positions"} found.
-              </div>
-            ) : (
-              positionCards
-            )}
+          <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full table-auto">
+                <thead className="bg-slate-50">
+                  <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <th scope="col" className="px-4 py-3">
+                      Company
+                    </th>
+                    <th scope="col" className="px-4 py-3">
+                      Position
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-right">
+                      Status
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-right">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {loadingPositions ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="bg-white px-4 py-10 text-center text-sm text-slate-500"
+                      >
+                        Loading positions…
+                      </td>
+                    </tr>
+                  ) : filteredPositions.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="bg-white px-4 py-10 text-center text-sm text-slate-500"
+                      >
+                        No {recordType === "pool" ? "pools" : "positions"} found.
+                      </td>
+                    </tr>
+                  ) : (
+                    positionCards
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {!loadingPositions ? (

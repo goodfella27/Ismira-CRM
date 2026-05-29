@@ -64,7 +64,14 @@ function HeroCoverImage({ src }: { src: string }) {
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
 
   useEffect(() => {
-    setAspectRatio(null);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setAspectRatio(null);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [src]);
 
   if (!src) {
@@ -145,6 +152,7 @@ type JobTestimonial = {
   role: string;
   country: string;
   imageUrl: string | null;
+  sortOrder: number;
 };
 
 function asString(value: unknown) {
@@ -175,8 +183,8 @@ const COUNTRY_DISPLAY_NAMES =
 const HERO_LOGOS_CACHE_KEY = "jobs:hero_logos:v1";
 const HERO_LOGOS_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 
-const TESTIMONIALS_CACHE_KEY = "jobs:testimonials:v1";
-const TESTIMONIALS_CACHE_TTL_MS = 1000 * 60 * 60 * 6; // signed image URLs expire; keep this short
+const TESTIMONIALS_CACHE_KEY = "jobs:testimonials:v5";
+const TESTIMONIALS_CACHE_TTL_MS = 1000 * 60 * 5; // keep short so ordering/edits reflect quickly
 
 function countryLabelFromCode(code: string) {
   const upper = (code ?? "").trim().toUpperCase();
@@ -1185,20 +1193,31 @@ function indexJobs(list: JobListItem[]) {
 
 function shouldInsertInlineTestimonial(index: number) {
   const position = index + 1;
-  return position === 8 || (position > 8 && (position - 8) % 12 === 0);
+  return position > 0 && position % 5 === 0;
 }
 
 function getInlineTestimonialIndex(index: number) {
-  return Math.max(0, Math.floor((index + 1 - 8) / 12));
+  return Math.max(0, Math.floor((index + 1) / 5) - 1);
 }
 
-function getInlineTestimonial(index: number, testimonials: JobTestimonial[]) {
-  // The top proof strip consumes the first testimonial (index 0).
-  // Inline placements show the remaining testimonials in order, exactly once.
-  const inlineTestimonials = testimonials.slice(1);
-  if (inlineTestimonials.length === 0) return null;
+function getInlineTestimonials(index: number, testimonials: JobTestimonial[]) {
+  if (testimonials.length === 0) return [];
+
+  const position = index + 1;
+  const manualTestimonials = testimonials.filter((testimonial) => testimonial.sortOrder === position);
+  if (manualTestimonials.length > 0) return manualTestimonials;
+
+  if (!shouldInsertInlineTestimonial(index)) return [];
+
+  const automaticTestimonials = testimonials.filter((testimonial) => testimonial.sortOrder < 0);
+  if (automaticTestimonials.length === 0) return [];
+  const inlineTestimonials = automaticTestimonials;
   const testimonialIndex = getInlineTestimonialIndex(index);
-  return inlineTestimonials[testimonialIndex] ?? null;
+  return [inlineTestimonials[testimonialIndex % inlineTestimonials.length]].filter(Boolean);
+}
+
+function getTopTestimonials(testimonials: JobTestimonial[]) {
+  return testimonials.filter((testimonial) => testimonial.sortOrder === 0);
 }
 
 function getTestimonialCountryDisplay(country: string) {
@@ -1715,6 +1734,10 @@ export default function JobsBoard() {
             name: typeof row.name === "string" ? row.name.trim() : "",
             role: typeof row.role === "string" ? row.role.trim() : "",
             country: typeof row.country === "string" ? row.country.trim() : "",
+            sortOrder:
+              typeof row.sortOrder === "number" && Number.isFinite(row.sortOrder)
+                ? row.sortOrder
+                : 0,
             imageUrl:
               typeof row.imageUrl === "string" && row.imageUrl.trim()
                 ? row.imageUrl.trim()
@@ -2328,8 +2351,11 @@ export default function JobsBoard() {
       const controller = new AbortController();
       testimonialsAbortRef.current = controller;
       try {
-        // Use browser HTTP cache for near-instant refresh when available.
-        const res = await fetch("/api/jobs/testimonials", { signal: controller.signal });
+        // Avoid stale ordering/content after admin edits.
+        const res = await fetch("/api/jobs/testimonials", {
+          signal: controller.signal,
+          cache: "no-store",
+        });
         const data = await res.json().catch(() => null);
         if (!res.ok) return;
         const list: unknown[] = Array.isArray(data?.testimonials)
@@ -2344,6 +2370,10 @@ export default function JobsBoard() {
               name: typeof row.name === "string" ? row.name.trim() : "",
               role: typeof row.role === "string" ? row.role.trim() : "",
               country: typeof row.country === "string" ? row.country.trim() : "",
+              sortOrder:
+                typeof row.sortOrder === "number" && Number.isFinite(row.sortOrder)
+                  ? row.sortOrder
+                  : 0,
               imageUrl:
                 typeof row.imageUrl === "string" && row.imageUrl.trim()
                   ? row.imageUrl.trim()
@@ -3745,11 +3775,13 @@ export default function JobsBoard() {
                 </div>
               ) : null}
 
-              {!loading && filtered.length > 0 && testimonials.length > 0 ? (
-                <div className="mt-5">
-                  <JobTestimonialStrip testimonial={testimonials[0] as JobTestimonial} variant="top" />
-                </div>
-              ) : null}
+              {!loading && filtered.length > 0
+                ? getTopTestimonials(testimonials).map((testimonial) => (
+                    <div key={`top-${testimonial.id}`} className="mt-5">
+                      <JobTestimonialStrip testimonial={testimonial} variant="top" />
+                    </div>
+                  ))
+                : null}
 
               <div className="mt-5 space-y-4">
                 {loading ? (
@@ -3876,16 +3908,13 @@ export default function JobsBoard() {
 	                        </div>
 
                       </div>
-                      {visibleJobs.length >= 10 &&
-                      shouldInsertInlineTestimonial(index) &&
-                      getInlineTestimonialIndex(index) < Math.max(0, testimonials.length - 1) ? (
-                        (() => {
-                          const testimonial = getInlineTestimonial(index, testimonials);
-                          return testimonial ? (
-                            <JobTestimonialStrip testimonial={testimonial} variant="inline" />
-                          ) : null;
-                        })()
-                      ) : null}
+                      {getInlineTestimonials(index, testimonials).map((testimonial) => (
+                        <JobTestimonialStrip
+                          key={`${job.id}-${testimonial.id}`}
+                          testimonial={testimonial}
+                          variant="inline"
+                        />
+                      ))}
                     </Fragment>
 	                    );
 	                  })
