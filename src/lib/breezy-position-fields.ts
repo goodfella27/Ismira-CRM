@@ -104,6 +104,16 @@ function normalizeLooseCompanyName(value: unknown) {
   return asTrimmedString(value).replace(/\s+/g, " ").toLowerCase();
 }
 
+function normalizeCompanyForTitleMatch(value: unknown) {
+  const normalized = normalizeLooseCompanyName(value);
+  if (!normalized) return "";
+
+  // Legacy / abbreviated names that appear in position titles.
+  if (normalized === "vv" || normalized === "virgin voyage") return "virgin voyages";
+
+  return normalized;
+}
+
 export function replacePositionTitleCompany(
   titleValue: unknown,
   sourceCompanyValue: unknown,
@@ -113,14 +123,14 @@ export function replacePositionTitleCompany(
   const sourceCompany = asTrimmedString(sourceCompanyValue);
   const targetCompany = asTrimmedString(targetCompanyValue);
   if (!title || !sourceCompany || !targetCompany) return title;
-  if (normalizeLooseCompanyName(sourceCompany) === normalizeLooseCompanyName(targetCompany)) {
-    return title;
-  }
-
   const inferred = inferCompanyFromPositionName(title);
   if (!inferred) return title;
-  if (normalizeLooseCompanyName(inferred) !== normalizeLooseCompanyName(sourceCompany)) {
-    return title;
+  if (normalizeCompanyForTitleMatch(inferred) !== normalizeCompanyForTitleMatch(sourceCompany)) return title;
+
+  // If the source and target are the same company (e.g. alias "VV" -> "Virgin Voyages"),
+  // we still want to expand the prefix in the title.
+  if (normalizeCompanyForTitleMatch(sourceCompany) === normalizeCompanyForTitleMatch(targetCompany)) {
+    if (normalizeLooseCompanyName(inferred) === normalizeLooseCompanyName(targetCompany)) return title;
   }
 
   const parts = title.split(/\s([-–—])\s/);

@@ -43,7 +43,10 @@ import { createPortal } from "react-dom";
 
 import DetailsModalShell from "@/components/details-modal-shell";
 import { LogoStackSlider, type LogoStackItem } from "@/components/logo-stack-slider";
-import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
+import {
+  extractCompany,
+  extractDepartment,
+} from "@/lib/breezy-position-fields";
 import { pickPositionDescription } from "@/lib/breezy-position-description";
 import {
   DEFAULT_BREEZY_PRIORITY_TYPES,
@@ -139,7 +142,7 @@ type JobListItemIndexed = JobListItem & {
 };
 
 type JobsBoardCache = {
-  v: 2;
+  v: 4;
   savedAt: number;
   etag?: string;
   items: JobListItem[];
@@ -1098,7 +1101,7 @@ function extractHeroImageFromSafeHtml(html: string): { heroSrc: string; bodyHtml
   }
 }
 
-const JOBS_CACHE_KEY = "jobsboard:list:v1";
+const JOBS_CACHE_KEY = "jobsboard:list:v4";
 const JOBS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const JOBS_PAGE_SIZE = 24;
 
@@ -1111,24 +1114,15 @@ function readJobsCache(): JobsBoardCache | null {
       | (Partial<JobsBoardCache> & { v?: number; priorityTypes?: unknown })
       | null;
     if (!parsed || typeof parsed.savedAt !== "number" || !Array.isArray(parsed.items)) return null;
-    if (parsed.v === 2) {
+    if (parsed.v === 4) {
       return {
-        v: 2,
+        v: 4,
         savedAt: parsed.savedAt,
         etag: typeof parsed.etag === "string" ? parsed.etag : undefined,
         items: parsed.items as JobListItem[],
         priorityTypes: Array.isArray(parsed.priorityTypes)
           ? (parsed.priorityTypes as BreezyPriorityType[])
           : DEFAULT_BREEZY_PRIORITY_TYPES,
-      };
-    }
-    if (parsed.v === 1) {
-      return {
-        v: 2,
-        savedAt: parsed.savedAt,
-        etag: typeof parsed.etag === "string" ? parsed.etag : undefined,
-        items: parsed.items as JobListItem[],
-        priorityTypes: DEFAULT_BREEZY_PRIORITY_TYPES,
       };
     }
     return null;
@@ -2226,7 +2220,7 @@ export default function JobsBoard() {
       // Persist the raw list (smaller) and let the UI rebuild indices quickly on refresh.
       setTimeout(() => {
         writeJobsCache({
-          v: 2,
+          v: 4,
           savedAt: Date.now(),
           etag: etagRef.current ?? undefined,
           items: list,
@@ -2249,7 +2243,10 @@ export default function JobsBoard() {
     setDetailsLoadingId(positionId);
     setError(null);
     try {
-      const res = await fetch(`/api/jobs/${encodeURIComponent(positionId)}`, { signal });
+      const res = await fetch(`/api/jobs/${encodeURIComponent(positionId)}`, {
+        cache: "no-store",
+        signal,
+      });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(
@@ -2512,7 +2509,7 @@ export default function JobsBoard() {
     const prefetchOne = async (id: string) => {
       prefetchingDetailsRef.current.add(id);
       try {
-        const res = await fetch(`/api/jobs/${encodeURIComponent(id)}`);
+        const res = await fetch(`/api/jobs/${encodeURIComponent(id)}`, { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json().catch(() => null);
         const payload = isRecord(data) ? data : { data };
@@ -3866,13 +3863,25 @@ export default function JobsBoard() {
 
                               <div className="min-w-0 flex-1">
                               <div className="min-w-0 break-words text-[19px] font-extrabold leading-[1.18] text-slate-950 xl:hidden">
-                                {job.name || "Position"}
+                                <span className="flex flex-wrap items-center gap-2">
+                                  {priorityLabel ? (
+                                    <span
+                                      className={[
+                                        "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide shadow-sm",
+                                        getPriorityBadgeClass(priority, availablePriorityTypes),
+                                      ].join(" ")}
+                                    >
+                                      {priorityLabel}
+                                    </span>
+                                  ) : null}
+                                  <span className="min-w-0 break-words">{job.name || "Position"}</span>
+                                </span>
                               </div>
                               <div className="mt-2 flex flex-wrap items-center gap-2 xl:mt-0">
                                 {priorityLabel ? (
                                   <span
                                     className={[
-                                      "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide shadow-sm",
+                                      "hidden shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide shadow-sm xl:inline-flex",
                                       getPriorityBadgeClass(priority, availablePriorityTypes),
                                     ].join(" ")}
                                   >
@@ -4018,7 +4027,7 @@ export default function JobsBoard() {
                               {modalPriorityLabel ? (
                                 <span
                                   className={[
-                                    "inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide shadow-sm sm:px-3 sm:py-1.5 sm:text-[11px]",
+                                    "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide shadow-sm sm:px-3 sm:py-1.5 sm:text-[11px]",
                                     getPriorityBadgeClass(
                                       details
                                         ? asString(isRecord(details) ? details["priority"] : undefined)

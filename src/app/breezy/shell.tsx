@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
+  AlignJustify,
   Briefcase,
   ClipboardList,
   Mail,
@@ -15,7 +16,6 @@ import {
   Webhook,
   FolderKanban,
   MessageSquareQuote,
-  MoreHorizontal,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -92,7 +92,7 @@ export default function BreezyShell({ children }: { children: ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreWrapRef = useRef<HTMLDivElement | null>(null);
 
-  const primaryItems = [items[0], items[1], items[2], items[4], items[5], items[6]].filter(Boolean);
+  const primaryItems = [items[0], items[1], items[4], items[5], items[6]].filter(Boolean);
   const moreItems = items.filter((item) => !primaryItems.includes(item));
 
   useEffect(() => {
@@ -170,7 +170,7 @@ export default function BreezyShell({ children }: { children: ReactNode }) {
                       : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                   )}
                   onClick={() => setMoreOpen((prev) => !prev)}
-                  title="More"
+                  title="Menu"
                 >
                   <span
                     className={cn(
@@ -180,9 +180,9 @@ export default function BreezyShell({ children }: { children: ReactNode }) {
                         : "bg-slate-100 text-slate-700 group-hover:bg-slate-200"
                     )}
                   >
-                    <MoreHorizontal className="h-4 w-4" />
+                    <AlignJustify className="h-4 w-4" />
                   </span>
-                  <span className="whitespace-nowrap">More</span>
+                  <span className="whitespace-nowrap">Menu</span>
                 </button>
 
                 {moreOpen ? (

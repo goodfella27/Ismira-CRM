@@ -20,19 +20,62 @@ export type JobCompanyRow = {
 };
 
 export function normalizeJobCompanyName(value: unknown) {
-  return typeof value === "string"
-    ? value.trim().replace(/\s+/g, " ").toLowerCase()
-    : "";
+  if (typeof value !== "string") return "";
+  const normalized = value.trim().replace(/\s+/g, " ").toLowerCase();
+  if (!normalized) return "";
+
+  if (normalized === "vv" || normalized === "virgin voyage") return "virgin voyages";
+
+  return normalized;
+}
+
+export function resolveKnownJobCompanyName(
+  value: unknown,
+  companyNameByNormalized: Map<string, string>
+) {
+  const normalized = normalizeJobCompanyName(value);
+  if (!normalized) return "";
+
+  const exact = companyNameByNormalized.get(normalized);
+  if (exact) return exact;
+  if (normalized.length < 4) return "";
+
+  const compatibleMatches = Array.from(companyNameByNormalized.entries()).filter(
+    ([candidate]) => candidate.startsWith(normalized) || normalized.startsWith(candidate)
+  );
+  return compatibleMatches.length === 1 ? compatibleMatches[0][1] : "";
 }
 
 export function slugifyJobCompanyName(value: unknown) {
-  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
-  const slug = normalized
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-");
-  return slug || "company";
+	const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+	const slug = normalized
+		.replace(/&/g, " and ")
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.replace(/-{2,}/g, "-");
+	return slug || "company";
+}
+
+function normalizeLogoPath(raw: unknown) {
+	if (typeof raw !== "string") return null;
+	const trimmed = raw.trim();
+	if (!trimmed) return null;
+
+	if (/^https?:\/\//i.test(trimmed)) {
+		const match = trimmed.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)$/i);
+		if (match) {
+			const bucket = match[1];
+			const path = match[2];
+			if (bucket === BUCKET && path) return { kind: "path" as const, path };
+		}
+		return { kind: "url" as const, url: trimmed };
+	}
+
+	const noLeadingSlash = trimmed.replace(/^\/+/, "");
+	const withoutBucketPrefix = noLeadingSlash.startsWith(`${BUCKET}/`)
+		? noLeadingSlash.slice(`${BUCKET}/`.length)
+		: noLeadingSlash;
+	return withoutBucketPrefix ? { kind: "path" as const, path: withoutBucketPrefix } : null;
 }
 
 function buildUniqueSlug(name: string, existing: Set<string>) {
@@ -54,16 +97,23 @@ export async function signJobCompanyLogoUrls<T extends { logo_path?: string | nu
   rows: T[]
 ) {
   const signedByPath = new Map<string, string | null>();
-  const paths = Array.from(
-    new Set(
-      rows
-        .map((row) => (typeof row.logo_path === "string" ? row.logo_path.trim() : ""))
-        .filter(Boolean)
-    )
-  );
+	const rawToPath = new Map<string, string>();
+	const paths: string[] = [];
+	for (const row of rows) {
+		const rawKey = typeof row.logo_path === "string" ? row.logo_path.trim() : "";
+		const normalized = normalizeLogoPath(row.logo_path);
+		if (!normalized) continue;
+		if (normalized.kind === "url") {
+			if (rawKey) signedByPath.set(rawKey, normalized.url);
+			continue;
+		}
+		if (rawKey) rawToPath.set(rawKey, normalized.path);
+		paths.push(normalized.path);
+	}
+	const uniquePaths = Array.from(new Set(paths));
 
   await Promise.all(
-    paths.map(async (path) => {
+    uniquePaths.map(async (path) => {
       const { data, error } = await admin.storage
         .from(BUCKET)
         .createSignedUrl(path, 60 * 60 * 24 * 7);
@@ -71,7 +121,59 @@ export async function signJobCompanyLogoUrls<T extends { logo_path?: string | nu
     })
   );
 
+	for (const [rawKey, path] of rawToPath.entries()) {
+		if (signedByPath.has(rawKey)) continue;
+		signedByPath.set(rawKey, signedByPath.get(path) ?? null);
+	}
+
   return signedByPath;
+}
+
+export async function resolveActiveJobCompanies(
+  admin: AdminClient,
+  companyId: string,
+  rows: JobCompanyRow[]
+) {
+  const targetIds = Array.from(
+    new Set(
+      rows
+        .map((row) => {
+          const metadata =
+            row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+              ? row.metadata
+              : {};
+          return typeof metadata.merged_into_job_company_id === "string"
+            ? metadata.merged_into_job_company_id.trim()
+            : "";
+        })
+        .filter(Boolean)
+    )
+  );
+  if (targetIds.length === 0) return rows;
+
+  const { data, error } = await admin
+    .from("job_companies")
+    .select("id,company_id,breezy_company_id,name,normalized_name,slug,logo_path,website,metadata,created_at,updated_at")
+    .eq("company_id", companyId)
+    .in("id", targetIds);
+  if (error) throw new Error(error.message ?? "Failed to load merged job company targets");
+
+  const targetsById = new Map(
+    (Array.isArray(data) ? (data as JobCompanyRow[]) : []).map((row) => [row.id, row] as const)
+  );
+  const resolved = rows.map((row) => {
+    const metadata =
+      row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+        ? row.metadata
+        : {};
+    const targetId =
+      typeof metadata.merged_into_job_company_id === "string"
+        ? metadata.merged_into_job_company_id.trim()
+        : "";
+    return targetId ? targetsById.get(targetId) ?? row : row;
+  });
+
+  return Array.from(new Map(resolved.map((row) => [row.id, row] as const)).values());
 }
 
 export async function fetchJobCompaniesByNormalizedName(
@@ -253,6 +355,20 @@ export async function syncJobCompaniesFromPositions(
   };
 
   const rows = Array.isArray(data) ? (data as PositionRow[]) : [];
+  const { data: existingCompanyRows, error: existingCompanyError } = await admin
+    .from("job_companies")
+    .select(
+      "id,company_id,breezy_company_id,name,normalized_name,slug,logo_path,website,metadata,created_at,updated_at"
+    )
+    .eq("company_id", options.companyId);
+  if (existingCompanyError) {
+    throw new Error(existingCompanyError.message ?? "Failed to load existing job companies");
+  }
+  const existingCompanyNamesByNormalized = new Map(
+    (Array.isArray(existingCompanyRows) ? (existingCompanyRows as JobCompanyRow[]) : []).map(
+      (item) => [item.normalized_name, item.name] as const
+    )
+  );
   const uniqueNames = new Map<
     string,
     { name: string; breezyCompanyId: string | null }
@@ -263,11 +379,13 @@ export async function syncJobCompaniesFromPositions(
       (typeof row.company === "string" && row.company.trim()) ||
       inferCompanyFromPositionName(row.name ?? "") ||
       "";
-    const normalizedName = normalizeJobCompanyName(companyLabel);
+    const resolvedCompanyLabel =
+      resolveKnownJobCompanyName(companyLabel, existingCompanyNamesByNormalized) || companyLabel;
+    const normalizedName = normalizeJobCompanyName(resolvedCompanyLabel);
     if (!normalizedName) continue;
     if (!uniqueNames.has(normalizedName)) {
       uniqueNames.set(normalizedName, {
-        name: companyLabel,
+        name: resolvedCompanyLabel,
         breezyCompanyId: row.breezy_company_id ?? options.breezyCompanyId ?? null,
       });
     }
@@ -307,8 +425,8 @@ export async function syncJobCompaniesFromPositions(
   if (upsertError) throw new Error(upsertError.message ?? "Failed to upsert job companies");
 
   const companies = await fetchJobCompaniesByNormalizedName(admin, options.companyId, normalizedNames);
-  const companyIdByNormalizedName = new Map(
-    companies.map((item) => [item.normalized_name, item.id] as const)
+  const companyByNormalizedName = new Map(
+    companies.map((item) => [item.normalized_name, item] as const)
   );
 
   const positionUpdates = rows
@@ -317,14 +435,18 @@ export async function syncJobCompaniesFromPositions(
         (typeof row.company === "string" && row.company.trim()) ||
         inferCompanyFromPositionName(row.name ?? "") ||
         "";
-      const normalizedName = normalizeJobCompanyName(companyLabel);
-      const jobCompanyId = normalizedName ? companyIdByNormalizedName.get(normalizedName) ?? null : null;
-      if (!jobCompanyId || row.job_company_id === jobCompanyId) return null;
+      const resolvedCompanyLabel =
+        resolveKnownJobCompanyName(companyLabel, existingCompanyNamesByNormalized) || companyLabel;
+      const normalizedName = normalizeJobCompanyName(resolvedCompanyLabel);
+      const company = normalizedName ? companyByNormalizedName.get(normalizedName) ?? null : null;
+      if (!company) return null;
+      if (row.job_company_id === company.id && row.company === company.name) return null;
       return {
         company_id: options.companyId,
         breezy_company_id: row.breezy_company_id ?? options.breezyCompanyId ?? null,
         breezy_position_id: row.breezy_position_id,
-        job_company_id: jobCompanyId,
+        job_company_id: company.id,
+        company: company.name,
       };
     })
     .filter(Boolean) as Array<{
@@ -332,6 +454,7 @@ export async function syncJobCompaniesFromPositions(
       breezy_company_id: string | null;
       breezy_position_id: string;
       job_company_id: string;
+      company: string;
     }>;
 
   if (positionUpdates.length > 0) {
@@ -348,8 +471,12 @@ export async function syncJobCompaniesFromPositions(
         (typeof row.company === "string" && row.company.trim()) ||
         inferCompanyFromPositionName(row.name ?? "") ||
         "";
-      const normalizedName = normalizeJobCompanyName(companyLabel);
-      const jobCompanyId = normalizedName ? companyIdByNormalizedName.get(normalizedName) ?? null : null;
+      const resolvedCompanyLabel =
+        resolveKnownJobCompanyName(companyLabel, existingCompanyNamesByNormalized) || companyLabel;
+      const normalizedName = normalizeJobCompanyName(resolvedCompanyLabel);
+      const jobCompanyId = normalizedName
+        ? companyByNormalizedName.get(normalizedName)?.id ?? null
+        : null;
       if (!jobCompanyId) return null;
       return {
         company_id: options.companyId,

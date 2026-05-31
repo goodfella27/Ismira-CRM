@@ -11,6 +11,7 @@ import { AppDialogsProvider } from "@/components/app-dialogs";
 import { hasSupabaseBrowserEnv } from "@/lib/supabase/client";
 
 const PUBLIC_SHELL_ROUTES = ["/login", "/register", "/auth", "/form", "/cv", "/jobs", "/_not-found"];
+const CHAT_DISABLED_ROUTES = ["/breezy"];
 
 function SupabaseConfigNotice() {
   return (
@@ -46,6 +47,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isPublicShellRoute = PUBLIC_SHELL_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
+  const isChatDisabledRoute = CHAT_DISABLED_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
   const hasSupabaseEnv = hasSupabaseBrowserEnv();
 
   if (!hasSupabaseEnv) {
@@ -77,7 +81,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <main className="flex-1">{children}</main>
           </div>
         </div>
-        <ChatWidget />
+        {!isChatDisabledRoute ? <ChatWidget /> : null}
       </div>
     </AppDialogsProvider>
   );

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlignJustify,
+  Building2,
   RefreshCw,
   Search,
   ChevronDown,
@@ -40,6 +41,20 @@ import {
   normalizePriorityKey,
   type BreezyPriorityType,
 } from "@/lib/breezy-priority-types";
+
+const PRIORITY_BADGE_STYLES = [
+  "bg-gradient-to-r from-[#ff9d2e] to-[#ffbf5f] text-white shadow-orange-200/40",
+  "bg-gradient-to-r from-[#58d0d8] to-[#3ea4e6] text-white shadow-sky-200/50",
+  "bg-gradient-to-r from-[#8b5cf6] to-[#c084fc] text-white shadow-violet-200/40",
+  "bg-gradient-to-r from-[#22c55e] to-[#14b8a6] text-white shadow-emerald-200/40",
+];
+
+function getPriorityBadgeClass(key: string, types: BreezyPriorityType[]) {
+  const normalized = normalizePriorityKey(key);
+  if (!normalized) return "";
+  const index = types.findIndex((item) => normalizePriorityKey(item.key) === normalized);
+  return PRIORITY_BADGE_STYLES[(index >= 0 ? index : 0) % PRIORITY_BADGE_STYLES.length];
+}
 
 type BreezyCompany = {
   _id?: string;
@@ -1365,6 +1380,8 @@ export default function BreezyPositionRecordsBrowser({
         : asString(pos.state).trim() || "Draft";
       const avatarSeed = (company || name).trim() || "P";
       const avatar = avatarSeed.slice(0, 1).toUpperCase();
+      const priorityKey = normalizePriorityKey(asString(pos.priority).trim());
+      const priorityLabel = priorityKey ? getPriorityLabel(priorityKey, availablePriorityTypes) : "";
 
       return (
         <tr
@@ -1406,23 +1423,30 @@ export default function BreezyPositionRecordsBrowser({
 
           <td className="min-w-[320px] px-4 py-3">
             <div className="min-w-0">
-              <div title={name} className="truncate text-sm font-semibold text-slate-950">
-                {name}
-              </div>
-              {department ? (
-                <div className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-lg bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-800 ring-1 ring-sky-100">
-                  <Layers className="h-3.5 w-3.5 text-sky-600" />
-                  <span className="truncate">{department}</span>
+              <div className="flex min-w-0 items-center gap-2">
+                {priorityLabel ? (
+                  <span
+                    className={[
+                      "inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide shadow-sm",
+                      getPriorityBadgeClass(priorityKey, availablePriorityTypes),
+                    ].join(" ")}
+                  >
+                    <span className="max-w-[220px] truncate whitespace-nowrap">{priorityLabel}</span>
+                  </span>
+                ) : null}
+                <div title={name} className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-950">
+                  {name}
                 </div>
-              ) : null}
+              </div>
             </div>
           </td>
 
           <td className="whitespace-nowrap px-4 py-3 text-right">
             <div className="flex items-center justify-end gap-2">
-              {pos.edited ? (
-                <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700 ring-1 ring-amber-100">
-                  Edited
+              {department ? (
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-800 ring-1 ring-sky-100">
+                  <Layers className="h-3.5 w-3.5 text-sky-600" />
+                  <span className="max-w-[220px] truncate whitespace-nowrap">{department}</span>
                 </span>
               ) : null}
               <span
@@ -2606,24 +2630,12 @@ export default function BreezyPositionRecordsBrowser({
         </div>
       </div>
 
-      <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-700 shadow-sm">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Required env vars
-        </div>
-        <ul className="mt-3 list-disc space-y-1 pl-5">
-          <li>
-            Auth: `BREEZY_API_TOKEN` (recommended) OR `BREEZY_EMAIL` + `BREEZY_PASSWORD`
-          </li>
-          <li>Target: `BREEZY_COMPANY_ID` (for sending candidates)</li>
-          <li>Target: `BREEZY_POSITION_ID` (for sending candidates)</li>
-        </ul>
-      </div>
-
       {selectedPositionId ? (
         <DetailsModalShell
           open
           labelledBy="breezy-position-modal-title"
           onClose={closePositionModal}
+          stickyHeroActions
           hero={
             <div className="h-40 w-full bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6] sm:h-56">
               {modalDescription.heroSrc ? (
@@ -2640,15 +2652,15 @@ export default function BreezyPositionRecordsBrowser({
           }
           heroActions={
             <>
-              {!editing && canEdit ? (
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center rounded-full border border-white/30 bg-white/85 px-4 py-2 text-xs font-semibold text-slate-800 shadow-sm backdrop-blur hover:bg-white disabled:opacity-60"
-                  onClick={startEditing}
-                  disabled={detailsLoading || !details}
-                  title="Edit fields"
-                >
-                  Edit
+	              {!editing && canEdit ? (
+	                <button
+	                  type="button"
+	                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-200/70 ring-1 ring-white/20 hover:from-[#256fd2] hover:to-[#55bbff] focus:outline-none focus:ring-2 focus:ring-sky-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70"
+	                  onClick={startEditing}
+	                  disabled={detailsLoading || !details}
+	                  title="Edit fields"
+	                >
+	                  Edit
                 </button>
               ) : null}
               {!editing && canEdit ? (
@@ -2707,12 +2719,12 @@ export default function BreezyPositionRecordsBrowser({
                 </span>
               </button>
             </>
-          }
-          stickyHeader={
-            <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 px-6 pb-5 pt-6 backdrop-blur">
-              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                <div className="min-w-0">
-                  <div className="mb-3">
+	          }
+	          stickyHeader={
+	            <div className="border-b border-slate-200/80 bg-white/95 px-6 pb-5 pt-6 backdrop-blur">
+	              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+	                <div className="min-w-0">
+	                  <div className="mb-3">
                     {(() => {
                       const baseCompany = details ? extractCompany(details) : "";
                       const companies =
@@ -3062,20 +3074,9 @@ export default function BreezyPositionRecordsBrowser({
                   ) : null}
                 </div>
 
-                {!editing && canEdit ? (
-                  <button
-                    type="button"
-                    className="inline-flex h-16 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-10 text-base font-semibold text-white shadow-xl shadow-sky-200/70 ring-1 ring-white/20 hover:from-[#256fd2] hover:to-[#55bbff] focus:outline-none focus:ring-2 focus:ring-sky-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70 sm:justify-self-end"
-                    onClick={startEditing}
-                    disabled={detailsLoading || !details}
-                  >
-                    <PencilLine className="h-5 w-5" aria-hidden="true" />
-                    <span>Edit</span>
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          }
+	              </div>
+	            </div>
+	          }
           footer={
             <>
               {editing ? (
@@ -3886,7 +3887,11 @@ export default function BreezyPositionRecordsBrowser({
                           />
                         ) : (
                           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-slate-200 bg-slate-50 text-xs font-bold text-slate-600">
-                            {(createOpeningDraft.company.trim() || "?").slice(0, 1).toUpperCase()}
+                            {createOpeningDraft.company.trim() ? (
+                              createOpeningDraft.company.trim().slice(0, 1).toUpperCase()
+                            ) : (
+                              <Building2 className="h-4 w-4 text-slate-500" />
+                            )}
                           </span>
                         )}
                         <span

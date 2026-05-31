@@ -24,7 +24,9 @@ import { getJobsResponseCache, setJobsResponseCache } from "@/lib/jobs-api-cache
 import {
   fetchJobCompaniesByNormalizedName,
   normalizeJobCompanyName,
+  resolveActiveJobCompanies,
   signJobCompanyLogoUrls,
+  type JobCompanyRow,
 } from "@/lib/job-companies";
 import { applyDepartmentOverridesToJobs } from "@/lib/job-departments";
 import { resolveJobShipType } from "@/lib/job-ship-types";
@@ -187,15 +189,65 @@ async function attachJobCompanyBranding(
   const normalizedNames = items
     .map((item) => normalizeJobCompanyName(item.company))
     .filter(Boolean);
-  if (normalizedNames.length === 0) return items;
-
-  const jobCompanies = await fetchJobCompaniesByNormalizedName(
-    init.admin,
-    init.companyId,
-    normalizedNames
+  const jobCompanyIds = Array.from(
+    new Set(items.map((item) => (typeof item.job_company_id === "string" ? item.job_company_id : "")).filter(Boolean))
   );
-  const byName = new Map(jobCompanies.map((item) => [item.normalized_name, item] as const));
-  const signedUrls = await signJobCompanyLogoUrls(init.admin, jobCompanies);
+  if (normalizedNames.length === 0 && jobCompanyIds.length === 0) return items;
+
+  const normalizedNameQuery = Array.from(
+    new Set(
+      normalizedNames.flatMap((name) =>
+        name === "virgin voyages" ? [name, "vv", "virgin voyage"] : [name]
+      )
+    )
+  );
+
+  let jobCompaniesByName: JobCompanyRow[] = [];
+  if (normalizedNameQuery.length > 0) {
+    try {
+      jobCompaniesByName = await fetchJobCompaniesByNormalizedName(
+        init.admin,
+        init.companyId,
+        normalizedNameQuery
+      );
+    } catch {
+      jobCompaniesByName = [];
+    }
+  }
+  let jobCompaniesById: JobCompanyRow[] = [];
+  if (jobCompanyIds.length > 0) {
+    try {
+      const res = await init.admin
+        .from("job_companies")
+        .select(
+          "id,company_id,breezy_company_id,name,normalized_name,slug,logo_path,website,metadata,created_at,updated_at"
+        )
+        .eq("company_id", init.companyId)
+        .in("id", jobCompanyIds);
+      if (res.error) throw new Error(res.error.message ?? "Failed to load job companies by id");
+      jobCompaniesById = Array.isArray(res.data) ? (res.data as JobCompanyRow[]) : [];
+    } catch {
+      jobCompaniesById = [];
+    }
+  }
+
+  const uniqueCompanies = Array.from(
+    new Map([...jobCompaniesById, ...jobCompaniesByName].map((company) => [company.id, company] as const))
+      .values()
+  );
+  let jobCompanies = uniqueCompanies;
+  try {
+    jobCompanies = await resolveActiveJobCompanies(init.admin, init.companyId, uniqueCompanies);
+  } catch {
+    jobCompanies = uniqueCompanies;
+  }
+  const byId = new Map(jobCompanies.map((item) => [item.id, item] as const));
+  let signedUrls = new Map<string, string | null>();
+  try {
+    signedUrls = await signJobCompanyLogoUrls(init.admin, jobCompanies);
+  } catch {
+    signedUrls = new Map();
+  }
   let benefitTagsByCompanyId = await fetchJobCompanyBenefits(
     init.admin,
     init.companyId,
@@ -218,8 +270,41 @@ async function attachJobCompanyBranding(
     }
   }
 
+  const byNormalized = new Map<string, JobCompanyRow>();
+  const byNormalizedBuckets = new Map<string, JobCompanyRow[]>();
+  for (const row of jobCompanies) {
+    const keys = new Set<string>();
+    if (row.normalized_name) keys.add(row.normalized_name);
+    const canonicalFromName = normalizeJobCompanyName(row.name);
+    if (canonicalFromName) keys.add(canonicalFromName);
+    for (const key of keys) {
+      const bucket = byNormalizedBuckets.get(key) ?? [];
+      bucket.push(row);
+      byNormalizedBuckets.set(key, bucket);
+    }
+  }
+
+  const scoreCompany = (row: JobCompanyRow) => {
+    let score = 0;
+    const name = (row.name ?? "").trim().toLowerCase();
+    if (name === "vv" || name === "virgin voyage") score -= 5;
+    if (typeof row.logo_path === "string" && row.logo_path.trim()) score += 10;
+    const benefitCount = (benefitTagsByCompanyId.get(row.id) ?? []).length;
+    if (benefitCount > 0) score += 8 + Math.min(6, benefitCount);
+    if (hasManualBenefitsOverride(row.metadata)) score += 5;
+    if (typeof row.updated_at === "string" && row.updated_at.trim()) score += 1;
+    return score;
+  };
+
+  for (const [key, rows] of byNormalizedBuckets.entries()) {
+    rows.sort((a, b) => scoreCompany(b) - scoreCompany(a));
+    byNormalized.set(key, rows[0]);
+  }
+
   return items.map((item) => {
-    const company = byName.get(normalizeJobCompanyName(item.company));
+    const company =
+      (typeof item.job_company_id === "string" ? byId.get(item.job_company_id) : undefined) ??
+      byNormalized.get(normalizeJobCompanyName(item.company));
     if (!company) return item;
     const logoPath = typeof company.logo_path === "string" ? company.logo_path.trim() : "";
     return {
@@ -434,7 +519,7 @@ export async function GET(request: Request) {
     const companyParam = (searchParams.get("companyId") ?? "").trim();
     const companyId = companyParam || requireBreezyCompanyId().companyId;
     const bypassCache = searchParams.has("ts") || searchParams.get("bypassCache") === "1";
-    const cacheKey = companyParam ? `company:${companyId}` : "default";
+    const cacheKey = companyParam ? `company-branding-v3:${companyId}` : "default-branding-v3";
     const cached = !bypassCache ? getJobsResponseCache(cacheKey) : null;
     if (cached && cached.expiresAt > Date.now()) {
       return jsonResponse(request, cached.payload as { jobs: JobListItem[]; priorityTypes: PriorityTypePayload[] }, { status: 200 });
@@ -525,7 +610,7 @@ export async function GET(request: Request) {
             companyId: primaryCompanyId,
           });
         } catch {
-          enriched = attachPublicApplyUrls(mapped);
+          enriched = attachPublicApplyUrls(enriched);
         }
 
         try {
@@ -625,7 +710,7 @@ export async function GET(request: Request) {
           companyId: primaryCompanyId,
         });
       } catch {
-        enriched = attachPublicApplyUrls(finalList);
+        enriched = attachPublicApplyUrls(enriched);
       }
 
       try {

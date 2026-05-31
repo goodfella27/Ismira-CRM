@@ -4,6 +4,11 @@ import { requireBreezyCompanyId } from "@/lib/breezy";
 import { getPrimaryCompanyId } from "@/lib/company/primary";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  resolveActiveJobCompanies,
+  resolveKnownJobCompanyName,
+  type JobCompanyRow,
+} from "@/lib/job-companies";
 
 export const runtime = "nodejs";
 
@@ -56,7 +61,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await admin
       .from("breezy_positions")
-      .select("company,org_type")
+      .select("company,org_type,job_company_id")
       .eq("company_id", companyId)
       .eq("breezy_company_id", breezyCompanyId);
 
@@ -74,29 +79,46 @@ export async function GET(request: Request) {
       throw new Error(error.message ?? "Failed to load company counts");
     }
 
-    type Row = { company: string | null; org_type: string | null };
+    type Row = { company: string | null; org_type: string | null; job_company_id: string | null };
     const rows = Array.isArray(data) ? (data as unknown as Row[]) : [];
+
+    const { data: companyRows } = await admin
+      .from("job_companies")
+      .select("id,company_id,breezy_company_id,name,normalized_name,slug,logo_path,website,metadata,created_at,updated_at")
+      .eq("company_id", companyId);
+    const companies = await resolveActiveJobCompanies(
+      admin,
+      companyId,
+      Array.isArray(companyRows) ? (companyRows as JobCompanyRow[]) : []
+    );
+    const companyNameById = new Map(companies.map((company) => [company.id, company.name]));
+    const companyNameByNormalized = new Map(
+      companies.map((company) => [company.normalized_name, company.name])
+    );
 
     const counts = new Map<string, number>();
     for (const row of rows) {
-      const company = asString(row.company).trim();
+      const rawCompany = asString(row.company).trim();
+      const company =
+        (row.job_company_id ? companyNameById.get(row.job_company_id) : "") ||
+        resolveKnownJobCompanyName(rawCompany, companyNameByNormalized) ||
+        rawCompany;
       if (!company) continue;
       if (normalizePositionType(row.org_type) !== recordType) continue;
       counts.set(company, (counts.get(company) ?? 0) + 1);
     }
 
-    const companies = Array.from(counts.entries())
+    const companiesWithCounts = Array.from(counts.entries())
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => {
         if (b.count !== a.count) return b.count - a.count;
         return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
       });
 
-    return NextResponse.json({ companies }, { status: 200 });
+    return NextResponse.json({ companies: companiesWithCounts }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     const status = /not authenticated/i.test(message) ? 401 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }
-
