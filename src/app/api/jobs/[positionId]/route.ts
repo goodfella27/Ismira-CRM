@@ -14,9 +14,11 @@ import { buildCountryRows, extractNationalityCountryGroups } from "@/lib/nationa
 import { buildBreezyPublicPositionUrl } from "@/lib/breezy-public";
 import { extractBenefitTagsFromDescription } from "@/lib/job-benefits";
 import {
-  fetchJobCompaniesByNormalizedName,
   normalizeJobCompanyName,
+  resolveActiveJobCompanies,
+  resolveKnownJobCompanyName,
   signJobCompanyLogoUrls,
+  type JobCompanyRow,
 } from "@/lib/job-companies";
 import { resolveJobShipType } from "@/lib/job-ship-types";
 
@@ -238,6 +240,7 @@ async function attachJobCompanyBranding(
     admin: ReturnType<typeof createSupabaseAdminClient>;
     companyId: string;
     fallbackCompany?: string | null;
+    jobCompanyId?: string | null;
   }
 ) {
   const companyName =
@@ -245,15 +248,96 @@ async function attachJobCompanyBranding(
     init.fallbackCompany?.trim() ||
     extractCompany(details);
   const normalizedName = normalizeJobCompanyName(companyName);
-  if (!normalizedName) return details;
+  const normalizedNameQuery =
+    normalizedName === "virgin voyages"
+      ? ["virgin voyages", "vv", "virgin voyage"]
+      : normalizedName
+        ? [normalizedName]
+        : [];
+  const jobCompanyId = typeof init.jobCompanyId === "string" ? init.jobCompanyId.trim() : "";
+  if (!normalizedName && !jobCompanyId) return details;
 
-  const companies = await fetchJobCompaniesByNormalizedName(init.admin, init.companyId, [
-    normalizedName,
-  ]);
-  const company = companies[0];
+  const exactCompanies: JobCompanyRow[] = [];
+  if (jobCompanyId) {
+    try {
+      const res = await init.admin
+        .from("job_companies")
+        .select(
+          "id,company_id,breezy_company_id,name,normalized_name,slug,logo_path,website,metadata,created_at,updated_at"
+        )
+        .eq("company_id", init.companyId)
+        .eq("id", jobCompanyId);
+      if (res.error) throw new Error(res.error.message ?? "Failed to load job company");
+      if (Array.isArray(res.data)) exactCompanies.push(...(res.data as JobCompanyRow[]));
+    } catch {
+      // ignore
+    }
+  }
+  if (normalizedNameQuery.length > 0) {
+    try {
+      const res = await init.admin
+        .from("job_companies")
+        .select(
+          "id,company_id,breezy_company_id,name,normalized_name,slug,logo_path,website,metadata,created_at,updated_at"
+        )
+        .eq("company_id", init.companyId)
+        .in("normalized_name", normalizedNameQuery);
+      if (res.error) throw new Error(res.error.message ?? "Failed to load job company");
+      if (Array.isArray(res.data)) exactCompanies.push(...(res.data as JobCompanyRow[]));
+    } catch {
+      // ignore
+    }
+  }
+
+  let activeExactCompanies = exactCompanies;
+  try {
+    activeExactCompanies = await resolveActiveJobCompanies(init.admin, init.companyId, exactCompanies);
+  } catch {
+    activeExactCompanies = exactCompanies;
+  }
+
+  const scoreCompany = (row: JobCompanyRow) => {
+    let score = 0;
+    const name = (row.name ?? "").trim().toLowerCase();
+    if (name === "vv" || name === "virgin voyage") score -= 5;
+    if (typeof row.logo_path === "string" && row.logo_path.trim()) score += 10;
+    if (typeof row.updated_at === "string" && row.updated_at.trim()) score += 1;
+    return score;
+  };
+
+  let company =
+    (jobCompanyId ? activeExactCompanies.find((item) => item.id === jobCompanyId) : undefined) ??
+    (normalizedName
+      ? activeExactCompanies
+          .filter((item) => normalizedNameQuery.includes(item.normalized_name))
+          .sort((a, b) => scoreCompany(b) - scoreCompany(a))[0]
+      : undefined);
+
+  if (!company && normalizedName) {
+    const { data, error } = await init.admin
+      .from("job_companies")
+      .select(
+        "id,company_id,breezy_company_id,name,normalized_name,slug,logo_path,website,metadata,created_at,updated_at"
+      )
+      .eq("company_id", init.companyId);
+    if (error) throw new Error(error.message ?? "Failed to load job companies");
+    const allCompanies = Array.isArray(data) ? (data as JobCompanyRow[]) : [];
+    const nameByNormalized = new Map(
+      allCompanies.map((item) => [item.normalized_name, item.name] as const)
+    );
+    const resolvedName = resolveKnownJobCompanyName(companyName, nameByNormalized);
+    const resolvedNormalized = normalizeJobCompanyName(resolvedName);
+    company = allCompanies.find((item) => item.normalized_name === resolvedNormalized);
+  }
+
   if (!company) return details;
 
-  const signedUrls = await signJobCompanyLogoUrls(init.admin, [company]);
+  let signedUrls = new Map<string, string | null>();
+  try {
+    signedUrls = await signJobCompanyLogoUrls(init.admin, [company]);
+  } catch {
+    signedUrls = new Map();
+  }
   const logoPath = typeof company.logo_path === "string" ? company.logo_path.trim() : "";
   const nextName =
     typeof details.name === "string"
@@ -325,7 +409,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const companyParam = (searchParams.get("companyId") ?? "").trim();
     const companyId = companyParam || requireBreezyCompanyId().companyId;
-    const cacheKey = `${companyId}:${positionId}`;
+    const cacheKey = `company-branding-v4:${companyId}:${positionId}`;
     const cached = responseCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       if (isRecord(cached.payload) && !("nationality_countries" in cached.payload)) {
@@ -342,7 +426,7 @@ export async function GET(
 
       const { data, error } = await admin
         .from("breezy_positions")
-        .select("state,company,department,details,overrides,details_synced_at")
+        .select("state,company,department,job_company_id,details,overrides,details_synced_at")
         .eq("company_id", primaryCompanyId)
         .eq("breezy_company_id", companyId)
         .eq("breezy_position_id", positionId)
@@ -353,6 +437,7 @@ export async function GET(
           state: string | null;
           company: string | null;
           department: string | null;
+          job_company_id: string | null;
           details: unknown;
           overrides: unknown;
           details_synced_at: string | null;
@@ -418,6 +503,7 @@ export async function GET(
               admin,
               companyId: primaryCompanyId,
               fallbackCompany: row.company,
+              jobCompanyId: row.job_company_id,
             });
 		          } catch {
 		            enriched = merged;
@@ -525,11 +611,12 @@ export async function GET(
         if (effectiveDepartment && !mergedDepartment) merged.department = effectiveDepartment;
         let enriched = merged;
 	        try {
-	          enriched = await attachJobCompanyBranding(merged, {
-	            admin,
-	            companyId: primaryCompanyId,
-	            fallbackCompany: effectiveCompany,
-	          });
+		          enriched = await attachJobCompanyBranding(merged, {
+		            admin,
+		            companyId: primaryCompanyId,
+		            fallbackCompany: effectiveCompany,
+		            jobCompanyId: row.job_company_id,
+		          });
 		        } catch {
 		          enriched = merged;
 		        }

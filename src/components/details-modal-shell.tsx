@@ -8,6 +8,7 @@ type DetailsModalShellProps = {
   onClose: () => void;
   hero: ReactNode;
   heroActions?: ReactNode;
+  stickyHeroActions?: boolean;
   stickyHeader?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
@@ -22,6 +23,7 @@ export default function DetailsModalShell({
   onClose,
   hero,
   heroActions,
+  stickyHeroActions = false,
   stickyHeader,
   children,
   footer,
@@ -45,9 +47,18 @@ export default function DetailsModalShell({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="hide-scrollbar max-h-[94svh] overflow-auto xl:max-h-[80vh]">
+          {stickyHeroActions && heroActions ? (
+            <div className="sticky top-4 z-20 h-0 overflow-visible">
+              <div className="flex justify-end px-4">
+                <div className="pointer-events-auto flex flex-wrap items-center gap-2">
+                  {heroActions}
+                </div>
+              </div>
+            </div>
+          ) : null}
           <div className="relative overflow-hidden">
             {hero}
-            {heroActions ? (
+            {!stickyHeroActions && heroActions ? (
               <div className="absolute right-4 top-4 flex flex-wrap items-center gap-2">
                 {heroActions}
               </div>

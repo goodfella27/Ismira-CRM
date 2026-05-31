@@ -3,10 +3,22 @@ import { NextResponse } from "next/server";
 import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import { getPrimaryCompanyId } from "@/lib/company/primary";
-import { extractCompany, extractDepartment, extractOrgType, isRecord } from "@/lib/breezy-position-fields";
+import {
+  extractCompany,
+  extractDepartment,
+  extractOrgType,
+  isRecord,
+  replacePositionTitleCompany,
+} from "@/lib/breezy-position-fields";
 import { pickPositionDescription, scrubBreezyPositionDetails } from "@/lib/breezy-position-description";
 import { buildCountryRows, extractNationalityCountryGroups } from "@/lib/nationality-countries";
-import { syncJobCompaniesFromPositions } from "@/lib/job-companies";
+import {
+  normalizeJobCompanyName,
+  resolveActiveJobCompanies,
+  resolveKnownJobCompanyName,
+  syncJobCompaniesFromPositions,
+  type JobCompanyRow,
+} from "@/lib/job-companies";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -171,18 +183,18 @@ export async function GET(request: Request) {
     let query = admin
       .from("breezy_positions")
       .select(
-        "breezy_position_id,name,state,friendly_id,org_type,company,department,overrides,synced_at,details_synced_at",
+        "breezy_position_id,name,state,friendly_id,org_type,company,department,job_company_id,overrides,synced_at,details_synced_at",
         { count: "exact" }
       )
       .eq("company_id", companyId)
       .eq("breezy_company_id", breezyCompanyId)
       .order("name", { ascending: true });
 
-    if (jobCompanyFilter) {
-      query = query.eq("company", jobCompanyFilter);
+    if (!jobCompanyFilter) {
+      query = query.range(offset, offset + limit - 1);
     }
 
-    const { data, error, count } = await query.range(offset, offset + limit - 1);
+    const { data, error, count } = await query;
 
     if (error) {
       const message = (error.message ?? "").toLowerCase();
@@ -199,9 +211,7 @@ export async function GET(request: Request) {
           .select("breezy_position_id", { count: "exact", head: true })
           .eq("company_id", companyId)
           .eq("breezy_company_id", breezyCompanyId);
-        const { count: safeCount } = jobCompanyFilter
-          ? await countQuery.eq("company", jobCompanyFilter)
-          : await countQuery;
+        const { count: safeCount } = await countQuery;
         return NextResponse.json(
           {
             positions: [],
@@ -251,10 +261,26 @@ export async function GET(request: Request) {
       org_type: string | null;
       company: string | null;
       department: string | null;
+      job_company_id: string | null;
       overrides: unknown;
       synced_at: string | null;
       details_synced_at: string | null;
     };
+
+    const { data: companyRows } = await admin
+      .from("job_companies")
+      .select("id,company_id,breezy_company_id,name,normalized_name,slug,logo_path,website,metadata,created_at,updated_at")
+      .eq("company_id", companyId);
+    const companies = await resolveActiveJobCompanies(
+      admin,
+      companyId,
+      Array.isArray(companyRows) ? (companyRows as JobCompanyRow[]) : []
+    );
+    const companyNameById = new Map(companies.map((company) => [company.id, company.name]));
+    const companyNameByNormalized = new Map(
+      companies.map((company) => [company.normalized_name, company.name])
+    );
+    const normalizedCompanyFilter = normalizeJobCompanyName(jobCompanyFilter);
 
     const list = (Array.isArray(data) ? (data as unknown as Row[]) : []).map(
       (row) => {
@@ -271,14 +297,20 @@ export async function GET(request: Request) {
           typeof overrides.priority === "string" ? overrides.priority.trim() : "";
         const hidden = parseHiddenOverride(overrides.hidden);
         const edited = Object.keys(overrides).length > 0;
+        const rawCompany = overrideCompany || row.company || "";
+        const displayCompany =
+          (row.job_company_id ? companyNameById.get(row.job_company_id) : "") ||
+          resolveKnownJobCompanyName(rawCompany, companyNameByNormalized) ||
+          rawCompany;
+        const name = overrideName || row.name || "Position";
 
         return {
           id: row.breezy_position_id,
-          name: overrideName || row.name || "Position",
+          name: replacePositionTitleCompany(name, rawCompany, displayCompany) || name,
           state: row.state ?? undefined,
           friendly_id: row.friendly_id ?? undefined,
           org_type: row.org_type ?? undefined,
-          company: overrideCompany || row.company || undefined,
+          company: displayCompany || undefined,
           department: overrideDepartment || row.department || undefined,
           priority: overridePriority || undefined,
           edited,
@@ -287,7 +319,10 @@ export async function GET(request: Request) {
           details_synced_at: row.details_synced_at,
         } satisfies PositionListItem;
       }
-    );
+    ).filter((position) => {
+      if (!normalizedCompanyFilter) return true;
+      return normalizeJobCompanyName(position.company) === normalizedCompanyFilter;
+    });
 
     if (list.length === 0) {
       if (jobCompanyFilter) {
@@ -311,9 +346,10 @@ export async function GET(request: Request) {
       );
     }
 
-    const total = typeof count === "number" ? count : offset + list.length;
-    const nextOffset = offset + list.length < total ? offset + list.length : null;
-    return NextResponse.json({ positions: list, total, nextOffset }, { status: 200 });
+    const total = jobCompanyFilter ? list.length : typeof count === "number" ? count : offset + list.length;
+    const slice = jobCompanyFilter ? list.slice(offset, offset + limit) : list;
+    const nextOffset = offset + slice.length < total ? offset + slice.length : null;
+    return NextResponse.json({ positions: slice, total, nextOffset }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     const status = /not authenticated/i.test(message) ? 401 : 500;
