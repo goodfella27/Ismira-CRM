@@ -1,7 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Eye, EyeOff, Loader2, MoreHorizontal, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  GitMerge,
+  Loader2,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  Save,
+  Search,
+  Trash2,
+} from "lucide-react";
 
 type Department = {
   id: string;
@@ -48,15 +59,30 @@ export default function BreezyDepartmentsPage() {
   const [items, setItems] = useState<Department[]>([]);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [newLabel, setNewLabel] = useState("");
+  const [search, setSearch] = useState("");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [menuOpenKey, setMenuOpenKey] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Department | null>(null);
+  const [mergeSource, setMergeSource] = useState<Department | null>(null);
+  const [mergeTargetKey, setMergeTargetKey] = useState("");
+  const [lastMerge, setLastMerge] = useState<{
+    sourceLabel: string;
+    targetLabel: string;
+    positionsMoved: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const visibleCount = useMemo(() => items.filter((item) => !item.isHidden).length, [items]);
   const hiddenCount = items.length - visibleCount;
+  const filteredItems = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return items;
+    return items.filter((item) =>
+      `${item.label} ${item.key} ${item.count}`.toLowerCase().includes(query)
+    );
+  }, [items, search]);
 
   const applyDepartments = useCallback((departments: Department[]) => {
     setItems(departments);
@@ -197,8 +223,138 @@ export default function BreezyDepartmentsPage() {
     }
   };
 
+  const openMergeModal = (item: Department) => {
+    const target = items.find((candidate) => candidate.key !== item.key && !candidate.isHidden);
+    setMergeSource(item);
+    setMergeTargetKey(target?.key ?? "");
+    setMenuOpenKey(null);
+    setError(null);
+  };
+
+  const mergeDepartment = async () => {
+    if (!mergeSource) return;
+    const target = items.find((item) => item.key === mergeTargetKey);
+    if (!target || target.key === mergeSource.key) {
+      setError("Choose a different target department to merge into.");
+      return;
+    }
+
+    setSavingKey(`merge:${mergeSource.key}`);
+    setError(null);
+    try {
+      const res = await fetch("/api/company/job-departments/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceKey: mergeSource.key,
+          targetKey: target.key,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          (data && typeof data?.error === "string" && data.error) ||
+            "Failed to merge departments."
+        );
+      }
+      const merge = data && typeof data === "object" ? (data as Record<string, unknown>).merge : null;
+      const mergeRecord =
+        merge && typeof merge === "object" ? (merge as Record<string, unknown>) : {};
+      const positionsMoved = mergeRecord.positionsMoved;
+      setLastMerge({
+        sourceLabel:
+          typeof mergeRecord.sourceLabel === "string" ? mergeRecord.sourceLabel : mergeSource.label,
+        targetLabel:
+          typeof mergeRecord.targetLabel === "string" ? mergeRecord.targetLabel : target.label,
+        positionsMoved:
+          typeof positionsMoved === "number" && Number.isFinite(positionsMoved)
+            ? positionsMoved
+            : mergeSource.count,
+      });
+      setMergeSource(null);
+      setMergeTargetKey("");
+      applyDepartments(normalizeDepartments(data));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to merge departments.");
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
   return (
     <div className="mx-auto w-full">
+      {mergeSource ? (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="merge-department-title"
+        >
+          <div className="w-full max-w-lg rounded-3xl border border-amber-200 bg-white p-6 shadow-2xl">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
+              <GitMerge className="h-5 w-5" />
+            </div>
+            <h2
+              id="merge-department-title"
+              className="mt-4 text-xl font-semibold tracking-tight text-slate-950"
+            >
+              Merge department
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Move {mergeSource.count.toLocaleString()} jobs from {mergeSource.label} into another department.
+            </p>
+            <label className="mt-5 block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Merge into
+              </span>
+              <select
+                className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-amber-300"
+                value={mergeTargetKey}
+                onChange={(event) => setMergeTargetKey(event.target.value)}
+                disabled={savingKey === `merge:${mergeSource.key}`}
+              >
+                {items
+                  .filter((item) => item.key !== mergeSource.key)
+                  .map((item) => (
+                    <option key={item.key} value={item.key}>
+                      {item.label} ({item.count.toLocaleString()})
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-900">
+              Source department will be hidden after merge. Jobs stay in Breezy and only their cached department override changes.
+            </div>
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+              <button
+                type="button"
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                onClick={() => {
+                  setMergeSource(null);
+                  setMergeTargetKey("");
+                }}
+                disabled={savingKey === `merge:${mergeSource.key}`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-amber-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:opacity-60"
+                onClick={() => void mergeDepartment()}
+                disabled={savingKey === `merge:${mergeSource.key}` || !mergeTargetKey}
+              >
+                {savingKey === `merge:${mergeSource.key}` ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <GitMerge className="h-4 w-4" />
+                )}
+                Merge
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {deleteConfirm ? (
         <div
           className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4 backdrop-blur-sm"
@@ -334,8 +490,24 @@ export default function BreezyDepartmentsPage() {
         </div>
       ) : null}
 
+      {lastMerge ? (
+        <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {lastMerge.sourceLabel} was merged into {lastMerge.targetLabel}.{" "}
+          {lastMerge.positionsMoved.toLocaleString()} jobs moved.
+        </div>
+      ) : null}
+
       <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-end gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input
+              className="h-11 w-full border-none bg-transparent text-sm text-slate-800 outline-none"
+              placeholder="Search departments..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
           <button
             type="button"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
@@ -362,7 +534,7 @@ export default function BreezyDepartmentsPage() {
           <div className="px-4 py-12 text-center text-sm text-slate-500">
             Loading departments...
           </div>
-        ) : items.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <div className="px-4 py-12 text-center text-sm text-slate-500">
             No departments found.
           </div>
@@ -386,7 +558,7 @@ export default function BreezyDepartmentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {items.map((item) => {
+                {filteredItems.map((item) => {
                   const draft = drafts[item.key] ?? toDraft(item);
                   const busy = savingKey === item.key;
                   return (
@@ -471,6 +643,16 @@ export default function BreezyDepartmentsPage() {
                                 >
                                   {draft.isHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                                   {draft.isHidden ? "Show" : "Hide"}
+                                </button>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                                  onClick={() => openMergeModal(item)}
+                                  disabled={items.length < 2}
+                                >
+                                  <GitMerge className="h-4 w-4" />
+                                  Merge
                                 </button>
                                 <button
                                   type="button"

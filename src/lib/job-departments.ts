@@ -74,9 +74,7 @@ export async function fetchDiscoveredDepartmentCounts(admin: AdminClient, compan
   const { data, error } = await admin
     .from("breezy_positions")
     .select("department,overrides")
-    .eq("company_id", companyId)
-    .eq("state", "published")
-    .or("org_type.eq.position,org_type.is.null");
+    .eq("company_id", companyId);
 
   if (error) throw new Error(error.message ?? "Failed to load position departments.");
 

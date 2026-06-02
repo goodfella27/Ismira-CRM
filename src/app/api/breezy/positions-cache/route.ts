@@ -36,6 +36,7 @@ type BreezyPosition = {
 
 type PositionListItem = {
   id: string;
+  view_id?: string;
   name: string;
   state?: string;
   friendly_id?: string;
@@ -164,6 +165,72 @@ async function fetchBreezyPositionsList(breezyCompanyId: string): Promise<Positi
     .filter((pos) => pos.id);
 }
 
+async function expandPositionCompanyJoins(
+  items: PositionListItem[],
+  init: {
+    admin: ReturnType<typeof createSupabaseAdminClient>;
+    companyId: string;
+  }
+) {
+  const positionIds = Array.from(new Set(items.map((item) => item.id).filter(Boolean)));
+  if (positionIds.length === 0) return items;
+
+  const { data: joinData, error: joinError } = await init.admin
+    .from("job_position_companies")
+    .select("breezy_position_id,job_company_id,is_primary")
+    .eq("company_id", init.companyId)
+    .in("breezy_position_id", positionIds);
+  if (joinError || !Array.isArray(joinData) || joinData.length === 0) return items;
+
+  const joins = joinData as Array<{
+    breezy_position_id: string | null;
+    job_company_id: string | null;
+    is_primary: boolean | null;
+  }>;
+  const companyIds = Array.from(
+    new Set(joins.map((row) => row.job_company_id ?? "").filter(Boolean))
+  );
+  if (companyIds.length === 0) return items;
+
+  const { data: companyData, error: companyError } = await init.admin
+    .from("job_companies")
+    .select("id,name,normalized_name")
+    .eq("company_id", init.companyId)
+    .in("id", companyIds);
+  if (companyError || !Array.isArray(companyData)) return items;
+
+  const companyById = new Map(
+    (companyData as Array<{ id: string; name: string | null; normalized_name: string | null }>).map(
+      (row) => [row.id, row] as const
+    )
+  );
+  const joinsByPosition = new Map<string, typeof joins>();
+  for (const row of joins) {
+    const positionId = (row.breezy_position_id ?? "").trim();
+    if (!positionId || !row.job_company_id || !companyById.has(row.job_company_id)) continue;
+    const list = joinsByPosition.get(positionId) ?? [];
+    list.push(row);
+    joinsByPosition.set(positionId, list);
+  }
+
+  return items.flatMap((item) => {
+    const positionJoins = joinsByPosition.get(item.id) ?? [];
+    if (positionJoins.length === 0) return [item];
+    return positionJoins
+      .sort((a, b) => Number(b.is_primary === true) - Number(a.is_primary === true))
+      .map((join) => {
+        const company = join.job_company_id ? companyById.get(join.job_company_id) : null;
+        const companyName = (company?.name ?? "").trim();
+        if (!company || !companyName) return item;
+        return {
+          ...item,
+          view_id: `${item.id}:${company.id}`,
+          company: companyName,
+        };
+      });
+  });
+}
+
 export async function GET(request: Request) {
   try {
     await requireUser();
@@ -175,6 +242,7 @@ export async function GET(request: Request) {
     }
 
     const jobCompanyFilter = (searchParams.get("jobCompany") ?? "").trim();
+    const searchFilter = (searchParams.get("search") ?? "").trim();
     const { limit, offset } = getPaginationFromRequest(request);
 
     const admin = createSupabaseAdminClient();
@@ -190,7 +258,7 @@ export async function GET(request: Request) {
       .eq("breezy_company_id", breezyCompanyId)
       .order("name", { ascending: true });
 
-    if (!jobCompanyFilter) {
+    if (!jobCompanyFilter && !searchFilter) {
       query = query.range(offset, offset + limit - 1);
     }
 
@@ -281,8 +349,9 @@ export async function GET(request: Request) {
       companies.map((company) => [company.normalized_name, company.name])
     );
     const normalizedCompanyFilter = normalizeJobCompanyName(jobCompanyFilter);
+    const normalizedSearchFilter = searchFilter.toLowerCase();
 
-    const list = (Array.isArray(data) ? (data as unknown as Row[]) : []).map(
+    let list: PositionListItem[] = (Array.isArray(data) ? (data as unknown as Row[]) : []).map(
       (row) => {
         const overrides =
           row.overrides && typeof row.overrides === "object" && !Array.isArray(row.overrides)
@@ -319,13 +388,26 @@ export async function GET(request: Request) {
           details_synced_at: row.details_synced_at,
         } satisfies PositionListItem;
       }
-    ).filter((position) => {
+    );
+
+    try {
+      list = await expandPositionCompanyJoins(list, { admin, companyId });
+    } catch {
+      // Keep legacy single-company rows if the join overlay is unavailable.
+    }
+
+    list = list.filter((position) => {
       if (!normalizedCompanyFilter) return true;
       return normalizeJobCompanyName(position.company) === normalizedCompanyFilter;
+    }).filter((position) => {
+      if (!normalizedSearchFilter) return true;
+      const haystack =
+        `${position.name ?? ""} ${position.company ?? ""} ${position.department ?? ""} ${position.state ?? ""} ${position.org_type ?? ""} ${position.friendly_id ?? ""} ${position.id}`.toLowerCase();
+      return haystack.includes(normalizedSearchFilter);
     });
 
     if (list.length === 0) {
-      if (jobCompanyFilter) {
+      if (jobCompanyFilter || searchFilter) {
         return NextResponse.json(
           { positions: [], total: 0, nextOffset: null },
           { status: 200 }
@@ -346,8 +428,9 @@ export async function GET(request: Request) {
       );
     }
 
-    const total = jobCompanyFilter ? list.length : typeof count === "number" ? count : offset + list.length;
-    const slice = jobCompanyFilter ? list.slice(offset, offset + limit) : list;
+    const isServerFiltered = Boolean(jobCompanyFilter || searchFilter);
+    const total = isServerFiltered ? list.length : typeof count === "number" ? count : offset + list.length;
+    const slice = isServerFiltered ? list.slice(offset, offset + limit) : list;
     const nextOffset = offset + slice.length < total ? offset + slice.length : null;
     return NextResponse.json({ positions: slice, total, nextOffset }, { status: 200 });
   } catch (error) {

@@ -43,7 +43,7 @@ export default function DetailsModalShell({
     >
       <div className={`absolute inset-0 ${backdropClassName}`} />
       <div
-        className={`relative z-10 w-full max-w-4xl overflow-hidden rounded-[28px] xl:rounded-3xl ${panelClassName}`}
+        className={`relative z-10 w-full max-w-[67.2rem] overflow-hidden rounded-[28px] xl:rounded-3xl ${panelClassName}`}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="hide-scrollbar max-h-[94svh] overflow-auto xl:max-h-[80vh]">
