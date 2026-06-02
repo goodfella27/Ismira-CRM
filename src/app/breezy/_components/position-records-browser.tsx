@@ -64,6 +64,7 @@ type BreezyCompany = {
 
 type BreezyPosition = {
   id: string;
+  view_id?: string;
   name: string;
   state?: string;
   friendly_id?: string;
@@ -531,6 +532,7 @@ export default function BreezyPositionRecordsBrowser({
   // Don't read localStorage during the initial render; it causes hydration mismatches.
   const [companyId, setCompanyId] = useState("");
   const [filter, setFilter] = useState("");
+  const [serverFilter, setServerFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [positionsTotal, setPositionsTotal] = useState<number | null>(null);
@@ -1020,7 +1022,8 @@ export default function BreezyPositionRecordsBrowser({
   const loadPositions = async (nextCompanyId?: string) => {
     const target = (nextCompanyId ?? companyId).trim();
     if (!target) return;
-    const queryKey = `${target}::${jobCompanyFilter.trim().toLowerCase()}`;
+    const search = serverFilter.trim();
+    const queryKey = `${target}::${jobCompanyFilter.trim().toLowerCase()}::${search.toLowerCase()}`;
     positionsQueryKeyRef.current = queryKey;
     setLoadingPositions(true);
     setLoadingMorePositions(false);
@@ -1032,9 +1035,12 @@ export default function BreezyPositionRecordsBrowser({
       const jobCompanyQuery = jobCompanyFilter.trim()
         ? `&jobCompany=${encodeURIComponent(jobCompanyFilter.trim())}`
         : "";
+      const searchQuery = search
+        ? `&search=${encodeURIComponent(search)}`
+        : "";
       const url = `/api/breezy/positions-cache?companyId=${encodeURIComponent(
         target
-      )}&limit=20&offset=0${jobCompanyQuery}`;
+      )}&limit=20&offset=0${jobCompanyQuery}${searchQuery}`;
       const res = await fetch(url, { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -1065,7 +1071,8 @@ export default function BreezyPositionRecordsBrowser({
     if (loadingPositions || loadingMorePositions) return;
     if (positionsNextOffset === null) return;
 
-    const queryKey = `${target}::${jobCompanyFilter.trim().toLowerCase()}`;
+    const search = serverFilter.trim();
+    const queryKey = `${target}::${jobCompanyFilter.trim().toLowerCase()}::${search.toLowerCase()}`;
     const keyAtStart = positionsQueryKeyRef.current || queryKey;
     if (keyAtStart !== queryKey) return;
 
@@ -1075,9 +1082,12 @@ export default function BreezyPositionRecordsBrowser({
       const jobCompanyQuery = jobCompanyFilter.trim()
         ? `&jobCompany=${encodeURIComponent(jobCompanyFilter.trim())}`
         : "";
+      const searchQuery = search
+        ? `&search=${encodeURIComponent(search)}`
+        : "";
       const url = `/api/breezy/positions-cache?companyId=${encodeURIComponent(
         target
-      )}&limit=20&offset=${encodeURIComponent(String(positionsNextOffset))}${jobCompanyQuery}`;
+      )}&limit=20&offset=${encodeURIComponent(String(positionsNextOffset))}${jobCompanyQuery}${searchQuery}`;
       const res = await fetch(url, { cache: "no-store" });
       if (res.status === 416) {
         // Offset is past the end (typically because filters changed). Treat as end-of-list.
@@ -1095,12 +1105,13 @@ export default function BreezyPositionRecordsBrowser({
       const list = parsed ? normalizePositions(parsed) : [];
       if (positionsQueryKeyRef.current !== keyAtStart) return;
       setPositions((prev) => {
-        const seen = new Set(prev.map((p) => p.id));
+        const seen = new Set(prev.map((p) => p.view_id || p.id));
         const merged = [...prev];
         for (const item of list) {
-          if (!item?.id || seen.has(item.id)) continue;
+          const itemKey = item?.view_id || item?.id;
+          if (!item?.id || !itemKey || seen.has(itemKey)) continue;
           merged.push(item);
-          seen.add(item.id);
+          seen.add(itemKey);
         }
         return merged;
       });
@@ -1120,6 +1131,7 @@ export default function BreezyPositionRecordsBrowser({
   }, [
     companyId,
     jobCompanyFilter,
+    serverFilter,
     loadingMorePositions,
     loadingPositions,
     positionsNextOffset,
@@ -1363,6 +1375,7 @@ export default function BreezyPositionRecordsBrowser({
     return filteredPositions.map((pos, index) => {
       const id = pos.id;
       const name = pos.name || pos.friendly_id || id || "Position";
+      const rowKey = pos.view_id || id || `${name}-${index}`;
       const active = Boolean(id && selectedPositionId === id);
       const orgType = normalizePositionType(pos.org_type);
       const company = asString(pos.company).trim();
@@ -1385,7 +1398,7 @@ export default function BreezyPositionRecordsBrowser({
 
       return (
         <tr
-          key={id || `${name}-${index}`}
+          key={rowKey}
           role="button"
           tabIndex={id ? 0 : -1}
           aria-pressed={active}
@@ -1463,14 +1476,14 @@ export default function BreezyPositionRecordsBrowser({
                 <button
                   type="button"
                   aria-haspopup="menu"
-                  aria-expanded={cardMenuOpenId === id}
+                  aria-expanded={cardMenuOpenId === rowKey}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
                   onClick={(event) => {
                     event.stopPropagation();
                     const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
                     cardMenuButtonRef.current = event.currentTarget as HTMLButtonElement;
                     setCardMenuOpenId((prev) => {
-                      const next = prev === id ? null : id;
+                      const next = prev === rowKey ? null : rowKey;
                       if (next) {
                         setCardMenuAnchor({
                           top: rect.top,
@@ -1490,7 +1503,7 @@ export default function BreezyPositionRecordsBrowser({
                   <AlignJustify className="h-5 w-5" />
                 </button>
 
-                {cardMenuOpenId === id ? (
+                {cardMenuOpenId === rowKey ? (
                   typeof document !== "undefined" && cardMenuAnchor
                     ? createPortal(
                         <div
@@ -1559,6 +1572,7 @@ export default function BreezyPositionRecordsBrowser({
       );
     });
 		  }, [
+		    availablePriorityTypes,
 		    cardActionSavingId,
 		    cardMenuOpenId,
 		    cardMenuAnchor,
@@ -2077,6 +2091,13 @@ export default function BreezyPositionRecordsBrowser({
   }, [companyId]);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setServerFilter(filter.trim());
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [filter]);
+
+  useEffect(() => {
     const target = companyId.trim();
     if (!target) return;
     setCompanyCountsLoading(true);
@@ -2112,7 +2133,7 @@ export default function BreezyPositionRecordsBrowser({
     if (!companyId) return;
     void loadPositions(companyId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobCompanyFilter]);
+  }, [jobCompanyFilter, serverFilter]);
 
   useEffect(() => {
     const node = loadMoreSentinelRef.current;
