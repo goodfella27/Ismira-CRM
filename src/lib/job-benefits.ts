@@ -24,9 +24,9 @@ export const AVAILABLE_BENEFIT_TAGS: BenefitTag[] = [
 ];
 
 export const BENEFIT_TAG_LABELS: Record<BenefitTag, string> = {
-  accommodation: "Accommodation",
+  accommodation: "Free Accommodation",
   meals: "Free Meals",
-  travel_tickets: "Tickets / Travel",
+  travel_tickets: "Travel Expenses Covered",
   visa_support: "Visa Support",
   medical_exam: "Paid Medical",
   certification: "Certification",
