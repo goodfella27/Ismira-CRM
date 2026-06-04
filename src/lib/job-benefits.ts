@@ -27,7 +27,7 @@ export const BENEFIT_TAG_LABELS: Record<BenefitTag, string> = {
   accommodation: "Free Accommodation",
   meals: "Free Meals",
   travel_tickets: "Travel Expenses Covered",
-  visa_support: "Visa Support",
+  visa_support: "Visa Refunded",
   medical_exam: "Paid Medical",
   certification: "Certification",
   bonus_tips: "Bonus / Tips",
