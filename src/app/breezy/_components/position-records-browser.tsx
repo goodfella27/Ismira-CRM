@@ -28,6 +28,7 @@ import {
   TrendingUp,
   Trash2,
   UtensilsCrossed,
+  X,
 } from "lucide-react";
 
 import DetailsModalShell from "@/components/details-modal-shell";
@@ -54,6 +55,26 @@ function getPriorityBadgeClass(key: string, types: BreezyPriorityType[]) {
   if (!normalized) return "";
   const index = types.findIndex((item) => normalizePriorityKey(item.key) === normalized);
   return PRIORITY_BADGE_STYLES[(index >= 0 ? index : 0) % PRIORITY_BADGE_STYLES.length];
+}
+
+function ModalCloseButton({
+  onClick,
+  disabled,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label="Close"
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm transition hover:bg-black focus:outline-none focus:ring-2 focus:ring-white/60 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-60"
+      onClick={onClick}
+      disabled={disabled}
+    >
+      <X className="h-5 w-5" aria-hidden="true" />
+    </button>
+  );
 }
 
 type BreezyCompany = {
@@ -2280,15 +2301,10 @@ export default function BreezyPositionRecordsBrowser({
 	                      from the site and admin list.
 	                    </div>
 	                  </div>
-	                  <button
-	                    type="button"
-	                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+	                  <ModalCloseButton
 	                    onClick={() => setDeleteConfirm(null)}
 	                    disabled={cardActionSavingId === deleteConfirm.positionId}
-	                    aria-label="Close"
-	                  >
-	                    ×
-	                  </button>
+	                  />
 	                </div>
 
 	                <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -2728,17 +2744,7 @@ export default function BreezyPositionRecordsBrowser({
                   ) : null}
                 </div>
               ) : null}
-              <button
-                type="button"
-                aria-label="Close"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm hover:bg-black focus:outline-none focus:ring-2 focus:ring-white/60 focus:ring-offset-2 focus:ring-offset-transparent"
-                onClick={closePositionModal}
-                disabled={savingEdits}
-              >
-                <span aria-hidden="true" className="text-lg leading-none">
-                  ×
-                </span>
-              </button>
+              <ModalCloseButton onClick={closePositionModal} disabled={savingEdits} />
             </>
 	          }
 	          stickyHeader={
@@ -3144,7 +3150,7 @@ export default function BreezyPositionRecordsBrowser({
 
               {priorityTypesModalOpen ? (
                 <div
-                  className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
+                  className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
                   onClick={() => setPriorityTypesModalOpen(false)}
                 >
                   <div
@@ -3158,13 +3164,7 @@ export default function BreezyPositionRecordsBrowser({
                           Edit labels, add new types, or remove old ones.
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                        onClick={() => setPriorityTypesModalOpen(false)}
-                      >
-                        Close
-                      </button>
+                      <ModalCloseButton onClick={() => setPriorityTypesModalOpen(false)} />
                     </div>
 
                     <div className="mt-4 grid gap-3">
@@ -3256,17 +3256,13 @@ export default function BreezyPositionRecordsBrowser({
                               : "Pick an existing department."}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                      <ModalCloseButton
                         onClick={() => {
                           setCompanyPickerOpen(false);
                           setDepartmentPickerOpen(false);
                           setPickerQuery("");
                         }}
-                      >
-                        Close
-                      </button>
+                      />
                     </div>
 
                     <div className="mt-4">
@@ -3287,6 +3283,10 @@ export default function BreezyPositionRecordsBrowser({
                               const selected = editForm.companies.some(
                                 (item) => item.trim().toLowerCase() === label.trim().toLowerCase()
                               );
+                              const companyLogoUrl = companyPickerOpen
+                                ? companyLogoByName[label.trim().toLowerCase()] ?? ""
+                                : "";
+                              const companyInitial = label.trim().slice(0, 1).toUpperCase() || "?";
                               return (
                                 <button
                                   key={label}
@@ -3327,7 +3327,24 @@ export default function BreezyPositionRecordsBrowser({
                                     setInlineEditField(null);
                                   }}
                                 >
-                                  <span className="min-w-0 truncate">{label}</span>
+                                  <span className="flex min-w-0 items-center gap-3">
+                                    {companyPickerOpen ? (
+                                      <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white text-xs font-bold text-slate-500 ring-1 ring-slate-200">
+                                        {companyLogoUrl ? (
+                                          // eslint-disable-next-line @next/next/no-img-element
+                                          <img
+                                            src={companyLogoUrl}
+                                            alt={label}
+                                            className="h-full w-full object-contain p-1"
+                                            loading="lazy"
+                                          />
+                                        ) : (
+                                          companyInitial
+                                        )}
+                                      </span>
+                                    ) : null}
+                                    <span className="min-w-0 truncate">{label}</span>
+                                  </span>
                                   {companyPickerOpen && selected ? (
                                     <span className="inline-flex items-center gap-1 text-emerald-700">
                                       <Check className="h-4 w-4" />
@@ -3443,13 +3460,7 @@ export default function BreezyPositionRecordsBrowser({
                           Active openings are visible on the public jobs page.
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                        onClick={() => setStatusPickerOpen(false)}
-                      >
-                        Close
-                      </button>
+                      <ModalCloseButton onClick={() => setStatusPickerOpen(false)} />
                     </div>
 
                     <div className="mt-4 grid gap-2">
@@ -3510,13 +3521,7 @@ export default function BreezyPositionRecordsBrowser({
                           Choose a label for this opening, or create a new one.
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                        onClick={() => setOpeningTypePickerOpen(false)}
-                      >
-                        Close
-                      </button>
+                      <ModalCloseButton onClick={() => setOpeningTypePickerOpen(false)} />
                     </div>
 
                     {(() => {
@@ -3573,21 +3578,15 @@ export default function BreezyPositionRecordsBrowser({
                             </div>
                           </div>
 
-                          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                          <div className="mt-4 flex flex-wrap items-center gap-2">
                             <button
                               type="button"
-                              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                              className="inline-flex items-center gap-2 rounded-full border border-sky-400 bg-gradient-to-r from-[#00b4ff] via-[#1594f5] to-[#006fe6] px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-300/50 transition hover:from-[#16c8ff] hover:via-[#1aa2ff] hover:to-[#075fe0] disabled:opacity-60"
                               onClick={() => setPriorityTypesModalOpen(true)}
                               disabled={savingEdits || detailsLoading}
                             >
-                              Manage / create types
-                            </button>
-                            <button
-                              type="button"
-                              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                              onClick={() => setOpeningTypePickerOpen(false)}
-                            >
-                              Cancel
+                              <Plus className="h-3.5 w-3.5" />
+                              Add / Remove
                             </button>
                           </div>
                         </>
@@ -3857,14 +3856,10 @@ export default function BreezyPositionRecordsBrowser({
                   This creates a new position in Breezy for the selected company.
                 </div>
               </div>
-              <button
-                type="button"
-                className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+              <ModalCloseButton
                 onClick={() => setCreateOpeningOpen(false)}
                 disabled={createOpeningSaving}
-              >
-                Close
-              </button>
+              />
             </div>
 
             <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto px-5 py-4">
