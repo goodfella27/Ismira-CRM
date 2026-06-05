@@ -36,6 +36,7 @@ import {
   Quote,
   Star,
   SlidersHorizontal,
+  type LucideIcon,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -174,11 +175,25 @@ const PRIORITY_BADGE_STYLES = [
   "bg-gradient-to-r from-[#22c55e] to-[#14b8a6] text-white shadow-emerald-200/40",
 ];
 
+const PRIORITY_TEXT_STYLES = [
+  "text-[#f28714]",
+  "text-[#1d9bd7]",
+  "text-[#8b5cf6]",
+  "text-[#0f9f6e]",
+];
+
 function getPriorityBadgeClass(key: string, types: BreezyPriorityType[]) {
   const normalized = normalizePriorityKey(key);
   if (!normalized) return "";
   const index = types.findIndex((item) => normalizePriorityKey(item.key) === normalized);
   return PRIORITY_BADGE_STYLES[(index >= 0 ? index : 0) % PRIORITY_BADGE_STYLES.length];
+}
+
+function getPriorityTextClass(key: string, types: BreezyPriorityType[]) {
+  const normalized = normalizePriorityKey(key);
+  if (!normalized) return "text-slate-800";
+  const index = types.findIndex((item) => normalizePriorityKey(item.key) === normalized);
+  return PRIORITY_TEXT_STYLES[(index >= 0 ? index : 0) % PRIORITY_TEXT_STYLES.length];
 }
 
 const COUNTRY_DISPLAY_NAMES =
@@ -455,14 +470,25 @@ type DropdownOption = {
   searchText?: string;
 };
 
+function FilterSectionLabel({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
+  return (
+    <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <Icon className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+      <span>{label}</span>
+    </div>
+  );
+}
+
 function FilterDropdown({
   label,
+  icon,
   value,
   placeholder,
   options,
   onChange,
 }: {
   label: string;
+  icon: LucideIcon;
   value: string;
   placeholder: string;
   options: DropdownOption[];
@@ -574,9 +600,7 @@ function FilterDropdown({
 
   return (
     <div ref={rootRef} className="relative">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-      </div>
+      <FilterSectionLabel icon={icon} label={label} />
       <button
         ref={buttonRef}
         type="button"
@@ -679,18 +703,18 @@ type MultiSelectOption = {
 
 function MultiSelectTrigger({
   label,
+  icon,
   valueLabel,
   onClick,
 }: {
   label: string;
+  icon: LucideIcon;
   valueLabel: string;
   onClick: () => void;
 }) {
   return (
     <div>
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-      </div>
+      <FilterSectionLabel icon={icon} label={label} />
       <button
         type="button"
         className="mt-2 inline-flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm hover:bg-slate-50"
@@ -3441,16 +3465,19 @@ export default function JobsBoard() {
                 <div className="grid gap-4">
                     <MultiSelectTrigger
                       label="Company"
+                      icon={Building2}
                       valueLabel={companyValueLabel}
                       onClick={() => setCompanyModalOpen(true)}
                     />
                     <MultiSelectTrigger
                       label="Department"
+                      icon={UserRound}
                       valueLabel={departmentValueLabel}
                       onClick={() => setDepartmentModalOpen(true)}
                     />
                     <FilterDropdown
                       label="Citizenship"
+                      icon={MapPin}
                       value={countryFilter}
                       placeholder="All countries"
                       onChange={setCountryFilter}
@@ -3466,8 +3493,8 @@ export default function JobsBoard() {
                     />
                 </div>
 
-                <div className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Ship Type
+                <div className="mt-5">
+                  <FilterSectionLabel icon={Compass} label="Ship Type" />
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                     {JOB_SHIP_TYPES.map((shipType) => {
@@ -3516,14 +3543,15 @@ export default function JobsBoard() {
                     ) : null}
                 </div>
 
-                <div className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Priority
+                <div className="mt-5">
+                  <FilterSectionLabel icon={AlertTriangle} label="Priority" />
                 </div>
                 <div className="mt-2 grid gap-2">
                 {availablePriorityTypes.map((type) => {
                   const key = normalizePriorityKey(type.key);
                   const count = priorityCounts.get(key) ?? 0;
                   const checked = priorityFilters.includes(key);
+                  const priorityTextClass = getPriorityTextClass(key, availablePriorityTypes);
                   return (
                     <label
                       key={key}
@@ -3545,11 +3573,11 @@ export default function JobsBoard() {
                             )
                           }
                         />
-                        <span className={count === 0 ? "truncate text-slate-400" : "truncate"}>
+                        <span className={count === 0 ? "truncate text-slate-400" : `truncate ${priorityTextClass}`}>
                           {type.label}
                         </span>
                       </span>
-                      <span className={count === 0 ? "text-slate-400" : "text-slate-500"}>
+                      <span className={count === 0 ? "text-slate-400" : priorityTextClass}>
                         {count}
                       </span>
                     </label>
@@ -3587,16 +3615,19 @@ export default function JobsBoard() {
               <div className="mt-5 grid gap-4">
                 <MultiSelectTrigger
                   label="Company"
+                  icon={Building2}
                   valueLabel={companyValueLabel}
                   onClick={() => setCompanyModalOpen(true)}
                 />
                 <MultiSelectTrigger
                   label="Department"
+                  icon={UserRound}
                   valueLabel={departmentValueLabel}
                   onClick={() => setDepartmentModalOpen(true)}
                 />
                 <FilterDropdown
                   label="Citizenship"
+                  icon={MapPin}
                   value={countryFilter}
                   placeholder="All countries"
                   onChange={setCountryFilter}
@@ -3650,9 +3681,7 @@ export default function JobsBoard() {
               ) : null}
 
               <div className="mt-5">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Ship Type
-                </div>
+                <FilterSectionLabel icon={Compass} label="Ship Type" />
                 <div className="mt-2 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
                   {JOB_SHIP_TYPES.map((shipType) => {
                     const count = shipTypeCounts.get(shipType) ?? 0;
@@ -3702,14 +3731,13 @@ export default function JobsBoard() {
               </div>
 
               <div className="mt-5">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Priority
-                </div>
+                <FilterSectionLabel icon={AlertTriangle} label="Priority" />
                 <div className="mt-2 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
                   {availablePriorityTypes.map((type) => {
                     const key = normalizePriorityKey(type.key);
                     const count = priorityCounts.get(key) ?? 0;
                     const checked = priorityFilters.includes(key);
+                    const priorityTextClass = getPriorityTextClass(key, availablePriorityTypes);
                     return (
                       <label
                         key={key}
@@ -3731,11 +3759,11 @@ export default function JobsBoard() {
                               )
                             }
                           />
-                          <span className={count === 0 ? "text-slate-400" : ""}>
+                          <span className={count === 0 ? "text-slate-400" : priorityTextClass}>
                             {type.label}
                           </span>
                         </span>
-                        <span className={count === 0 ? "text-slate-400" : "text-slate-500"}>
+                        <span className={count === 0 ? "text-slate-400" : priorityTextClass}>
                           {count}
                         </span>
                       </label>
