@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   DEFAULT_BREEZY_PRIORITY_TYPES,
   dedupePriorityTypes,
+  getDefaultPriorityFrontpageVisibility,
   normalizePriorityKey,
 } from "@/lib/breezy-priority-types";
 
@@ -16,10 +17,15 @@ type PriorityTypeRow = {
   key: string | null;
   label: string | null;
   sort_order: number | null;
+  show_on_frontpage?: boolean | null;
 };
 
 const isMissingPriorityTypesTableError = (message: string) =>
   /could not find the table/i.test(message) && /breezy_priority_types/i.test(message);
+
+const isMissingShowOnFrontpageColumnError = (message: string) =>
+  /show_on_frontpage/i.test(message) &&
+  (/could not find/i.test(message) || /column/i.test(message) || /schema cache/i.test(message));
 
 async function requireUser() {
   const supabase = await createSupabaseServerClient();
@@ -32,12 +38,25 @@ async function requireUser() {
 
 async function readPriorityTypes(companyId: string) {
   const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
+  const initial = await admin
     .from("breezy_priority_types")
-    .select("company_id,key,label,sort_order")
+    .select("company_id,key,label,sort_order,show_on_frontpage")
     .eq("company_id", companyId)
     .order("sort_order", { ascending: true })
     .order("label", { ascending: true });
+  let data = initial.data as PriorityTypeRow[] | null;
+  let error = initial.error;
+
+  if (error && isMissingShowOnFrontpageColumnError(error.message ?? "")) {
+    const fallback = await admin
+      .from("breezy_priority_types")
+      .select("company_id,key,label,sort_order")
+      .eq("company_id", companyId)
+      .order("sort_order", { ascending: true })
+      .order("label", { ascending: true });
+    data = fallback.data as PriorityTypeRow[] | null;
+    error = fallback.error;
+  }
 
   if (error) throw error;
 
@@ -46,6 +65,10 @@ async function readPriorityTypes(companyId: string) {
       key: row.key ?? "",
       label: row.label ?? "",
       sortOrder: Number.isFinite(row.sort_order) ? Number(row.sort_order) : index,
+      showOnFrontpage:
+        typeof row.show_on_frontpage === "boolean"
+          ? row.show_on_frontpage
+          : getDefaultPriorityFrontpageVisibility(row.key ?? "", row.label ?? ""),
     }))
   );
 }
@@ -117,6 +140,7 @@ export async function POST(request: Request) {
       key,
       label,
       sort_order: maxSort + 1,
+      show_on_frontpage: false,
     });
     if (error) throw error;
 
@@ -147,16 +171,23 @@ export async function PATCH(request: Request) {
     const body = (await request.json().catch(() => null)) as {
       key?: unknown;
       label?: unknown;
+      showOnFrontpage?: unknown;
     } | null;
     const key = typeof body?.key === "string" ? normalizePriorityKey(body.key) : "";
     const label = typeof body?.label === "string" ? body.label.trim() : "";
+    const hasShowOnFrontpage = typeof body?.showOnFrontpage === "boolean";
     if (!key || !label) {
       return NextResponse.json({ error: "Missing key or label." }, { status: 400 });
     }
 
+    const updates: { label: string; show_on_frontpage?: boolean } = { label };
+    if (hasShowOnFrontpage) {
+      updates.show_on_frontpage = body.showOnFrontpage === true;
+    }
+
     const { error } = await admin
       .from("breezy_priority_types")
-      .update({ label })
+      .update(updates)
       .eq("company_id", membership.companyId)
       .eq("key", key);
     if (error) throw error;
