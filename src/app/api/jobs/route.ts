@@ -12,6 +12,7 @@ import {
 import {
   DEFAULT_BREEZY_PRIORITY_TYPES,
   dedupePriorityTypes,
+  getDefaultPriorityFrontpageVisibility,
 } from "@/lib/breezy-priority-types";
 import { buildBreezyPublicPositionUrl } from "@/lib/breezy-public";
 import {
@@ -59,6 +60,7 @@ type PriorityTypePayload = {
   key: string;
   label: string;
   sortOrder: number;
+  showOnFrontpage: boolean;
 };
 
 type BreezyPosition = {
@@ -393,16 +395,43 @@ async function expandPositionCompanyJoins(
 const isMissingPriorityTypesTableError = (message: string) =>
   /could not find the table/i.test(message) && /breezy_priority_types/i.test(message);
 
+const isMissingShowOnFrontpageColumnError = (message: string) =>
+  /show_on_frontpage/i.test(message) &&
+  (/could not find/i.test(message) || /column/i.test(message) || /schema cache/i.test(message));
+
 async function loadPriorityTypes(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   companyId: string
 ) {
-  const { data, error } = await admin
+  const initial = await admin
     .from("breezy_priority_types")
-    .select("key,label,sort_order")
+    .select("key,label,sort_order,show_on_frontpage")
     .eq("company_id", companyId)
     .order("sort_order", { ascending: true })
     .order("label", { ascending: true });
+  let data = initial.data as Array<{
+    key: string | null;
+    label: string | null;
+    sort_order: number | null;
+    show_on_frontpage?: boolean | null;
+  }> | null;
+  let error = initial.error;
+
+  if (error && isMissingShowOnFrontpageColumnError(error.message ?? "")) {
+    const fallback = await admin
+      .from("breezy_priority_types")
+      .select("key,label,sort_order")
+      .eq("company_id", companyId)
+      .order("sort_order", { ascending: true })
+      .order("label", { ascending: true });
+    data = fallback.data as Array<{
+      key: string | null;
+      label: string | null;
+      sort_order: number | null;
+      show_on_frontpage?: boolean | null;
+    }> | null;
+    error = fallback.error;
+  }
 
   if (error) {
     if (isMissingPriorityTypesTableError(error.message ?? "")) {
@@ -413,12 +442,21 @@ async function loadPriorityTypes(
 
   return dedupePriorityTypes(
     (Array.isArray(data)
-      ? (data as Array<{ key: string | null; label: string | null; sort_order: number | null }>)
+      ? (data as Array<{
+          key: string | null;
+          label: string | null;
+          sort_order: number | null;
+          show_on_frontpage?: boolean | null;
+        }>)
       : []
     ).map((row, index) => ({
       key: row.key ?? "",
       label: row.label ?? "",
       sortOrder: Number.isFinite(row.sort_order) ? Number(row.sort_order) : index,
+      showOnFrontpage:
+        typeof row.show_on_frontpage === "boolean"
+          ? row.show_on_frontpage
+          : getDefaultPriorityFrontpageVisibility(row.key ?? "", row.label ?? ""),
     }))
   );
 }

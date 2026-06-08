@@ -143,7 +143,7 @@ type JobListItemIndexed = JobListItem & {
 };
 
 type JobsBoardCache = {
-  v: 4;
+  v: 5;
   savedAt: number;
   etag?: string;
   items: JobListItem[];
@@ -1148,7 +1148,7 @@ function extractHeroImageFromSafeHtml(html: string): { heroSrc: string; bodyHtml
   }
 }
 
-const JOBS_CACHE_KEY = "jobsboard:list:v4";
+const JOBS_CACHE_KEY = "jobsboard:list:v5";
 const JOBS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const JOBS_PAGE_SIZE = 24;
 
@@ -1161,9 +1161,9 @@ function readJobsCache(): JobsBoardCache | null {
       | (Partial<JobsBoardCache> & { v?: number; priorityTypes?: unknown })
       | null;
     if (!parsed || typeof parsed.savedAt !== "number" || !Array.isArray(parsed.items)) return null;
-    if (parsed.v === 4) {
+    if (parsed.v === 5) {
       return {
-        v: 4,
+        v: 5,
         savedAt: parsed.savedAt,
         etag: typeof parsed.etag === "string" ? parsed.etag : undefined,
         items: parsed.items as JobListItem[],
@@ -1198,7 +1198,7 @@ function indexJobs(list: JobListItem[]) {
     const company = asString(job.company).trim();
     const department = asString(job.department).trim();
     const priority = asString(job.priority).trim();
-    const priorityKey = normalizeFilterKey(priority);
+    const priorityKey = normalizePriorityKey(priority);
     const shipType =
       normalizeJobShipType(job.ship_type) ||
       inferJobShipTypeFromText(company, job.name, department);
@@ -1820,12 +1820,20 @@ export default function JobsBoard() {
   }, [jobs]);
 
   const availablePriorityTypes = useMemo(() => priorityTypes, [priorityTypes]);
+  const publicPriorityTypes = useMemo(
+    () => availablePriorityTypes.filter((type) => type.showOnFrontpage === true),
+    [availablePriorityTypes]
+  );
+  const publicPriorityTypeKeys = useMemo(
+    () => new Set(publicPriorityTypes.map((type) => normalizePriorityKey(type.key))),
+    [publicPriorityTypes]
+  );
 
   const priorityLabelByKey = useMemo(() => {
     return new Map(
-      availablePriorityTypes.map((item) => [normalizePriorityKey(item.key), item.label] as const)
+      publicPriorityTypes.map((item) => [normalizePriorityKey(item.key), item.label] as const)
     );
-  }, [availablePriorityTypes]);
+  }, [publicPriorityTypes]);
 
   const prioritySelection = useMemo(
     () => priorityFilters.map((value) => normalizePriorityKey(value)).filter(Boolean),
@@ -2163,7 +2171,9 @@ export default function JobsBoard() {
       !countryFilter &&
       !query;
 
-    const base = showFeaturedOnly ? baseJobs.filter((job) => job.__priorityKey.trim()) : baseJobs;
+    const base = showFeaturedOnly
+      ? baseJobs.filter((job) => publicPriorityTypeKeys.has(job.__priorityKey))
+      : baseJobs;
     const byCompany =
       companySet.size > 0 ? base.filter((job) => companySet.has(job.__companyKey)) : base;
     const byDepartment =
@@ -2207,6 +2217,7 @@ export default function JobsBoard() {
     departmentFilters,
     hasPriorityFilter,
     hasShipTypeFilter,
+    publicPriorityTypeKeys,
     prioritySelection,
     shipTypeSelection,
   ]);
@@ -2267,7 +2278,7 @@ export default function JobsBoard() {
       // Persist the raw list (smaller) and let the UI rebuild indices quickly on refresh.
       setTimeout(() => {
         writeJobsCache({
-          v: 4,
+          v: 5,
           savedAt: Date.now(),
           etag: etagRef.current ?? undefined,
           items: list,
@@ -2645,7 +2656,9 @@ export default function JobsBoard() {
       !countryFilter &&
       !query;
 
-    const base = showFeaturedOnly ? baseJobs.filter((job) => job.__priorityKey.trim()) : baseJobs;
+    const base = showFeaturedOnly
+      ? baseJobs.filter((job) => publicPriorityTypeKeys.has(job.__priorityKey))
+      : baseJobs;
     const byCompany =
       companySet.size > 0 ? base.filter((job) => companySet.has(job.__companyKey)) : base;
     const byDepartment =
@@ -2680,6 +2693,7 @@ export default function JobsBoard() {
     departmentFilters,
     hasPriorityFilter,
     hasShipTypeFilter,
+    publicPriorityTypeKeys,
     prioritySelection,
     shipTypeSelection,
   ]);
@@ -2703,7 +2717,7 @@ export default function JobsBoard() {
     };
 
     const addPriority = () => {
-      availablePriorityTypes.forEach((type, index) => {
+      publicPriorityTypes.forEach((type, index) => {
         const key = normalizePriorityKey(type.key);
         const count = priorityCounts.get(key) ?? 0;
         if (count <= 0) return;
@@ -2915,12 +2929,12 @@ export default function JobsBoard() {
 
     return suggestions.slice(0, 18);
   }, [
-    availablePriorityTypes,
     companyOptions,
     countryOptions,
     departmentOptions,
     filter,
     priorityCounts,
+    publicPriorityTypes,
     searchSuggestionPool,
   ]);
 
@@ -3123,7 +3137,7 @@ export default function JobsBoard() {
       const normalized = normalizePriorityKey(key);
       chips.push({
         id: `priority:${normalized}`,
-        label: `Priority: ${getPriorityLabel(normalized, availablePriorityTypes)}`,
+        label: `Priority: ${getPriorityLabel(normalized, publicPriorityTypes)}`,
         onRemove: () =>
           setPriorityFilters((prev) =>
             prev.filter((value) => normalizePriorityKey(value) !== normalized)
@@ -3140,8 +3154,8 @@ export default function JobsBoard() {
     departmentFilters,
     departmentLabelByKey,
     filter,
-    availablePriorityTypes,
     priorityFilters,
+    publicPriorityTypes,
     shipTypeFilters,
   ]);
 
@@ -3167,8 +3181,10 @@ export default function JobsBoard() {
     const priority = details
       ? asString(isRecord(details) ? details["priority"] : undefined).trim().toLowerCase()
       : asString(selectedSummary?.priority).trim().toLowerCase();
-    return getPriorityLabel(priority, availablePriorityTypes);
-  }, [availablePriorityTypes, details, selectedSummary]);
+    const key = normalizePriorityKey(priority);
+    if (!key || !publicPriorityTypeKeys.has(key)) return "";
+    return getPriorityLabel(priority, publicPriorityTypes);
+  }, [details, publicPriorityTypeKeys, publicPriorityTypes, selectedSummary]);
 
   const modalBenefitTags = useMemo(() => {
     if (!selectedId) return [];
@@ -3547,7 +3563,7 @@ export default function JobsBoard() {
                   <FilterSectionLabel icon={AlertTriangle} label="Priority" />
                 </div>
                 <div className="mt-2 grid gap-2">
-                {availablePriorityTypes.map((type) => {
+                {publicPriorityTypes.map((type) => {
                   const key = normalizePriorityKey(type.key);
                   const count = priorityCounts.get(key) ?? 0;
                   const checked = priorityFilters.includes(key);
@@ -3733,7 +3749,7 @@ export default function JobsBoard() {
               <div className="mt-5">
                 <FilterSectionLabel icon={AlertTriangle} label="Priority" />
                 <div className="mt-2 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
-                  {availablePriorityTypes.map((type) => {
+                  {publicPriorityTypes.map((type) => {
                     const key = normalizePriorityKey(type.key);
                     const count = priorityCounts.get(key) ?? 0;
                     const checked = priorityFilters.includes(key);
@@ -3852,7 +3868,10 @@ export default function JobsBoard() {
                     const avatarSeed = (company || asString(job.name)).trim() || "J";
                     const avatar = avatarSeed.slice(0, 1).toUpperCase();
 	                    const priority = asString(job.priority).trim().toLowerCase();
-	                    const priorityLabel = getPriorityLabel(priority, availablePriorityTypes);
+	                    const priorityKey = normalizePriorityKey(priority);
+	                    const priorityLabel = publicPriorityTypeKeys.has(priorityKey)
+	                      ? getPriorityLabel(priorityKey, publicPriorityTypes)
+	                      : "";
 	                    const shipTypeLabel =
 	                      getJobShipTypeLabel(job.ship_type) ||
 	                      getJobShipTypeLabel(inferJobShipTypeFromText(job.company, job.name));

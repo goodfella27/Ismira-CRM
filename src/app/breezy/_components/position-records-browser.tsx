@@ -1677,17 +1677,24 @@ export default function BreezyPositionRecordsBrowser({
     }
   };
 
-  const updatePriorityType = async (key: string) => {
+  const updatePriorityType = async (key: string, showOnFrontpage?: boolean) => {
     const normalized = normalizePriorityKey(key);
     const label = (priorityDrafts[normalized] ?? "").trim();
     if (!normalized || !label) return;
     setPrioritySaving(true);
     setError(null);
     try {
+      const payload: { key: string; label: string; showOnFrontpage?: boolean } = {
+        key: normalized,
+        label,
+      };
+      if (typeof showOnFrontpage === "boolean") {
+        payload.showOnFrontpage = showOnFrontpage;
+      }
       const res = await fetch("/api/breezy/priority-types", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: normalized, label }),
+        body: JSON.stringify(payload),
       });
       const data = (await res.json().catch(() => null)) as PriorityTypesResponse | null;
       if (!res.ok) {
@@ -3161,7 +3168,7 @@ export default function BreezyPositionRecordsBrowser({
                       <div>
                         <div className="text-sm font-semibold text-slate-900">Priority types</div>
                         <div className="mt-1 text-xs text-slate-500">
-                          Edit labels, add new types, or remove old ones.
+                          Edit labels, add new types, and choose which badges appear on the jobs page.
                         </div>
                       </div>
                       <ModalCloseButton onClick={() => setPriorityTypesModalOpen(false)} />
@@ -3173,7 +3180,7 @@ export default function BreezyPositionRecordsBrowser({
                         return (
                           <div
                             key={key}
-                            className="grid gap-2 rounded-2xl border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+                            className="grid gap-2 rounded-2xl border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
                           >
                             <input
                               className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
@@ -3186,6 +3193,24 @@ export default function BreezyPositionRecordsBrowser({
                                 }))
                               }
                             />
+                            <button
+                              type="button"
+                              className={[
+                                "inline-flex h-11 items-center justify-center gap-2 rounded-2xl border px-4 text-xs font-semibold transition disabled:opacity-60",
+                                type.showOnFrontpage
+                                  ? "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100"
+                                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                              ].join(" ")}
+                              onClick={() => void updatePriorityType(key, !type.showOnFrontpage)}
+                              disabled={prioritySaving || !(priorityDrafts[key] ?? type.label).trim()}
+                            >
+                              {type.showOnFrontpage ? (
+                                <Eye className="h-3.5 w-3.5" />
+                              ) : (
+                                <EyeOff className="h-3.5 w-3.5" />
+                              )}
+                              {type.showOnFrontpage ? "Frontpage" : "Hidden"}
+                            </button>
                             <button
                               type="button"
                               className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
