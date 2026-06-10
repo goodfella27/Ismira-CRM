@@ -13,7 +13,7 @@ import {
   signJobCompanyLogoUrls,
   type JobCompanyRow,
 } from "@/lib/job-companies";
-import { resolveJobShipType } from "@/lib/job-ship-types";
+import { resolveJobShipType, resolveJobShipTypes } from "@/lib/job-ship-types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -210,6 +210,7 @@ export async function GET() {
               ? logoUrls.get(row.logo_path.trim())
               : null) ?? null,
           shipType: resolveJobShipType({ metadata: row.metadata, name: row.name }),
+          shipTypes: resolveJobShipTypes({ metadata: row.metadata, name: row.name }),
           benefitTags: benefitTagsByCompanyId.get(row.id) ?? [],
           positionsCount:
             countsById.get(row.id) ?? countsByName.get(row.normalized_name) ?? 0,
