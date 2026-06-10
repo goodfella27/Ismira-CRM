@@ -19,14 +19,50 @@ export function normalizeJobShipType(value: unknown): JobShipType | "" {
   return "";
 }
 
+export function normalizeJobShipTypes(value: unknown): JobShipType[] {
+  const rawValues = Array.isArray(value)
+    ? value
+    : typeof value === "string" && value.trim().startsWith("[")
+      ? (() => {
+          try {
+            const parsed = JSON.parse(value) as unknown;
+            return Array.isArray(parsed) ? parsed : [value];
+          } catch {
+            return [value];
+          }
+        })()
+      : typeof value === "string" && value.includes(",")
+        ? value.split(",")
+        : [value];
+
+  const selected = new Set<JobShipType>();
+  for (const item of rawValues) {
+    const type = normalizeJobShipType(item);
+    if (type) selected.add(type);
+  }
+
+  return JOB_SHIP_TYPES.filter((type) => selected.has(type));
+}
+
 export function getJobShipTypeLabel(value: unknown) {
   const type = normalizeJobShipType(value);
   return type ? JOB_SHIP_TYPE_LABELS[type] : "";
 }
 
+export function getJobShipTypeLabels(value: unknown) {
+  return normalizeJobShipTypes(value).map((type) => JOB_SHIP_TYPE_LABELS[type]);
+}
+
 export function getMetadataShipType(metadata: unknown): JobShipType | "" {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return "";
-  return normalizeJobShipType((metadata as Record<string, unknown>).ship_type);
+  return getMetadataShipTypes(metadata)[0] ?? "";
+}
+
+export function getMetadataShipTypes(metadata: unknown): JobShipType[] {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return [];
+  const record = metadata as Record<string, unknown>;
+  const shipTypes = normalizeJobShipTypes(record.ship_types);
+  return shipTypes.length > 0 ? shipTypes : normalizeJobShipTypes(record.ship_type);
 }
 
 export function inferJobShipTypeFromText(...values: unknown[]): JobShipType | "" {
@@ -61,5 +97,11 @@ export function inferJobShipTypeFromText(...values: unknown[]): JobShipType | ""
 }
 
 export function resolveJobShipType(init: { metadata?: unknown; name?: unknown; fallback?: unknown }) {
-  return getMetadataShipType(init.metadata) || inferJobShipTypeFromText(init.name, init.fallback);
+  return resolveJobShipTypes(init)[0] ?? "";
+}
+
+export function resolveJobShipTypes(init: { metadata?: unknown; name?: unknown; fallback?: unknown }) {
+  const metadataTypes = getMetadataShipTypes(init.metadata);
+  if (metadataTypes.length > 0) return metadataTypes;
+  return normalizeJobShipTypes(inferJobShipTypeFromText(init.name, init.fallback));
 }

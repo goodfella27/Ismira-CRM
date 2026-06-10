@@ -8,6 +8,7 @@ import {
   JOB_SHIP_TYPE_LABELS,
   JOB_SHIP_TYPES,
   normalizeJobShipType,
+  normalizeJobShipTypes,
   type JobShipType,
 } from "@/lib/job-ship-types";
 
@@ -18,6 +19,7 @@ type JobCompanyAdminItem = {
   website: string | null;
   logoUrl: string | null;
   shipType: JobShipType | "";
+  shipTypes: JobShipType[];
   benefitTags: BenefitTag[];
   positionsCount: number;
 };
@@ -43,6 +45,9 @@ const normalizeBenefitTagList = (value: BenefitTag[]) =>
 const sameBenefitTagSelection = (left: BenefitTag[], right: BenefitTag[]) =>
   JSON.stringify(normalizeBenefitTagList(left)) === JSON.stringify(normalizeBenefitTagList(right));
 
+const sameJobShipTypeSelection = (left: JobShipType[], right: JobShipType[]) =>
+  JSON.stringify(normalizeJobShipTypes(left)) === JSON.stringify(normalizeJobShipTypes(right));
+
 export default function JobCompaniesAdmin() {
   const [jobCompanies, setJobCompanies] = useState<JobCompanyAdminItem[]>([]);
   const [jobCompaniesLoading, setJobCompaniesLoading] = useState(false);
@@ -55,7 +60,7 @@ export default function JobCompaniesAdmin() {
   const [recentJobCompanyMerges, setRecentJobCompanyMerges] = useState<JobCompanyMergeItem[]>([]);
   const [lastJobCompanyMerge, setLastJobCompanyMerge] = useState<JobCompanyMergeItem | null>(null);
   const [jobCompanyNameDrafts, setJobCompanyNameDrafts] = useState<Record<string, string>>({});
-  const [jobCompanyShipTypeDrafts, setJobCompanyShipTypeDrafts] = useState<Record<string, JobShipType | "">>({});
+  const [jobCompanyShipTypeDrafts, setJobCompanyShipTypeDrafts] = useState<Record<string, JobShipType[]>>({});
   const [jobCompanyBenefitDrafts, setJobCompanyBenefitDrafts] = useState<Record<string, BenefitTag[]>>({});
 
   const loadJobCompanies = useCallback(async () => {
@@ -79,6 +84,7 @@ export default function JobCompaniesAdmin() {
             website: typeof row.website === "string" ? row.website : null,
             logoUrl: typeof row.logoUrl === "string" ? row.logoUrl : null,
             shipType: normalizeJobShipType(row.shipType),
+            shipTypes: normalizeJobShipTypes(row.shipTypes ?? row.shipType),
             benefitTags: benefitTagsRaw.filter(
               (tag): tag is BenefitTag =>
                 typeof tag === "string" && AVAILABLE_BENEFIT_TAGS.includes(tag as BenefitTag)
@@ -167,7 +173,10 @@ export default function JobCompaniesAdmin() {
         Object.fromEntries(
           list.map((item) => {
             const row = isRecord(item) ? item : {};
-            return [typeof row.id === "string" ? row.id : "", normalizeJobShipType(row.shipType)];
+            return [
+              typeof row.id === "string" ? row.id : "",
+              normalizeJobShipTypes(row.shipTypes ?? row.shipType),
+            ];
           })
         )
       );
@@ -417,7 +426,8 @@ export default function JobCompaniesAdmin() {
     async (jobCompanyId: string) => {
       const name = (jobCompanyNameDrafts[jobCompanyId] ?? "").trim();
       const benefitTags = normalizeBenefitTagList(jobCompanyBenefitDrafts[jobCompanyId] ?? []);
-      const shipType = normalizeJobShipType(jobCompanyShipTypeDrafts[jobCompanyId]);
+      const shipTypes = normalizeJobShipTypes(jobCompanyShipTypeDrafts[jobCompanyId] ?? []);
+      const shipType = shipTypes[0] ?? "";
       if (!jobCompanyId) return;
       if (!name) {
         setJobCompaniesError("Company name is required.");
@@ -431,6 +441,7 @@ export default function JobCompaniesAdmin() {
         form.set("name", name);
         form.set("benefitTags", JSON.stringify(benefitTags));
         form.set("shipType", shipType);
+        form.set("shipTypes", JSON.stringify(shipTypes));
         const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
           method: "POST",
           body: form,
@@ -564,17 +575,20 @@ export default function JobCompaniesAdmin() {
             const isBusy = jobCompaniesActionId === item.id;
             const isExpanded = expandedJobCompanyId === item.id;
             const draftName = jobCompanyNameDrafts[item.id] ?? item.name;
-            const draftShipType = jobCompanyShipTypeDrafts[item.id] ?? item.shipType;
+            const draftShipTypes = normalizeJobShipTypes(
+              jobCompanyShipTypeDrafts[item.id] ?? item.shipTypes
+            );
             const draftBenefitTags = jobCompanyBenefitDrafts[item.id] ?? [];
             const mergeTargetId = jobCompanyMergeTargets[item.id] ?? "";
             const mergeTarget = jobCompanies.find((candidate) => candidate.id === mergeTargetId);
             const hasChanges =
               draftName.trim() !== item.name.trim() ||
-              draftShipType !== item.shipType ||
+              !sameJobShipTypeSelection(draftShipTypes, item.shipTypes) ||
               !sameBenefitTagSelection(draftBenefitTags, item.benefitTags);
-            const shipTypeLabel = draftShipType
-              ? JOB_SHIP_TYPE_LABELS[draftShipType]
-              : "Auto / Unknown";
+            const shipTypeLabels =
+              draftShipTypes.length > 0
+                ? draftShipTypes.map((type) => JOB_SHIP_TYPE_LABELS[type])
+                : ["Auto / Unknown"];
 
             return (
               <div
@@ -623,9 +637,14 @@ export default function JobCompaniesAdmin() {
                       <span className="rounded-full bg-slate-100 px-2.5 py-1">
                         {item.positionsCount} {item.positionsCount === 1 ? "position" : "positions"}
                       </span>
-                      <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-cyan-800">
-                        {shipTypeLabel}
-                      </span>
+                      {shipTypeLabels.map((label) => (
+                        <span
+                          key={label}
+                          className="rounded-full bg-cyan-50 px-2.5 py-1 text-cyan-800"
+                        >
+                          {label}
+                        </span>
+                      ))}
                       <span className="rounded-full bg-sky-50 px-2.5 py-1 text-sky-800">
                         {draftBenefitTags.length} benefits
                       </span>
@@ -670,11 +689,11 @@ export default function JobCompaniesAdmin() {
                               type="button"
                               disabled={isBusy}
                               onClick={() =>
-                                setJobCompanyShipTypeDrafts((prev) => ({ ...prev, [item.id]: "" }))
+                                setJobCompanyShipTypeDrafts((prev) => ({ ...prev, [item.id]: [] }))
                               }
                               className={[
                                 "rounded-full border px-4 py-2 text-xs font-bold transition",
-                                draftShipType === ""
+                                draftShipTypes.length === 0
                                   ? "border-slate-950 bg-slate-950 text-white"
                                   : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
                               ].join(" ")}
@@ -682,7 +701,7 @@ export default function JobCompaniesAdmin() {
                               Auto / Unknown
                             </button>
                             {JOB_SHIP_TYPES.map((shipType) => {
-                              const active = draftShipType === shipType;
+                              const active = draftShipTypes.includes(shipType);
                               return (
                                 <button
                                   key={shipType}
@@ -691,7 +710,9 @@ export default function JobCompaniesAdmin() {
                                   onClick={() =>
                                     setJobCompanyShipTypeDrafts((prev) => ({
                                       ...prev,
-                                      [item.id]: shipType,
+                                      [item.id]: active
+                                        ? draftShipTypes.filter((type) => type !== shipType)
+                                        : normalizeJobShipTypes([...draftShipTypes, shipType]),
                                     }))
                                   }
                                   className={[

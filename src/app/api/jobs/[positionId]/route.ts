@@ -20,7 +20,7 @@ import {
   signJobCompanyLogoUrls,
   type JobCompanyRow,
 } from "@/lib/job-companies";
-import { resolveJobShipType } from "@/lib/job-ship-types";
+import { resolveJobShipTypes } from "@/lib/job-ship-types";
 
 export const runtime = "nodejs";
 
@@ -348,17 +348,20 @@ async function attachJobCompanyBranding(
       ? replacePositionTitleCompany(details.title, companyName, company.name)
       : null;
 
+  const shipTypes = resolveJobShipTypes({
+    metadata: company.metadata,
+    name: company.name,
+    fallback: typeof details.name === "string" ? details.name : details.title,
+  });
+
   return {
     ...details,
     ...(nextName ? { name: nextName } : {}),
     ...(nextTitle ? { title: nextTitle } : {}),
     company: company.name,
     company_slug: company.slug,
-    ship_type: resolveJobShipType({
-      metadata: company.metadata,
-      name: company.name,
-      fallback: typeof details.name === "string" ? details.name : details.title,
-    }) || undefined,
+    ship_type: shipTypes[0] ?? undefined,
+    ship_types: shipTypes,
     company_logo_url: logoPath ? signedUrls.get(logoPath) ?? null : null,
   };
 }

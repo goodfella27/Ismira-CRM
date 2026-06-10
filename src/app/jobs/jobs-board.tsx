@@ -61,6 +61,7 @@ import {
   JOB_SHIP_TYPE_LABELS,
   JOB_SHIP_TYPES,
   normalizeJobShipType,
+  normalizeJobShipTypes,
   type JobShipType,
 } from "@/lib/job-ship-types";
 
@@ -127,6 +128,7 @@ type JobListItem = {
   application_url?: string;
   updated_at?: string;
   ship_type?: string;
+  ship_types?: string[];
   benefit_tags?: string[];
   processable_countries?: string[];
   blocked_countries?: string[];
@@ -139,6 +141,7 @@ type JobListItemIndexed = JobListItem & {
   __departmentKey: string;
   __priorityKey: string;
   __shipTypeKey: JobShipType | "";
+  __shipTypeKeys: JobShipType[];
   __updatedAtMs: number;
 };
 
@@ -1199,9 +1202,11 @@ function indexJobs(list: JobListItem[]) {
     const department = asString(job.department).trim();
     const priority = asString(job.priority).trim();
     const priorityKey = normalizePriorityKey(priority);
-    const shipType =
-      normalizeJobShipType(job.ship_type) ||
-      inferJobShipTypeFromText(company, job.name, department);
+    const shipTypesFromPayload = normalizeJobShipTypes(job.ship_types);
+    const shipTypes =
+      shipTypesFromPayload.length > 0
+        ? shipTypesFromPayload
+        : normalizeJobShipTypes(job.ship_type || inferJobShipTypeFromText(company, job.name, department));
     const updatedAtRaw = asString(job.updated_at).trim();
     const updatedAtMs = updatedAtRaw ? Date.parse(updatedAtRaw) : Number.NaN;
     const org = (job.org_type || "position").toLowerCase();
@@ -1226,11 +1231,16 @@ function indexJobs(list: JobListItem[]) {
       __companyKey: normalizeFilterKey(company),
       __departmentKey: normalizeFilterKey(department),
       __priorityKey: priorityKey,
-      __shipTypeKey: shipType,
+      __shipTypeKey: shipTypes[0] ?? "",
+      __shipTypeKeys: shipTypes,
       __updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : 0,
       __search: ` ${search} countries:${countries.toLowerCase()} `,
     } satisfies JobListItemIndexed;
   });
+}
+
+function matchesShipTypeSelection(job: JobListItemIndexed, selection: JobShipType[]) {
+  return job.__shipTypeKeys.some((key) => selection.includes(key));
 }
 
 function shouldInsertInlineTestimonial(index: number) {
@@ -1858,7 +1868,7 @@ export default function JobsBoard() {
         ? baseJobs.filter((job) => departmentSet.has(job.__departmentKey))
         : baseJobs;
     const byShipType = hasShipTypeFilter
-      ? source.filter((job) => job.__shipTypeKey !== "" && shipTypeSelection.includes(job.__shipTypeKey))
+      ? source.filter((job) => matchesShipTypeSelection(job, shipTypeSelection))
       : source;
     const narrowed = hasPriorityFilter
       ? byShipType.filter((job) => prioritySelection.includes(job.__priorityKey))
@@ -1922,7 +1932,7 @@ export default function JobsBoard() {
         ? baseJobs.filter((job) => companySet.has(job.__companyKey))
         : baseJobs;
     const byShipType = hasShipTypeFilter
-      ? source.filter((job) => job.__shipTypeKey !== "" && shipTypeSelection.includes(job.__shipTypeKey))
+      ? source.filter((job) => matchesShipTypeSelection(job, shipTypeSelection))
       : source;
     const narrowed = hasPriorityFilter
       ? byShipType.filter((job) => prioritySelection.includes(job.__priorityKey))
@@ -1981,7 +1991,7 @@ export default function JobsBoard() {
         ? source.filter((job) => departmentSet.has(job.__departmentKey))
         : source;
     const byShipType = hasShipTypeFilter
-      ? byDepartment.filter((job) => job.__shipTypeKey !== "" && shipTypeSelection.includes(job.__shipTypeKey))
+      ? byDepartment.filter((job) => matchesShipTypeSelection(job, shipTypeSelection))
       : byDepartment;
     const byCountry = countryFilter
       ? byShipType.filter((job) => {
@@ -2052,9 +2062,9 @@ export default function JobsBoard() {
 
     const counts = new Map<JobShipType, number>();
     for (const job of narrowed) {
-      const key = job.__shipTypeKey;
-      if (!key) continue;
-      counts.set(key, (counts.get(key) ?? 0) + 1);
+      for (const key of job.__shipTypeKeys) {
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
     }
 
     return counts;
@@ -2100,7 +2110,7 @@ export default function JobsBoard() {
       ? byDepartment.filter((job) => prioritySelection.includes(job.__priorityKey))
       : byDepartment;
     const byShipType = hasShipTypeFilter
-      ? narrowed.filter((job) => job.__shipTypeKey !== "" && shipTypeSelection.includes(job.__shipTypeKey))
+      ? narrowed.filter((job) => matchesShipTypeSelection(job, shipTypeSelection))
       : narrowed;
     const byQuery = !query
       ? byShipType
@@ -2194,7 +2204,7 @@ export default function JobsBoard() {
         })
       : byDepartment;
     const byShipType = hasShipTypeFilter
-      ? byCountry.filter((job) => job.__shipTypeKey !== "" && shipTypeSelection.includes(job.__shipTypeKey))
+      ? byCountry.filter((job) => matchesShipTypeSelection(job, shipTypeSelection))
       : byCountry;
     const byPriority = hasPriorityFilter
       ? byShipType.filter((job) => prioritySelection.includes(job.__priorityKey))
@@ -2682,7 +2692,7 @@ export default function JobsBoard() {
       ? byCountry.filter((job) => prioritySelection.includes(job.__priorityKey))
       : byCountry;
     const byShipType = hasShipTypeFilter
-      ? byPriority.filter((job) => job.__shipTypeKey !== "" && shipTypeSelection.includes(job.__shipTypeKey))
+      ? byPriority.filter((job) => matchesShipTypeSelection(job, shipTypeSelection))
       : byPriority;
     return byShipType;
   }, [
@@ -3872,9 +3882,13 @@ export default function JobsBoard() {
 	                    const priorityLabel = publicPriorityTypeKeys.has(priorityKey)
 	                      ? getPriorityLabel(priorityKey, publicPriorityTypes)
 	                      : "";
-	                    const shipTypeLabel =
-	                      getJobShipTypeLabel(job.ship_type) ||
-	                      getJobShipTypeLabel(inferJobShipTypeFromText(job.company, job.name));
+	                    const shipTypeLabels =
+	                      job.__shipTypeKeys.length > 0
+	                        ? job.__shipTypeKeys.map((type) => JOB_SHIP_TYPE_LABELS[type])
+	                        : [
+	                            getJobShipTypeLabel(job.ship_type) ||
+	                              getJobShipTypeLabel(inferJobShipTypeFromText(job.company, job.name)),
+	                          ].filter(Boolean);
 
 	                    return (
                     <Fragment key={job.view_id || job.id || `${job.name}-${index}`}>
@@ -3974,14 +3988,17 @@ export default function JobsBoard() {
 		                                  </span>
 		                                </span>
 		                              ) : null}
-		                              {shipTypeLabel ? (
-		                                <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-gradient-to-r from-cyan-100 to-sky-100 px-2.5 py-1.5 text-cyan-950 shadow-sm shadow-cyan-200/40">
+		                              {shipTypeLabels.map((shipTypeLabel) => (
+		                                <span
+		                                  key={shipTypeLabel}
+		                                  className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-gradient-to-r from-cyan-100 to-sky-100 px-2.5 py-1.5 text-cyan-950 shadow-sm shadow-cyan-200/40"
+		                                >
 		                                  <Compass className="h-3.5 w-3.5 text-cyan-600" />
                                   <span className="max-w-[210px] truncate whitespace-nowrap xl:max-w-[320px]">
 		                                    {shipTypeLabel}
 		                                  </span>
 		                                </span>
-		                              ) : null}
+		                              ))}
 		                            </div>
 	                          </div>
 	                        </div>
@@ -4136,19 +4153,23 @@ export default function JobsBoard() {
                         ? asString(isRecord(details) ? details["department"] : undefined).trim() ||
                           extractDepartment(details)
                         : asString(selectedSummary?.department).trim();
-                      const shipType =
+                      const shipTypeKeys =
                         details && isRecord(details)
-                          ? getJobShipTypeLabel(details.ship_type) ||
-                            getJobShipTypeLabel(
-                              inferJobShipTypeFromText(details.company, details.name, details.title)
-                            )
-                          : getJobShipTypeLabel(selectedSummary?.ship_type) ||
-                            getJobShipTypeLabel(
-                              inferJobShipTypeFromText(selectedSummary?.company, selectedSummary?.name)
-                            );
+                          ? normalizeJobShipTypes(details.ship_types).length > 0
+                            ? normalizeJobShipTypes(details.ship_types)
+                            : normalizeJobShipTypes(
+                                details.ship_type ||
+                                  inferJobShipTypeFromText(details.company, details.name, details.title)
+                              )
+                          : selectedSummary
+                            ? selectedSummary.__shipTypeKeys
+                            : [];
                       const metaBadges = [
                         department ? { key: "department", label: department } : null,
-                        shipType ? { key: "shipType", label: shipType } : null,
+                        ...shipTypeKeys.map((shipType) => ({
+                          key: `shipType-${shipType}`,
+                          label: JOB_SHIP_TYPE_LABELS[shipType],
+                        })),
                       ].filter(Boolean) as Array<{ key: string; label: string }>;
 
                       return metaBadges.length > 0 ? (

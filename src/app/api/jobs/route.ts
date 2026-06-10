@@ -30,7 +30,7 @@ import {
   type JobCompanyRow,
 } from "@/lib/job-companies";
 import { applyDepartmentOverridesToJobs } from "@/lib/job-departments";
-import { resolveJobShipType } from "@/lib/job-ship-types";
+import { resolveJobShipTypes } from "@/lib/job-ship-types";
 
 export const runtime = "nodejs";
 
@@ -50,6 +50,7 @@ type JobListItem = {
   application_url?: string;
   updated_at?: string;
   ship_type?: string;
+  ship_types?: string[];
   benefit_tags?: string[];
   processable_countries?: string[];
   blocked_countries?: string[];
@@ -309,17 +310,19 @@ async function attachJobCompanyBranding(
       byNormalized.get(normalizeJobCompanyName(item.company));
     if (!company) return item;
     const logoPath = typeof company.logo_path === "string" ? company.logo_path.trim() : "";
+    const shipTypes = resolveJobShipTypes({
+      metadata: company.metadata,
+      name: company.name,
+      fallback: item.name,
+    });
     return {
       ...item,
       name: replacePositionTitleCompany(item.name, item.company, company.name) || item.name,
       company: company.name,
       company_slug: company.slug,
       company_logo_url: logoPath ? signedUrls.get(logoPath) ?? undefined : undefined,
-      ship_type: resolveJobShipType({
-        metadata: company.metadata,
-        name: company.name,
-        fallback: item.name,
-      }) || undefined,
+      ship_type: shipTypes[0] ?? undefined,
+      ship_types: shipTypes,
       benefit_tags: benefitTagsByCompanyId.get(company.id) ?? [],
     };
   });

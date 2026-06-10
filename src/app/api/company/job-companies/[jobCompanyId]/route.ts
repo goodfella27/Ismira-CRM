@@ -4,7 +4,7 @@ import { ensureCompanyMembership } from "@/lib/company/membership";
 import { fetchJobCompanyBenefits, mapBenefitTagsByJobCompanyId, normalizeBenefitTags } from "@/lib/job-company-benefits";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import { signJobCompanyLogoUrls, type JobCompanyRow } from "@/lib/job-companies";
-import { normalizeJobShipType, resolveJobShipType } from "@/lib/job-ship-types";
+import { normalizeJobShipTypes, resolveJobShipType, resolveJobShipTypes } from "@/lib/job-ship-types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -63,6 +63,7 @@ export async function POST(
     const nameRaw = form.get("name");
     const benefitTagsRaw = form.get("benefitTags");
     const shipTypeRaw = form.get("shipType");
+    const shipTypesRaw = form.get("shipTypes");
 
     let nextLogoPath: string | null | undefined = undefined;
     if (removeLogo === "1" || removeLogo === "true") {
@@ -110,16 +111,23 @@ export async function POST(
       metadata.job_company_benefits_manual_override = true;
       update.metadata = metadata;
     }
-    if (typeof shipTypeRaw === "string") {
+    if (typeof shipTypesRaw === "string" || typeof shipTypeRaw === "string") {
       const metadata =
         (update.metadata && typeof update.metadata === "object" && !Array.isArray(update.metadata)
           ? { ...(update.metadata as Record<string, unknown>) }
           : existing.metadata && typeof existing.metadata === "object" && !Array.isArray(existing.metadata)
             ? { ...(existing.metadata as Record<string, unknown>) }
             : {});
-      const shipType = normalizeJobShipType(shipTypeRaw);
-      if (shipType) metadata.ship_type = shipType;
-      else delete metadata.ship_type;
+      const shipTypes = normalizeJobShipTypes(
+        typeof shipTypesRaw === "string" ? shipTypesRaw : shipTypeRaw
+      );
+      if (shipTypes.length > 0) {
+        metadata.ship_types = shipTypes;
+        metadata.ship_type = shipTypes[0];
+      } else {
+        delete metadata.ship_types;
+        delete metadata.ship_type;
+      }
       update.metadata = metadata;
     }
     if (typeof websiteRaw === "string") {
@@ -197,6 +205,7 @@ export async function POST(
           slug: company.slug,
           website: company.website,
           shipType: resolveJobShipType({ metadata: company.metadata, name: company.name }),
+          shipTypes: resolveJobShipTypes({ metadata: company.metadata, name: company.name }),
           benefitTags: benefitTagsByCompanyId.get(company.id) ?? [],
           logoUrl: logoPath ? signedUrls.get(logoPath) ?? null : null,
         },
