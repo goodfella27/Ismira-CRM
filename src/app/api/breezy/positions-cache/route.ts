@@ -22,6 +22,7 @@ import {
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { normalizePriorityKey } from "@/lib/breezy-priority-types";
 
 export const runtime = "nodejs";
 
@@ -243,6 +244,7 @@ export async function GET(request: Request) {
 
     const jobCompanyFilter = (searchParams.get("jobCompany") ?? "").trim();
     const searchFilter = (searchParams.get("search") ?? "").trim();
+    const priorityFilter = normalizePriorityKey(searchParams.get("priority") ?? "");
     const { limit, offset } = getPaginationFromRequest(request);
 
     const admin = createSupabaseAdminClient();
@@ -258,7 +260,7 @@ export async function GET(request: Request) {
       .eq("breezy_company_id", breezyCompanyId)
       .order("name", { ascending: true });
 
-    if (!jobCompanyFilter && !searchFilter) {
+    if (!jobCompanyFilter && !searchFilter && !priorityFilter) {
       query = query.range(offset, offset + limit - 1);
     }
 
@@ -291,7 +293,7 @@ export async function GET(request: Request) {
       }
 
       if (isMissingPositionsTableError(error.message ?? "")) {
-        if (jobCompanyFilter) {
+        if (jobCompanyFilter || priorityFilter) {
           return NextResponse.json(
             {
               positions: [],
@@ -400,6 +402,9 @@ export async function GET(request: Request) {
       if (!normalizedCompanyFilter) return true;
       return normalizeJobCompanyName(position.company) === normalizedCompanyFilter;
     }).filter((position) => {
+      if (!priorityFilter) return true;
+      return normalizePriorityKey(position.priority ?? "") === priorityFilter;
+    }).filter((position) => {
       if (!normalizedSearchFilter) return true;
       const haystack =
         `${position.name ?? ""} ${position.company ?? ""} ${position.department ?? ""} ${position.state ?? ""} ${position.org_type ?? ""} ${position.friendly_id ?? ""} ${position.id}`.toLowerCase();
@@ -407,7 +412,7 @@ export async function GET(request: Request) {
     });
 
     if (list.length === 0) {
-      if (jobCompanyFilter || searchFilter) {
+      if (jobCompanyFilter || searchFilter || priorityFilter) {
         return NextResponse.json(
           { positions: [], total: 0, nextOffset: null },
           { status: 200 }
@@ -428,7 +433,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const isServerFiltered = Boolean(jobCompanyFilter || searchFilter);
+    const isServerFiltered = Boolean(jobCompanyFilter || searchFilter || priorityFilter);
     const total = isServerFiltered ? list.length : typeof count === "number" ? count : offset + list.length;
     const slice = isServerFiltered ? list.slice(offset, offset + limit) : list;
     const nextOffset = offset + slice.length < total ? offset + slice.length : null;
