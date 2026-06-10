@@ -39,6 +39,7 @@ import { AVAILABLE_BENEFIT_TAGS, BENEFIT_TAG_LABELS, type BenefitTag } from "@/l
 import {
   DEFAULT_BREEZY_PRIORITY_TYPES,
   getPriorityLabel,
+  humanizePriorityKey,
   normalizePriorityKey,
   type BreezyPriorityType,
 } from "@/lib/breezy-priority-types";
@@ -153,6 +154,12 @@ const DEFAULT_PROCESSABLE_COUNTRY_CODES = DEFAULT_PROCESSABLE_COUNTRIES.map((cou
 
 type CompanyCountsResponse = {
   companies?: Array<{ name?: string; count?: number }>;
+  warning?: string;
+  error?: string;
+};
+
+type PriorityCountsResponse = {
+  priorities?: Array<{ key?: string; count?: number }>;
   warning?: string;
   error?: string;
 };
@@ -566,9 +573,13 @@ export default function BreezyPositionRecordsBrowser({
     Array<{ id?: string; name: string; logoUrl: string; benefitTags: BenefitTag[] }>
   >([]);
   const [jobCompanyFilter, setJobCompanyFilter] = useState("");
+  const [openingTypeFilter, setOpeningTypeFilter] = useState("");
   const [showAllCompanies, setShowAllCompanies] = useState(false);
   const [companyCounts, setCompanyCounts] = useState<Array<{ name: string; count: number }>>([]);
   const [companyCountsLoading, setCompanyCountsLoading] = useState(false);
+  const [priorityCounts, setPriorityCounts] = useState<Array<{ key: string; count: number }>>([]);
+  const [priorityCountsLoading, setPriorityCountsLoading] = useState(false);
+  const [priorityCountsRefreshKey, setPriorityCountsRefreshKey] = useState(0);
   const collapsedCompaniesRowRef = useRef<HTMLDivElement | null>(null);
   const [collapsedCompaniesLimit, setCollapsedCompaniesLimit] = useState(8);
   const [selectedPositionId, setSelectedPositionId] = useState<string | null>(
@@ -883,6 +894,42 @@ export default function BreezyPositionRecordsBrowser({
 
   const availablePriorityTypes = useMemo(() => priorityTypes, [priorityTypes]);
 
+  const openingTypeFilterOptions = useMemo(() => {
+    const counts = new Map(
+      priorityCounts
+        .map((item) => [normalizePriorityKey(item.key), item.count] as const)
+        .filter(([key, count]) => key && count > 0)
+    );
+    const labels = new Map(
+      availablePriorityTypes.map((item) => [
+        normalizePriorityKey(item.key),
+        item.label.trim(),
+      ])
+    );
+
+    return Array.from(counts.entries())
+      .map(([key, count]) => ({
+        key,
+        label: labels.get(key) || humanizePriorityKey(key),
+        count,
+      }))
+      .sort((a, b) => {
+        const aIndex = availablePriorityTypes.findIndex(
+          (item) => normalizePriorityKey(item.key) === a.key
+        );
+        const bIndex = availablePriorityTypes.findIndex(
+          (item) => normalizePriorityKey(item.key) === b.key
+        );
+        if (aIndex >= 0 || bIndex >= 0) {
+          if (aIndex < 0) return 1;
+          if (bIndex < 0) return -1;
+          if (aIndex !== bIndex) return aIndex - bIndex;
+        }
+        if (b.count !== a.count) return b.count - a.count;
+        return a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
+      });
+  }, [availablePriorityTypes, priorityCounts]);
+
   const selectedCreatePriorityLabel = useMemo(() => {
     const key = normalizePriorityKey(createOpeningDraft.priority);
     return getPriorityLabel(key, availablePriorityTypes) || "None";
@@ -993,6 +1040,7 @@ export default function BreezyPositionRecordsBrowser({
   const filteredPositions = useMemo(() => {
     const query = filter.trim().toLowerCase();
     const companyFilter = jobCompanyFilter.trim().toLowerCase();
+    const priorityFilter = normalizePriorityKey(openingTypeFilter);
     const typeFiltered = positions.filter((pos) => {
       const kind = normalizePositionType(pos.org_type);
       return kind === recordType;
@@ -1002,13 +1050,17 @@ export default function BreezyPositionRecordsBrowser({
       ? typeFiltered.filter((pos) => asString(pos.company).trim().toLowerCase() === companyFilter)
       : typeFiltered;
 
-    if (!query) return companyFiltered;
-    return companyFiltered.filter((pos) => {
+    const priorityFiltered = priorityFilter
+      ? companyFiltered.filter((pos) => normalizePriorityKey(pos.priority ?? "") === priorityFilter)
+      : companyFiltered;
+
+    if (!query) return priorityFiltered;
+    return priorityFiltered.filter((pos) => {
       const haystack =
         `${pos.name ?? ""} ${pos.company ?? ""} ${pos.department ?? ""} ${pos.state ?? ""} ${pos.org_type ?? ""} ${pos.friendly_id ?? ""} ${pos.id}`.toLowerCase();
       return haystack.includes(query);
     });
-  }, [positions, filter, jobCompanyFilter, recordType]);
+  }, [positions, filter, jobCompanyFilter, openingTypeFilter, recordType]);
 
   const loadCompanies = async () => {
     setLoadingCompanies(true);
@@ -1044,7 +1096,8 @@ export default function BreezyPositionRecordsBrowser({
     const target = (nextCompanyId ?? companyId).trim();
     if (!target) return;
     const search = serverFilter.trim();
-    const queryKey = `${target}::${jobCompanyFilter.trim().toLowerCase()}::${search.toLowerCase()}`;
+    const priority = normalizePriorityKey(openingTypeFilter);
+    const queryKey = `${target}::${jobCompanyFilter.trim().toLowerCase()}::${priority}::${search.toLowerCase()}`;
     positionsQueryKeyRef.current = queryKey;
     setLoadingPositions(true);
     setLoadingMorePositions(false);
@@ -1059,9 +1112,12 @@ export default function BreezyPositionRecordsBrowser({
       const searchQuery = search
         ? `&search=${encodeURIComponent(search)}`
         : "";
+      const priorityQuery = priority
+        ? `&priority=${encodeURIComponent(priority)}`
+        : "";
       const url = `/api/breezy/positions-cache?companyId=${encodeURIComponent(
         target
-      )}&limit=20&offset=0${jobCompanyQuery}${searchQuery}`;
+      )}&limit=20&offset=0${jobCompanyQuery}${priorityQuery}${searchQuery}`;
       const res = await fetch(url, { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -1093,7 +1149,8 @@ export default function BreezyPositionRecordsBrowser({
     if (positionsNextOffset === null) return;
 
     const search = serverFilter.trim();
-    const queryKey = `${target}::${jobCompanyFilter.trim().toLowerCase()}::${search.toLowerCase()}`;
+    const priority = normalizePriorityKey(openingTypeFilter);
+    const queryKey = `${target}::${jobCompanyFilter.trim().toLowerCase()}::${priority}::${search.toLowerCase()}`;
     const keyAtStart = positionsQueryKeyRef.current || queryKey;
     if (keyAtStart !== queryKey) return;
 
@@ -1106,9 +1163,12 @@ export default function BreezyPositionRecordsBrowser({
       const searchQuery = search
         ? `&search=${encodeURIComponent(search)}`
         : "";
+      const priorityQuery = priority
+        ? `&priority=${encodeURIComponent(priority)}`
+        : "";
       const url = `/api/breezy/positions-cache?companyId=${encodeURIComponent(
         target
-      )}&limit=20&offset=${encodeURIComponent(String(positionsNextOffset))}${jobCompanyQuery}${searchQuery}`;
+      )}&limit=20&offset=${encodeURIComponent(String(positionsNextOffset))}${jobCompanyQuery}${priorityQuery}${searchQuery}`;
       const res = await fetch(url, { cache: "no-store" });
       if (res.status === 416) {
         // Offset is past the end (typically because filters changed). Treat as end-of-list.
@@ -1152,6 +1212,7 @@ export default function BreezyPositionRecordsBrowser({
   }, [
     companyId,
     jobCompanyFilter,
+    openingTypeFilter,
     serverFilter,
     loadingMorePositions,
     loadingPositions,
@@ -1270,6 +1331,7 @@ export default function BreezyPositionRecordsBrowser({
         hero_image_url: "",
       });
       await loadPositions(target);
+      setPriorityCountsRefreshKey((value) => value + 1);
       await loadPositionDetails(createdId, name);
       setEditing(true);
     } catch (err) {
@@ -1854,6 +1916,7 @@ export default function BreezyPositionRecordsBrowser({
       }
 
       setPositions((prev) => prev.filter((pos) => pos.id !== target));
+      setPriorityCountsRefreshKey((value) => value + 1);
       if ((selectedPositionId ?? "").trim() === target) {
         closePositionModal();
       }
@@ -1991,6 +2054,13 @@ export default function BreezyPositionRecordsBrowser({
               "Failed to save changes."
           );
         }
+        if (
+          Object.prototype.hasOwnProperty.call(sanitizedOverrides, "priority") ||
+          Object.prototype.hasOwnProperty.call(sanitizedOverrides, "company") ||
+          Array.isArray(options.companies)
+        ) {
+          setPriorityCountsRefreshKey((value) => value + 1);
+        }
         // No reload here (unlike full Save) to keep the modal stable.
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to save changes.");
@@ -2049,6 +2119,7 @@ export default function BreezyPositionRecordsBrowser({
       }
       await loadPositionDetails(posId);
       await loadPositions(targetCompanyId);
+      setPriorityCountsRefreshKey((value) => value + 1);
       setEditing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save edits.");
@@ -2082,6 +2153,7 @@ export default function BreezyPositionRecordsBrowser({
         );
       }
       await loadPositionDetails(posId);
+      setPriorityCountsRefreshKey((value) => value + 1);
       setEditing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reset edits.");
@@ -2158,10 +2230,54 @@ export default function BreezyPositionRecordsBrowser({
   }, [companyId, recordType]);
 
   useEffect(() => {
+    const target = companyId.trim();
+    if (!target) return;
+    setPriorityCountsLoading(true);
+    (async () => {
+      try {
+        const jobCompanyQuery = jobCompanyFilter.trim()
+          ? `&jobCompany=${encodeURIComponent(jobCompanyFilter.trim())}`
+          : "";
+        const res = await fetch(
+          `/api/breezy/positions-cache/priority-counts?companyId=${encodeURIComponent(
+            target
+          )}&recordType=${encodeURIComponent(recordType)}${jobCompanyQuery}`,
+          { cache: "no-store" }
+        );
+        const data = (await res.json().catch(() => null)) as PriorityCountsResponse | null;
+        if (!res.ok) {
+          throw new Error(data?.error || "Failed to load opening type counts.");
+        }
+        const list = Array.isArray(data?.priorities) ? data!.priorities! : [];
+        const parsed = list
+          .map((item) => ({
+            key: normalizePriorityKey(asString(item?.key)),
+            count: typeof item?.count === "number" ? item.count : 0,
+          }))
+          .filter((item) => item.key && item.count > 0);
+        setPriorityCounts(parsed);
+      } catch {
+        setPriorityCounts([]);
+      } finally {
+        setPriorityCountsLoading(false);
+      }
+    })();
+  }, [companyId, jobCompanyFilter, priorityCountsRefreshKey, recordType]);
+
+  useEffect(() => {
+    if (!openingTypeFilter) return;
+    const selected = normalizePriorityKey(openingTypeFilter);
+    if (!selected) return;
+    if (priorityCountsLoading) return;
+    const stillAvailable = priorityCounts.some((item) => normalizePriorityKey(item.key) === selected);
+    if (!stillAvailable) setOpeningTypeFilter("");
+  }, [openingTypeFilter, priorityCounts, priorityCountsLoading]);
+
+  useEffect(() => {
     if (!companyId) return;
     void loadPositions(companyId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobCompanyFilter, serverFilter]);
+  }, [jobCompanyFilter, openingTypeFilter, serverFilter]);
 
   useEffect(() => {
     const node = loadMoreSentinelRef.current;
@@ -2369,16 +2485,27 @@ export default function BreezyPositionRecordsBrowser({
 		            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
 		              Search
 	            </div>
-	            <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4">
-	              <Search className="h-4 w-4 text-slate-400" />
-	              <input
-	                className="h-11 w-full border-none bg-transparent text-sm text-slate-800 outline-none"
-	                placeholder="Search openings…"
-	                value={filter}
-	                onChange={(event) => setFilter(event.target.value)}
-	              />
-	            </div>
-	          </div>
+		            <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4">
+		              <Search className="h-4 w-4 text-slate-400" />
+		              <input
+		                className="h-11 w-full border-none bg-transparent text-sm text-slate-800 outline-none"
+		                placeholder="Search openings…"
+		                value={filter}
+		                onChange={(event) => setFilter(event.target.value)}
+		              />
+                  <span className="shrink-0 whitespace-nowrap border-l border-slate-200 pl-3 text-sm text-slate-500">
+                    <span className="font-semibold text-slate-900">
+                      {filteredPositions.length.toLocaleString()}
+                    </span>{" "}
+                    {recordType === "pool" ? "pools" : "positions"}
+                    {typeof positionsTotal === "number" ? (
+                      <span className="ml-1 text-slate-400">
+                        / {positionsTotal.toLocaleString()}
+                      </span>
+                    ) : null}
+                  </span>
+		            </div>
+		          </div>
 
 		          <div className="flex items-center justify-end gap-2">
 		            <button
@@ -2441,22 +2568,8 @@ export default function BreezyPositionRecordsBrowser({
           </div>
         ) : null}
 
-        <div className="mt-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm text-slate-600">
-              <span className="font-semibold text-slate-900">
-                {filteredPositions.length.toLocaleString()}
-              </span>{" "}
-              {recordType === "pool" ? "pools" : "positions"}
-              {typeof positionsTotal === "number" ? (
-                <span className="ml-2 text-slate-400">
-                  / {positionsTotal.toLocaleString()}
-                </span>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="mt-5">
+	        <div className="mt-5">
+	          <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Companies
             </div>
@@ -2609,6 +2722,66 @@ export default function BreezyPositionRecordsBrowser({
               ) : null}
             </div>
           </div>
+
+          {recordType === "position" &&
+          (priorityCountsLoading || openingTypeFilterOptions.length > 0) ? (
+            <div className="mt-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Opening type
+                </div>
+                {openingTypeFilter ? (
+                  <button
+                    type="button"
+                    className="text-sm font-semibold text-slate-600 hover:underline"
+                    onClick={() => setOpeningTypeFilter("")}
+                  >
+                    Clear type
+                  </button>
+                ) : null}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-3">
+                {priorityCountsLoading && openingTypeFilterOptions.length === 0 ? (
+                  <span className="inline-flex h-11 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-400 shadow-sm">
+                    Loading types…
+                  </span>
+                ) : (
+                  openingTypeFilterOptions.map((item) => {
+                    const active = normalizePriorityKey(openingTypeFilter) === item.key;
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        className={[
+                          "inline-flex h-11 items-center gap-2 rounded-2xl border px-4 text-sm font-semibold shadow-sm transition",
+                          active
+                            ? "border-sky-400 bg-sky-100 text-sky-950 ring-2 ring-sky-500/15"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                        ].join(" ")}
+                        onClick={() =>
+                          setOpeningTypeFilter((prev) =>
+                            normalizePriorityKey(prev) === item.key ? "" : item.key
+                          )
+                        }
+                      >
+                        <span
+                          className={[
+                            "h-2.5 w-2.5 rounded-full shadow-sm",
+                            getPriorityBadgeClass(item.key, availablePriorityTypes) || "bg-slate-300",
+                          ].join(" ")}
+                          aria-hidden="true"
+                        />
+                        <span>{item.label}</span>
+                        <span className={active ? "text-sky-800" : "text-slate-400"}>
+                          {item.count}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          ) : null}
 
           <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
