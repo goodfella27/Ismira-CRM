@@ -2,6 +2,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   AVAILABLE_BENEFIT_TAGS,
   extractBenefitTagsFromDescription,
+  withRequiredBenefitTags,
   type BenefitTag,
 } from "@/lib/job-benefits";
 import { pickPositionDescription } from "@/lib/breezy-position-description";
@@ -30,7 +31,7 @@ export function normalizeBenefitTags(value: unknown): BenefitTag[] {
     if (!ALLOWED_TAGS.has(tag)) continue;
     deduped.add(tag as BenefitTag);
   }
-  return AVAILABLE_BENEFIT_TAGS.filter((tag) => deduped.has(tag));
+  return withRequiredBenefitTags(AVAILABLE_BENEFIT_TAGS.filter((tag) => deduped.has(tag)));
 }
 
 export async function fetchJobCompanyBenefits(
@@ -139,7 +140,7 @@ export async function syncAutoBenefitsFromCachedPositions(
         return diff !== 0 ? diff : a.localeCompare(b);
       })
       .slice(0, maxTags);
-    tagsByJobCompanyId.set(company.id, selected);
+    tagsByJobCompanyId.set(company.id, withRequiredBenefitTags(selected));
   }
 
   const { error: deleteError } = await admin

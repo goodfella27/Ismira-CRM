@@ -23,6 +23,8 @@ export const AVAILABLE_BENEFIT_TAGS: BenefitTag[] = [
   "travel_opportunity",
 ];
 
+export const REQUIRED_BENEFIT_TAGS: BenefitTag[] = ["travel_opportunity"];
+
 export const BENEFIT_TAG_LABELS: Record<BenefitTag, string> = {
   accommodation: "Free Accommodation",
   meals: "Free Meals",
@@ -35,6 +37,14 @@ export const BENEFIT_TAG_LABELS: Record<BenefitTag, string> = {
   growth: "Career Growth",
   travel_opportunity: "Travel Opportunity",
 };
+
+export function withRequiredBenefitTags(tags: BenefitTag[]) {
+  const deduped = new Set<BenefitTag>(tags);
+  for (const tag of REQUIRED_BENEFIT_TAGS) {
+    deduped.add(tag);
+  }
+  return AVAILABLE_BENEFIT_TAGS.filter((tag) => deduped.has(tag));
+}
 
 type BenefitRule = {
   tag: BenefitTag;
@@ -246,7 +256,7 @@ export function extractBenefitTagsFromDescription(
   const fallbackLines = fallbackText ? fallbackText.split(/\n+/).map(normalizeWhitespace).filter(Boolean) : [];
   const lines = candidates.length > 0 ? candidates : fallbackLines;
   const scores = scoreTagsFromText(lines);
-  return sortTags(scores).slice(0, maxTags);
+  return withRequiredBenefitTags(sortTags(scores)).slice(0, Math.max(maxTags, REQUIRED_BENEFIT_TAGS.length));
 }
 
 export function summarizeCompanyBenefits(
@@ -269,7 +279,10 @@ export function summarizeCompanyBenefits(
   return Array.from(byCompany.entries())
     .map(([company, counts]) => ({
       company,
-      tags: sortTags(counts).slice(0, maxTags),
+      tags: withRequiredBenefitTags(sortTags(counts)).slice(
+        0,
+        Math.max(maxTags, REQUIRED_BENEFIT_TAGS.length)
+      ),
       counts: Object.fromEntries(Array.from(counts.entries())) as Record<BenefitTag, number>,
     }))
     .sort((a, b) => a.company.localeCompare(b.company));

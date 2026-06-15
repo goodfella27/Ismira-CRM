@@ -64,6 +64,11 @@ import {
   normalizeJobShipTypes,
   type JobShipType,
 } from "@/lib/job-ship-types";
+import {
+  AVAILABLE_BENEFIT_TAGS,
+  withRequiredBenefitTags,
+  type BenefitTag,
+} from "@/lib/job-benefits";
 
 function HeroCoverImage({ src }: { src: string }) {
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
@@ -146,7 +151,7 @@ type JobListItemIndexed = JobListItem & {
 };
 
 type JobsBoardCache = {
-  v: 5;
+  v: 6;
   savedAt: number;
   etag?: string;
   items: JobListItem[];
@@ -1023,10 +1028,11 @@ function getBenefitTagIcon(tag: string) {
 }
 
 function getVisibleBenefitTags(tags: string[]) {
-  const visibleTags = Array.from(new Set(tags.map((tag) => asString(tag).trim()).filter(Boolean)));
-  if (!visibleTags.includes("travel_opportunity")) {
-    visibleTags.push("travel_opportunity");
-  }
+  const available = new Set<string>(AVAILABLE_BENEFIT_TAGS);
+  const normalized = tags
+    .map((tag) => asString(tag).trim())
+    .filter((tag): tag is BenefitTag => available.has(tag));
+  const visibleTags = withRequiredBenefitTags(normalized);
   return visibleTags.sort((a, b) => {
     const aIndex = BENEFIT_TAG_DISPLAY_ORDER.indexOf(a);
     const bIndex = BENEFIT_TAG_DISPLAY_ORDER.indexOf(b);
@@ -1151,7 +1157,7 @@ function extractHeroImageFromSafeHtml(html: string): { heroSrc: string; bodyHtml
   }
 }
 
-const JOBS_CACHE_KEY = "jobsboard:list:v5";
+const JOBS_CACHE_KEY = "jobsboard:list:v6";
 const JOBS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const JOBS_PAGE_SIZE = 24;
 
@@ -1164,9 +1170,9 @@ function readJobsCache(): JobsBoardCache | null {
       | (Partial<JobsBoardCache> & { v?: number; priorityTypes?: unknown })
       | null;
     if (!parsed || typeof parsed.savedAt !== "number" || !Array.isArray(parsed.items)) return null;
-    if (parsed.v === 5) {
+    if (parsed.v === 6) {
       return {
-        v: 5,
+        v: 6,
         savedAt: parsed.savedAt,
         etag: typeof parsed.etag === "string" ? parsed.etag : undefined,
         items: parsed.items as JobListItem[],
@@ -2288,7 +2294,7 @@ export default function JobsBoard() {
       // Persist the raw list (smaller) and let the UI rebuild indices quickly on refresh.
       setTimeout(() => {
         writeJobsCache({
-          v: 5,
+          v: 6,
           savedAt: Date.now(),
           etag: etagRef.current ?? undefined,
           items: list,
@@ -2553,7 +2559,7 @@ export default function JobsBoard() {
       cachedDetails &&
       typeof cachedDetails === "object" &&
       !Array.isArray(cachedDetails) &&
-      "nationality_countries" in cachedDetails
+      "benefit_tags" in cachedDetails
     ) {
       return;
     }
@@ -3198,8 +3204,15 @@ export default function JobsBoard() {
 
   const modalBenefitTags = useMemo(() => {
     if (!selectedId) return [];
+    if (details && isRecord(details) && Object.prototype.hasOwnProperty.call(details, "benefit_tags")) {
+      const raw = (details as Record<string, unknown>).benefit_tags;
+      const tags = Array.isArray(raw)
+        ? raw.map((item) => asString(item).trim()).filter(Boolean)
+        : [];
+      return getVisibleBenefitTags(tags);
+    }
     return benefitTagsById.get(selectedId) ?? [];
-  }, [benefitTagsById, selectedId]);
+  }, [benefitTagsById, details, selectedId]);
 
   const modalIsHidden = useMemo(() => {
     if (!details || !isRecord(details)) return false;

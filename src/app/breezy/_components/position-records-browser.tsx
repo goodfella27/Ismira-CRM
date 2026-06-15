@@ -35,7 +35,13 @@ import DetailsModalShell from "@/components/details-modal-shell";
 import WysiwygEditor from "@/components/wysiwyg-editor";
 import { loadBreezyCompanyId, saveBreezyCompanyId } from "@/lib/breezy-storage";
 import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
-import { AVAILABLE_BENEFIT_TAGS, BENEFIT_TAG_LABELS, type BenefitTag } from "@/lib/job-benefits";
+import {
+  AVAILABLE_BENEFIT_TAGS,
+  BENEFIT_TAG_LABELS,
+  REQUIRED_BENEFIT_TAGS,
+  withRequiredBenefitTags,
+  type BenefitTag,
+} from "@/lib/job-benefits";
 import {
   DEFAULT_BREEZY_PRIORITY_TYPES,
   getPriorityLabel,
@@ -141,10 +147,13 @@ const DEFAULT_PROCESSABLE_COUNTRIES = [
   { code: "PL", name: "Poland" },
   { code: "MD", name: "Moldova" },
   { code: "KZ", name: "Kazakhstan" },
+  { code: "KG", name: "Kyrgyzstan" },
+  { code: "UZ", name: "Uzbekistan" },
   { code: "AM", name: "Armenia" },
   { code: "GE", name: "Georgia" },
   { code: "AZ", name: "Azerbaijan" },
   { code: "TJ", name: "Tajikistan" },
+  { code: "TM", name: "Turkmenistan" },
   { code: "UA", name: "Ukraine" },
   { code: "RU", name: "Russia" },
   { code: "BY", name: "Belarus" },
@@ -255,6 +264,52 @@ function normalizeStringList(payload: unknown) {
     list.push(value);
   }
   return list;
+}
+
+function normalizeBenefitTagList(payload: unknown): BenefitTag[] {
+  if (!Array.isArray(payload)) return withRequiredBenefitTags([]);
+  const available = new Set<string>(AVAILABLE_BENEFIT_TAGS);
+  const seen = new Set<string>();
+  const list: BenefitTag[] = [];
+  for (const item of payload) {
+    const tag = typeof item === "string" ? item.trim() : "";
+    if (!tag || !available.has(tag) || seen.has(tag)) continue;
+    seen.add(tag);
+    list.push(tag as BenefitTag);
+  }
+  return withRequiredBenefitTags(list);
+}
+
+function normalizeCountryCodeList(payload: unknown): string[] {
+  if (!Array.isArray(payload)) return [];
+  const seen = new Set<string>();
+  const list: string[] = [];
+  for (const item of payload) {
+    const code =
+      typeof item === "string"
+        ? item.trim().toUpperCase()
+        : isRecord(item) && typeof item.code === "string"
+          ? item.code.trim().toUpperCase()
+          : "";
+    if (!/^[A-Z]{2}$/.test(code) || seen.has(code)) continue;
+    seen.add(code);
+    list.push(code);
+  }
+  return list;
+}
+
+function extractBenefitTagsFromDetails(details: BreezyPositionDetails | null) {
+  return normalizeBenefitTagList(isRecord(details) ? details.benefit_tags : null);
+}
+
+function extractProcessableCountryCodesFromDetails(details: BreezyPositionDetails | null) {
+  if (!isRecord(details)) return [];
+  const direct = normalizeCountryCodeList(details.processable_country_codes);
+  if (direct.length > 0) return direct;
+  const countries = isRecord(details.nationality_countries)
+    ? details.nationality_countries
+    : null;
+  return normalizeCountryCodeList(countries?.processable);
 }
 
 function normalizePositions(payload: unknown): BreezyPosition[] {
@@ -612,7 +667,7 @@ export default function BreezyPositionRecordsBrowser({
     department: "",
     priority: "",
     location_name: "",
-    benefit_tags: [] as BenefitTag[],
+    benefit_tags: withRequiredBenefitTags([]),
     processable_country_codes: DEFAULT_PROCESSABLE_COUNTRY_CODES,
     summary: "",
     description: "",
@@ -642,7 +697,6 @@ export default function BreezyPositionRecordsBrowser({
   const [priorityTypes, setPriorityTypes] = useState<BreezyPriorityType[]>(
     DEFAULT_BREEZY_PRIORITY_TYPES
   );
-  const [priorityTypesWarning, setPriorityTypesWarning] = useState<string | null>(null);
   const [priorityTypesModalOpen, setPriorityTypesModalOpen] = useState(false);
   const [statusPickerOpen, setStatusPickerOpen] = useState(false);
   const [openingTypePickerOpen, setOpeningTypePickerOpen] = useState(false);
@@ -663,6 +717,8 @@ export default function BreezyPositionRecordsBrowser({
     department: "",
     priority: "",
     location_name: "",
+    benefit_tags: withRequiredBenefitTags([]),
+    processable_country_codes: [] as string[],
     summary: "",
     description: "",
     responsibilities: "",
@@ -711,6 +767,8 @@ export default function BreezyPositionRecordsBrowser({
       department: department || "",
       priority: normalizePriorityKey(priority || ""),
       location_name: locationName || "",
+      benefit_tags: extractBenefitTagsFromDetails(merged),
+      processable_country_codes: extractProcessableCountryCodesFromDetails(merged),
       summary: summary || "",
       description: description || "",
       responsibilities: responsibilities || "",
@@ -862,6 +920,14 @@ export default function BreezyPositionRecordsBrowser({
       companyFilterOptions.find((item) => item.name.trim().toLowerCase() === selected) ?? null
     );
   }, [companyFilterOptions, createOpeningDraft.company]);
+
+  const selectedEditCompany = useMemo(() => {
+    const selected = (editForm.companies[0] ?? editForm.company).trim().toLowerCase();
+    if (!selected) return null;
+    return (
+      companyFilterOptions.find((item) => item.name.trim().toLowerCase() === selected) ?? null
+    );
+  }, [companyFilterOptions, editForm.company, editForm.companies]);
 
   const createCompanyPickerOptions = useMemo(() => {
     const query = createCompanyQuery.trim().toLowerCase();
@@ -1321,7 +1387,7 @@ export default function BreezyPositionRecordsBrowser({
         department: "",
         priority: "",
         location_name: "",
-        benefit_tags: [],
+        benefit_tags: withRequiredBenefitTags([]),
         processable_country_codes: DEFAULT_PROCESSABLE_COUNTRY_CODES,
         summary: "",
         description: "",
@@ -1426,16 +1492,42 @@ export default function BreezyPositionRecordsBrowser({
           typeof overrides[key] === "string" ? (overrides[key] as string) : "";
 
         setEditForm({
-          name: pick("name"),
+          name: pick("name") || getFirstStringField(derived, ["name", "title"]),
           company: nextCompanyNames[0] ?? pick("company"),
           companies: nextCompanyNames,
-          department: pick("department"),
-          priority: pick("priority"),
-          location_name: pick("location_name"),
-          summary: pick("summary"),
-          description: pick("description"),
-          responsibilities: pick("responsibilities"),
-          requirements: pick("requirements"),
+          department: pick("department") || extractDepartment(derived),
+          priority: normalizePriorityKey(pick("priority") || getFirstStringField(derived, ["priority"])),
+          location_name:
+            pick("location_name") ||
+            getFirstStringField(derived, ["location_name", "locationName", "location_label"]),
+          benefit_tags: extractBenefitTagsFromDetails(derived),
+          processable_country_codes: extractProcessableCountryCodesFromDetails(derived),
+          summary:
+            pick("summary") ||
+            getFirstStringField(derived, ["summary", "short_description", "description_summary"]),
+          description:
+            pick("description") ||
+            getFirstStringField(derived, [
+              "description",
+              "description_html",
+              "description_text",
+              "job_description",
+              "content",
+            ]),
+          responsibilities:
+            pick("responsibilities") ||
+            getFirstStringField(derived, [
+              "responsibilities",
+              "responsibilities_html",
+              "responsibilities_text",
+            ]),
+          requirements:
+            pick("requirements") ||
+            getFirstStringField(derived, [
+              "requirements",
+              "requirements_html",
+              "requirements_text",
+            ]),
         });
       }
     } catch (err) {
@@ -1682,15 +1774,13 @@ export default function BreezyPositionRecordsBrowser({
       setPriorityDrafts(
         Object.fromEntries(next.map((item) => [normalizePriorityKey(item.key), item.label]))
       );
-      setPriorityTypesWarning(typeof data?.warning === "string" ? data.warning : null);
-    } catch (err) {
+    } catch {
       setPriorityTypes(DEFAULT_BREEZY_PRIORITY_TYPES);
       setPriorityDrafts(
         Object.fromEntries(
           DEFAULT_BREEZY_PRIORITY_TYPES.map((item) => [normalizePriorityKey(item.key), item.label])
         )
       );
-      setPriorityTypesWarning(err instanceof Error ? err.message : "Failed to load priority types.");
     }
   };
 
@@ -2531,7 +2621,7 @@ export default function BreezyPositionRecordsBrowser({
 	                    department: "",
 	                    priority: "",
 	                    location_name: "",
-	                    benefit_tags: [],
+	                    benefit_tags: withRequiredBenefitTags([]),
 	                    processable_country_codes: DEFAULT_PROCESSABLE_COUNTRY_CODES,
 	                    summary: "",
 	                    description: "",
@@ -3802,7 +3892,6 @@ export default function BreezyPositionRecordsBrowser({
                 <div className="grid gap-4">
                   {(() => {
                     const state = getFirstStringField(details, ["state", "status"]);
-                    const location = formatPositionLocation(details);
                     const summary = getFirstStringField(details, [
                       "summary",
                       "short_description",
@@ -3827,86 +3916,142 @@ export default function BreezyPositionRecordsBrowser({
                     ]);
 
                     if (editing) {
-                      const editedKeys = Object.keys(detailsOverrides ?? {}).filter(Boolean);
                       return (
-                        <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4">
-                          <div>
-                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                              Edit fields
-                            </div>
-                            <div className="mt-1 text-xs text-slate-600">
-                              Changes you make here are saved as overrides. Edited keys:{" "}
-                              {editedKeys.length > 0 ? editedKeys.join(", ") : "—"}
-                            </div>
-                          </div>
-
+                        <div className="grid gap-4">
                           <div className="grid gap-3">
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              <div className="grid gap-1">
-                                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                  Priority
+                            <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Company benefits
+                                  </div>
                                 </div>
-                                <select
-                                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
-                                  value={editForm.priority}
-                                  disabled={savingEdits || prioritySaving}
-                                  onChange={(event) =>
+                                <button
+                                  type="button"
+                                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+                                  disabled={savingEdits}
+                                  onClick={() =>
                                     setEditForm((prev) => ({
                                       ...prev,
-                                      priority: event.target.value,
+                                      benefit_tags:
+                                        selectedEditCompany?.benefitTags.length
+                                          ? withRequiredBenefitTags(selectedEditCompany.benefitTags)
+                                          : withRequiredBenefitTags(AVAILABLE_BENEFIT_TAGS.slice(0, 6)),
                                     }))
                                   }
                                 >
-                                  <option value="">None</option>
-                                  {editForm.priority &&
-                                  !availablePriorityTypes.some(
-                                    (type) =>
-                                      normalizePriorityKey(type.key) ===
-                                      normalizePriorityKey(editForm.priority)
-                                  ) ? (
-                                    <option value={normalizePriorityKey(editForm.priority)}>
-                                      {getPriorityLabel(editForm.priority, availablePriorityTypes)}
-                                    </option>
-                                  ) : null}
-                                  {availablePriorityTypes.map((type) => (
-                                    <option key={type.key} value={normalizePriorityKey(type.key)}>
-                                      {type.label}
-                                    </option>
-                                  ))}
-                                </select>
-                                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                                  <button
-                                    type="button"
-                                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                                    onClick={() => setPriorityTypesModalOpen(true)}
-                                    disabled={savingEdits || prioritySaving || !canEdit}
-                                  >
-                                    Manage types
-                                  </button>
-                                  {priorityTypesWarning ? (
-                                    <div className="text-[11px] text-amber-700">
-                                      {priorityTypesWarning}
-                                    </div>
-                                  ) : null}
-                                </div>
+                                  Use company defaults
+                                </button>
                               </div>
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                {AVAILABLE_BENEFIT_TAGS.map((tag) => {
+                                  const selected = editForm.benefit_tags.includes(tag);
+                                  const required = REQUIRED_BENEFIT_TAGS.includes(tag);
+                                  const Icon = getBenefitIcon(tag);
+                                  return (
+                                    <button
+                                      key={tag}
+                                      type="button"
+                                      className={[
+                                        "flex items-center gap-3 rounded-2xl border px-3 py-2 text-left text-sm transition disabled:opacity-60",
+                                        selected
+                                          ? "border-sky-400 bg-sky-50 text-sky-950 shadow-sm ring-2 ring-sky-100"
+                                          : "border-slate-200 bg-white/70 text-slate-500 hover:border-slate-300 hover:bg-white",
+                                      ].join(" ")}
+                                      disabled={savingEdits}
+                                      onClick={() =>
+                                        setEditForm((prev) => ({
+                                          ...prev,
+                                          benefit_tags: withRequiredBenefitTags(
+                                            selected && !required
+                                              ? prev.benefit_tags.filter((item) => item !== tag)
+                                              : [...prev.benefit_tags, tag]
+                                          ),
+                                        }))
+                                      }
+                                    >
+                                      <span
+                                        className={[
+                                          "grid h-9 w-9 shrink-0 place-items-center rounded-full border",
+                                          selected
+                                            ? "border-sky-300 bg-sky-600 text-white"
+                                            : "border-slate-200 bg-slate-50 text-slate-500",
+                                        ].join(" ")}
+                                      >
+                                        <Icon className="h-4 w-4" />
+                                      </span>
+                                      <span className="min-w-0 flex-1 font-semibold">
+                                        {BENEFIT_TAG_LABELS[tag]}
+                                      </span>
+                                      {selected ? (
+                                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-sky-600 text-white">
+                                          <Check className="h-4 w-4" />
+                                        </span>
+                                      ) : null}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
 
-                              <div className="grid gap-1">
+                            <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                  Location
+                                  Nationalities we process
                                 </div>
-                                <input
-                                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
-                                  value={editForm.location_name}
+                                <button
+                                  type="button"
+                                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
                                   disabled={savingEdits}
-                                  onChange={(event) =>
+                                  onClick={() =>
                                     setEditForm((prev) => ({
                                       ...prev,
-                                      location_name: event.target.value,
+                                      processable_country_codes:
+                                        prev.processable_country_codes.length ===
+                                        DEFAULT_PROCESSABLE_COUNTRY_CODES.length
+                                          ? []
+                                          : DEFAULT_PROCESSABLE_COUNTRY_CODES,
                                     }))
                                   }
-                                  placeholder={location || "—"}
-                                />
+                                >
+                                  {editForm.processable_country_codes.length ===
+                                  DEFAULT_PROCESSABLE_COUNTRY_CODES.length
+                                    ? "Clear all"
+                                    : "Select all"}
+                                </button>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {DEFAULT_PROCESSABLE_COUNTRIES.map((country) => {
+                                  const selected =
+                                    editForm.processable_country_codes.includes(country.code);
+                                  return (
+                                    <button
+                                      key={country.code}
+                                      type="button"
+                                      className={[
+                                        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60",
+                                        selected
+                                          ? "border-sky-600 bg-sky-600 text-white shadow-sm"
+                                          : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50",
+                                      ].join(" ")}
+                                      disabled={savingEdits}
+                                      onClick={() =>
+                                        setEditForm((prev) => ({
+                                          ...prev,
+                                          processable_country_codes: selected
+                                            ? prev.processable_country_codes.filter(
+                                                (item) => item !== country.code
+                                              )
+                                            : [...prev.processable_country_codes, country.code],
+                                        }))
+                                      }
+                                    >
+                                      <span>{toFlagEmoji(country.code)}</span>
+                                      <span>{country.name}</span>
+                                      {selected ? <Check className="h-3.5 w-3.5" /> : null}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
 
@@ -4161,7 +4306,7 @@ export default function BreezyPositionRecordsBrowser({
                                       department: "",
                                       benefit_tags:
                                         item.benefitTags.length > 0
-                                          ? item.benefitTags
+                                          ? withRequiredBenefitTags(item.benefitTags)
                                           : prev.benefit_tags,
                                     }));
                                     setCreateCompanyQuery("");
@@ -4418,8 +4563,8 @@ export default function BreezyPositionRecordsBrowser({
                         ...prev,
                         benefit_tags:
                           selectedCreateCompany?.benefitTags.length
-                            ? selectedCreateCompany.benefitTags
-                            : AVAILABLE_BENEFIT_TAGS.slice(0, 6),
+                            ? withRequiredBenefitTags(selectedCreateCompany.benefitTags)
+                            : withRequiredBenefitTags(AVAILABLE_BENEFIT_TAGS.slice(0, 6)),
                       }))
                     }
                   >
@@ -4429,6 +4574,7 @@ export default function BreezyPositionRecordsBrowser({
                 <div className="grid gap-2 sm:grid-cols-2">
                   {AVAILABLE_BENEFIT_TAGS.map((tag) => {
                     const selected = createOpeningDraft.benefit_tags.includes(tag);
+                    const required = REQUIRED_BENEFIT_TAGS.includes(tag);
                     const Icon = getBenefitIcon(tag);
                     return (
                       <button
@@ -4437,16 +4583,18 @@ export default function BreezyPositionRecordsBrowser({
                         className={[
                           "flex items-center gap-3 rounded-2xl border px-3 py-2 text-left text-sm transition disabled:opacity-60",
                           selected
-                            ? "border-sky-200 bg-white text-sky-950 shadow-sm"
-                            : "border-slate-200 bg-white/70 text-slate-700 hover:bg-white",
+                            ? "border-sky-400 bg-sky-50 text-sky-950 shadow-sm ring-2 ring-sky-100"
+                            : "border-slate-200 bg-white/70 text-slate-500 hover:border-slate-300 hover:bg-white",
                         ].join(" ")}
                         disabled={createOpeningSaving}
                         onClick={() =>
                           setCreateOpeningDraft((prev) => ({
                             ...prev,
-                            benefit_tags: selected
-                              ? prev.benefit_tags.filter((item) => item !== tag)
-                              : [...prev.benefit_tags, tag],
+                            benefit_tags: withRequiredBenefitTags(
+                              selected && !required
+                                ? prev.benefit_tags.filter((item) => item !== tag)
+                                : [...prev.benefit_tags, tag]
+                            ),
                           }))
                         }
                       >
@@ -4454,7 +4602,7 @@ export default function BreezyPositionRecordsBrowser({
                           className={[
                             "grid h-9 w-9 shrink-0 place-items-center rounded-full border",
                             selected
-                              ? "border-sky-200 bg-sky-50 text-sky-700"
+                              ? "border-sky-300 bg-sky-600 text-white"
                               : "border-slate-200 bg-slate-50 text-slate-500",
                           ].join(" ")}
                         >
@@ -4463,7 +4611,11 @@ export default function BreezyPositionRecordsBrowser({
                         <span className="min-w-0 flex-1 font-semibold">
                           {BENEFIT_TAG_LABELS[tag]}
                         </span>
-                        {selected ? <Check className="h-4 w-4 text-sky-600" /> : null}
+                        {selected ? (
+                          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-sky-600 text-white">
+                            <Check className="h-4 w-4" />
+                          </span>
+                        ) : null}
                       </button>
                     );
                   })}
@@ -4513,8 +4665,8 @@ export default function BreezyPositionRecordsBrowser({
                         className={[
                           "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60",
                           selected
-                            ? "border-sky-200 bg-sky-50 text-sky-950"
-                            : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                            ? "border-sky-600 bg-sky-600 text-white shadow-sm"
+                            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50",
                         ].join(" ")}
                         disabled={createOpeningSaving}
                         onClick={() =>
@@ -4530,6 +4682,7 @@ export default function BreezyPositionRecordsBrowser({
                       >
                         <span>{toFlagEmoji(country.code)}</span>
                         <span>{country.name}</span>
+                        {selected ? <Check className="h-3.5 w-3.5" /> : null}
                       </button>
                     );
                   })}

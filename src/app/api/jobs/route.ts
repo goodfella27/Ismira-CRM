@@ -19,9 +19,10 @@ import {
   fetchJobCompanyBenefits,
   hasManualBenefitsOverride,
   mapBenefitTagsByJobCompanyId,
+  normalizeBenefitTags,
   syncAutoBenefitsFromCachedPositions,
 } from "@/lib/job-company-benefits";
-import { getJobsResponseCache, setJobsResponseCache } from "@/lib/jobs-api-cache";
+import { setJobsResponseCache } from "@/lib/jobs-api-cache";
 import {
   fetchJobCompaniesByNormalizedName,
   normalizeJobCompanyName,
@@ -315,6 +316,7 @@ async function attachJobCompanyBranding(
       name: company.name,
       fallback: item.name,
     });
+    const hasPositionBenefitTags = Object.prototype.hasOwnProperty.call(item, "benefit_tags");
     return {
       ...item,
       name: replacePositionTitleCompany(item.name, item.company, company.name) || item.name,
@@ -323,7 +325,9 @@ async function attachJobCompanyBranding(
       company_logo_url: logoPath ? signedUrls.get(logoPath) ?? undefined : undefined,
       ship_type: shipTypes[0] ?? undefined,
       ship_types: shipTypes,
-      benefit_tags: benefitTagsByCompanyId.get(company.id) ?? [],
+      benefit_tags: hasPositionBenefitTags
+        ? normalizeBenefitTags(item.benefit_tags)
+        : benefitTagsByCompanyId.get(company.id) ?? [],
     };
   });
 }
@@ -559,12 +563,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const companyParam = (searchParams.get("companyId") ?? "").trim();
     const companyId = companyParam || requireBreezyCompanyId().companyId;
-    const bypassCache = searchParams.has("ts") || searchParams.get("bypassCache") === "1";
-    const cacheKey = companyParam ? `company-branding-v3:${companyId}` : "default-branding-v3";
-    const cached = !bypassCache ? getJobsResponseCache(cacheKey) : null;
-    if (cached && cached.expiresAt > Date.now()) {
-      return jsonResponse(request, cached.payload as { jobs: JobListItem[]; priorityTypes: PriorityTypePayload[] }, { status: 200 });
-    }
+    const cacheKey = companyParam ? `company-branding-v4:${companyId}` : "default-branding-v4";
 
     // Prefer database cache (fast + supports local edits). Falls back to Breezy if not available.
     try {
@@ -612,6 +611,7 @@ export async function GET(request: Request) {
               typeof overrides.department === "string" ? overrides.department.trim() : "";
             const overridePriority =
               typeof overrides.priority === "string" ? overrides.priority.trim() : "";
+            const hasBenefitOverride = Object.prototype.hasOwnProperty.call(overrides, "benefit_tags");
             const orgType = normalizeOrgType(row.org_type);
 
             return {
@@ -628,6 +628,9 @@ export async function GET(request: Request) {
               department: overrideDepartment || row.department || undefined,
               priority: overridePriority || undefined,
               job_company_id: row.job_company_id ?? undefined,
+              ...(hasBenefitOverride
+                ? { benefit_tags: normalizeBenefitTags(overrides.benefit_tags) }
+                : {}),
               updated_at: row.updated_at ?? undefined,
             } satisfies JobListItem;
           })

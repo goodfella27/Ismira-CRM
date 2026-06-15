@@ -195,6 +195,20 @@ export async function fetchJobCompaniesByNormalizedName(
   return Array.isArray(data) ? (data as JobCompanyRow[]) : [];
 }
 
+export async function fetchJobCompanySlugs(admin: AdminClient, companyId: string) {
+  const { data, error } = await admin
+    .from("job_companies")
+    .select("slug")
+    .eq("company_id", companyId);
+
+  if (error) throw new Error(error.message ?? "Failed to load job company slugs");
+  return new Set(
+    (Array.isArray(data) ? data : [])
+      .map((row) => (typeof row.slug === "string" ? row.slug.trim() : ""))
+      .filter(Boolean)
+  );
+}
+
 export async function ensureJobCompaniesByName(
   admin: AdminClient,
   companyId: string,
@@ -220,7 +234,7 @@ export async function ensureJobCompaniesByName(
   const existingByName = new Map(
     existingCompanies.map((item) => [item.normalized_name, item] as const)
   );
-  const existingSlugs = new Set(existingCompanies.map((item) => item.slug).filter(Boolean));
+  const existingSlugs = await fetchJobCompanySlugs(admin, companyId);
 
   const missingRows = normalizedNames
     .filter((normalizedName) => !existingByName.has(normalizedName))
@@ -401,7 +415,7 @@ export async function syncJobCompaniesFromPositions(
     options.companyId,
     normalizedNames
   );
-  const existingSlugs = new Set(existingCompanies.map((item) => item.slug).filter(Boolean));
+  const existingSlugs = await fetchJobCompanySlugs(admin, options.companyId);
   const existingByName = new Map(
     existingCompanies.map((item) => [item.normalized_name, item] as const)
   );
