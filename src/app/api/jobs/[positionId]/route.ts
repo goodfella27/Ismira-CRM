@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
 import { getPrimaryCompanyId } from "@/lib/company/primary";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { canonicalizeCountry } from "@/lib/country";
 import {
   extractCompany,
   extractDepartment,
@@ -14,6 +15,11 @@ import { buildCountryRows, extractNationalityCountryGroups } from "@/lib/nationa
 import { buildBreezyPublicPositionUrl } from "@/lib/breezy-public";
 import { extractBenefitTagsFromDescription } from "@/lib/job-benefits";
 import {
+  fetchJobCompanyBenefits,
+  mapBenefitTagsByJobCompanyId,
+  normalizeBenefitTags,
+} from "@/lib/job-company-benefits";
+import {
   normalizeJobCompanyName,
   resolveActiveJobCompanies,
   resolveKnownJobCompanyName,
@@ -24,7 +30,7 @@ import { resolveJobShipTypes } from "@/lib/job-ship-types";
 
 export const runtime = "nodejs";
 
-const DETAILS_CACHE_CONTROL = "public, max-age=300, stale-while-revalidate=3600";
+const DETAILS_CACHE_CONTROL = "no-store";
 const responseCache = new Map<string, { expiresAt: number; payload: unknown }>();
 
 function applyPublicCors(headers: Headers) {
@@ -95,6 +101,32 @@ function applyOverrides(details: unknown, overrides: unknown) {
       }
       continue;
     }
+    if (key === "benefit_tags") {
+      base.benefit_tags = normalizeBenefitTags(value);
+      continue;
+    }
+    if (key === "processable_country_codes") {
+      const codes = Array.isArray(value)
+        ? Array.from(
+            new Set(
+              value
+                .map((item) => (typeof item === "string" ? item.trim().toUpperCase() : ""))
+                .filter((code) => /^[A-Z]{2}$/.test(code))
+            )
+          )
+        : [];
+      const countries = codes.map((code) => ({
+        code,
+        name: canonicalizeCountry(code) ?? code,
+      }));
+      base.processable_country_codes = codes;
+      base.nationality_countries = {
+        ...(isRecord(base.nationality_countries) ? base.nationality_countries : {}),
+        processable: countries,
+        all: countries.map((country) => ({ ...country, group: "processable" })),
+      };
+      continue;
+    }
     if (typeof value !== "string") continue;
     const trimmed = value.trim();
     if (!trimmed) continue;
@@ -107,6 +139,21 @@ function applyOverrides(details: unknown, overrides: unknown) {
   }
 
   return base;
+}
+
+function hasBenefitOverride(overrides: unknown) {
+  return isRecord(overrides) && Object.prototype.hasOwnProperty.call(overrides, "benefit_tags");
+}
+
+function clearStaleDetailBenefitsWithoutOverride(
+  details: Record<string, unknown>,
+  overrides: unknown
+) {
+  if (hasBenefitOverride(overrides)) return details;
+  if (!Object.prototype.hasOwnProperty.call(details, "benefit_tags")) return details;
+  const next = { ...details };
+  delete next.benefit_tags;
+  return next;
 }
 
 const isMissingCountriesTableError = (message: string) =>
@@ -353,6 +400,12 @@ async function attachJobCompanyBranding(
     name: company.name,
     fallback: typeof details.name === "string" ? details.name : details.title,
   });
+  const hasPositionBenefitTags = Object.prototype.hasOwnProperty.call(details, "benefit_tags");
+  const benefitTags = hasPositionBenefitTags
+    ? []
+    : await fetchJobCompanyBenefits(init.admin, init.companyId, [company.id])
+        .then((rows) => mapBenefitTagsByJobCompanyId(rows).get(company.id) ?? [])
+        .catch(() => []);
 
   return {
     ...details,
@@ -363,7 +416,16 @@ async function attachJobCompanyBranding(
     ship_type: shipTypes[0] ?? undefined,
     ship_types: shipTypes,
     company_logo_url: logoPath ? signedUrls.get(logoPath) ?? null : null,
+    ...(!hasPositionBenefitTags && benefitTags.length > 0 ? { benefit_tags: benefitTags } : {}),
   };
+}
+
+function resolveBenefitTags(details: Record<string, unknown>) {
+  const saved = normalizeBenefitTags(details.benefit_tags);
+  if (saved.length > 0 || Object.prototype.hasOwnProperty.call(details, "benefit_tags")) {
+    return saved;
+  }
+  return extractBenefitTagsFromDescription(pickPositionDescription(details));
 }
 
 function jsonResponse(request: Request, body: unknown, init: { status: number }) {
@@ -412,15 +474,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const companyParam = (searchParams.get("companyId") ?? "").trim();
     const companyId = companyParam || requireBreezyCompanyId().companyId;
-    const cacheKey = `company-branding-v4:${companyId}:${positionId}`;
-    const cached = responseCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      if (isRecord(cached.payload) && !("nationality_countries" in cached.payload)) {
-        responseCache.delete(cacheKey);
-      } else {
-      return jsonResponse(request, cached.payload, { status: 200 });
-      }
-    }
+    const cacheKey = `company-branding-v5:${companyId}:${positionId}`;
 
     // Prefer database cache (fast + supports local edits). Falls back to Breezy.
     try {
@@ -491,9 +545,12 @@ export async function GET(
             return jsonResponse(request, { error: "Not found" }, { status: 404 });
           }
 
-          const merged = scrubBreezyPositionDetails(
-            applyOverrides(row.details, row.overrides)
-          ) as Record<string, unknown>;
+          const merged = clearStaleDetailBenefitsWithoutOverride(
+            scrubBreezyPositionDetails(
+              applyOverrides(row.details, row.overrides)
+            ) as Record<string, unknown>,
+            row.overrides
+          );
           const mergedCompany =
             typeof merged.company === "string" ? merged.company.trim() : "";
           const mergedDepartment =
@@ -512,13 +569,18 @@ export async function GET(
 		            enriched = merged;
 		          }
 		          enriched = ensureApplicationUrl(enriched);
-		          await storeNationalityCountries({
-		            admin,
-		            primaryCompanyId,
-		            breezyCompanyId: companyId,
-		            positionId,
-		            details: merged,
-		          });
+              const hasManualCountries =
+                isRecord(row.overrides) &&
+                Object.prototype.hasOwnProperty.call(row.overrides, "processable_country_codes");
+              if (!hasManualCountries) {
+		            await storeNationalityCountries({
+		              admin,
+		              primaryCompanyId,
+		              breezyCompanyId: companyId,
+		              positionId,
+		              details: merged,
+		            });
+              }
 
 	          const countries =
 	            (await fetchNationalityCountries({
@@ -528,7 +590,7 @@ export async function GET(
 	              positionId,
 	            })) ?? computeNationalityCountries(merged);
 
-	          const benefitTags = extractBenefitTagsFromDescription(pickPositionDescription(enriched));
+	          const benefitTags = resolveBenefitTags(enriched);
 	          const basePayload = {
 	            ...enriched,
 	            benefit_tags: benefitTags,
@@ -592,17 +654,25 @@ export async function GET(
           ],
           { onConflict: "company_id,breezy_position_id", defaultToNull: false }
         );
-        await storeNationalityCountries({
-          admin,
-          primaryCompanyId,
-          breezyCompanyId: companyId,
-          positionId,
-          details: isRecord(body) ? (body as Record<string, unknown>) : null,
-        });
+        const hasManualCountries =
+          isRecord(row.overrides) &&
+          Object.prototype.hasOwnProperty.call(row.overrides, "processable_country_codes");
+        if (!hasManualCountries) {
+          await storeNationalityCountries({
+            admin,
+            primaryCompanyId,
+            breezyCompanyId: companyId,
+            positionId,
+            details: isRecord(body) ? (body as Record<string, unknown>) : null,
+          });
+        }
 
-        const merged = scrubBreezyPositionDetails(
-          applyOverrides(scrubbedBody, row.overrides)
-        ) as Record<string, unknown>;
+        const merged = clearStaleDetailBenefitsWithoutOverride(
+          scrubBreezyPositionDetails(
+            applyOverrides(scrubbedBody, row.overrides)
+          ) as Record<string, unknown>,
+          row.overrides
+        );
         const mergedCompany = typeof merged.company === "string" ? merged.company.trim() : "";
         const mergedDepartment =
           typeof merged.department === "string" ? merged.department.trim() : "";
@@ -632,7 +702,8 @@ export async function GET(
 	            positionId,
 	          })) ?? computeNationalityCountries(merged);
 
-	        const payload = countries ? { ...enriched, nationality_countries: countries } : enriched;
+          const basePayload = { ...enriched, benefit_tags: resolveBenefitTags(enriched) };
+	        const payload = countries ? { ...basePayload, nationality_countries: countries } : basePayload;
 	        responseCache.set(cacheKey, {
 	          expiresAt: Date.now() + 5 * 60_000,
 	          payload,
@@ -753,8 +824,7 @@ export async function GET(
 		  }
 
     if (isRecord(enriched)) {
-      const benefitTags = extractBenefitTagsFromDescription(pickPositionDescription(enriched));
-      enriched = { ...(enriched as Record<string, unknown>), benefit_tags: benefitTags };
+      enriched = { ...(enriched as Record<string, unknown>), benefit_tags: resolveBenefitTags(enriched) };
     }
 
     responseCache.set(cacheKey, {
