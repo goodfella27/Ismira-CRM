@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireBreezyCompanyId } from "@/lib/breezy";
 import { getPrimaryCompanyId } from "@/lib/company/primary";
+import { fetchJobCountryOptions } from "@/lib/job-country-options";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { applyPublicCacheControl } from "@/lib/http/public-api";
 
@@ -56,6 +57,8 @@ export async function GET(request: Request) {
 
     const admin = createSupabaseAdminClient();
     const primaryCompanyId = await getPrimaryCompanyId(admin);
+    const enabledCountryOptions = await fetchJobCountryOptions(admin, primaryCompanyId).catch(() => []);
+    const enabledCodes = new Set(enabledCountryOptions.map((option) => option.code));
 
     const { data: publishedRows } = await admin
       .from("breezy_positions")
@@ -100,11 +103,15 @@ export async function GET(request: Request) {
     for (const row of rows) {
       const code = (row.country_code ?? "").toUpperCase().trim();
       if (!code) continue;
+      if (enabledCodes.size > 0 && !enabledCodes.has(code)) continue;
       const entry =
         byCode.get(code) ??
         {
           code,
-          name: row.country_name?.trim() || code,
+          name:
+            enabledCountryOptions.find((option) => option.code === code)?.name ||
+            row.country_name?.trim() ||
+            code,
           count: 0,
           processable: 0,
           blocked: 0,
@@ -128,4 +135,3 @@ export async function GET(request: Request) {
     return jsonResponse(request, { error: message }, { status: 500 });
   }
 }
-

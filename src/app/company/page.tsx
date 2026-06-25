@@ -10,6 +10,7 @@ import {
   FileText,
   GitMerge,
   ListTodo,
+  PencilLine,
   Plus,
   Save,
   Shield,
@@ -27,6 +28,18 @@ import {
   type QuestionnaireStatus,
 } from "@/lib/questionnaires";
 import { AVAILABLE_BENEFIT_TAGS, BENEFIT_TAG_LABELS, type BenefitTag } from "@/lib/job-benefits";
+import {
+  DEFAULT_JOB_BENEFIT_OPTIONS,
+  normalizeBenefitOptions,
+  type JobBenefitOption,
+} from "@/lib/job-benefit-options";
+import { toFlagEmoji } from "@/lib/country";
+import {
+  DEFAULT_JOB_COUNTRY_OPTIONS,
+  normalizeCountryCode,
+  normalizeCountryOptions,
+  type JobCountryOption,
+} from "@/lib/job-country-options";
 import { JOB_SHIP_TYPE_LABELS, JOB_SHIP_TYPES, normalizeJobShipType, normalizeJobShipTypes, type JobShipType } from "@/lib/job-ship-types";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureCompanyBootstrap } from "@/lib/company/bootstrap-client";
@@ -68,6 +81,7 @@ type JobCompanyAdminItem = {
   shipType: JobShipType | "";
   shipTypes: JobShipType[];
   benefitTags: BenefitTag[];
+  countryCodes: string[];
   positionsCount: number;
 };
 
@@ -267,6 +281,17 @@ const sameBenefitTagSelection = (left: BenefitTag[], right: BenefitTag[]) =>
 const sameJobShipTypeSelection = (left: JobShipType[], right: JobShipType[]) =>
   JSON.stringify(normalizeJobShipTypes(left)) === JSON.stringify(normalizeJobShipTypes(right));
 
+const sameCountryOptions = (left: JobCountryOption[], right: JobCountryOption[]) =>
+  JSON.stringify(normalizeCountryOptions(left)) === JSON.stringify(normalizeCountryOptions(right));
+
+const normalizeCountryCodeList = (value: string[]) =>
+  [...new Set(value.map((code) => normalizeCountryCode(code)).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b)
+  );
+
+const sameCountryCodeSelection = (left: string[], right: string[]) =>
+  JSON.stringify(normalizeCountryCodeList(left)) === JSON.stringify(normalizeCountryCodeList(right));
+
 
 export default function CompanyPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -294,11 +319,32 @@ export default function CompanyPage() {
   const [jobCompanyMergeTargets, setJobCompanyMergeTargets] = useState<Record<string, string>>({});
   const [recentJobCompanyMerges, setRecentJobCompanyMerges] = useState<JobCompanyMergeItem[]>([]);
   const [lastJobCompanyMerge, setLastJobCompanyMerge] = useState<JobCompanyMergeItem | null>(null);
+  const [mergeHistoryOpen, setMergeHistoryOpen] = useState(false);
   const [jobCompanyNameDrafts, setJobCompanyNameDrafts] = useState<Record<string, string>>({});
   const [jobCompanyShipTypeDrafts, setJobCompanyShipTypeDrafts] = useState<Record<string, JobShipType[]>>({});
   const [jobCompanyBenefitDrafts, setJobCompanyBenefitDrafts] = useState<
     Record<string, BenefitTag[]>
   >({});
+  const [jobCompanyCountryDrafts, setJobCompanyCountryDrafts] = useState<
+    Record<string, string[]>
+  >({});
+  const [jobBenefitOptions, setJobBenefitOptions] = useState<JobBenefitOption[]>(
+    DEFAULT_JOB_BENEFIT_OPTIONS
+  );
+  const [jobBenefitOptionsDraft, setJobBenefitOptionsDraft] = useState<JobBenefitOption[]>(
+    DEFAULT_JOB_BENEFIT_OPTIONS
+  );
+  const [newJobBenefitLabel, setNewJobBenefitLabel] = useState("");
+  const [jobBenefitOptionsSaving, setJobBenefitOptionsSaving] = useState(false);
+  const [jobCountryOptions, setJobCountryOptions] = useState<JobCountryOption[]>(
+    DEFAULT_JOB_COUNTRY_OPTIONS
+  );
+  const [jobCountryOptionsDraft, setJobCountryOptionsDraft] = useState<JobCountryOption[]>(
+    DEFAULT_JOB_COUNTRY_OPTIONS
+  );
+  const [newJobCountryCode, setNewJobCountryCode] = useState("");
+  const [newJobCountryName, setNewJobCountryName] = useState("");
+  const [jobCountryOptionsSaving, setJobCountryOptionsSaving] = useState(false);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [pipelineName, setPipelineName] = useState("");
   const [pipelineError, setPipelineError] = useState<string | null>(null);
@@ -591,11 +637,19 @@ export default function CompanyPage() {
       if (!res.ok) {
         throw new Error(data?.error ?? "Failed to load job companies.");
       }
+      const nextBenefitOptions = normalizeBenefitOptions(data?.benefitOptions);
+      const availableBenefitTags = new Set(nextBenefitOptions.map((option) => option.tag));
+      setJobBenefitOptions(nextBenefitOptions);
+      setJobBenefitOptionsDraft(nextBenefitOptions);
+      const nextCountryOptions = normalizeCountryOptions(data?.countryOptions);
+      setJobCountryOptions(nextCountryOptions);
+      setJobCountryOptionsDraft(nextCountryOptions);
       const list: unknown[] = Array.isArray(data?.companies) ? (data.companies as unknown[]) : [];
       const nextCompanies = list.map((item) => {
           const row = isRecord(item) ? item : {};
           const positionsCount = row.positionsCount;
           const benefitTagsRaw = Array.isArray(row.benefitTags) ? row.benefitTags : [];
+          const countryCodesRaw = Array.isArray(row.countryCodes) ? row.countryCodes : [];
           return {
             id: typeof row.id === "string" ? row.id : "",
             name: typeof row.name === "string" ? row.name : "Company",
@@ -607,8 +661,11 @@ export default function CompanyPage() {
             benefitTags: benefitTagsRaw.filter(
               (tag): tag is BenefitTag =>
                 typeof tag === "string" &&
-                AVAILABLE_BENEFIT_TAGS.includes(tag as BenefitTag)
+                availableBenefitTags.has(tag as BenefitTag)
             ),
+            countryCodes: countryCodesRaw
+              .map((code) => normalizeCountryCode(code))
+              .filter(Boolean),
             positionsCount:
               typeof positionsCount === "number" && Number.isFinite(positionsCount)
                 ? positionsCount
@@ -680,7 +737,7 @@ export default function CompanyPage() {
               ? row.benefitTags.filter(
                   (tag): tag is BenefitTag =>
                     typeof tag === "string" &&
-                    AVAILABLE_BENEFIT_TAGS.includes(tag as BenefitTag)
+                    availableBenefitTags.has(tag as BenefitTag)
                 )
               : [];
             return [id, tags];
@@ -693,6 +750,18 @@ export default function CompanyPage() {
             const row = isRecord(item) ? item : {};
             const id = typeof row.id === "string" ? row.id : "";
             return [id, normalizeJobShipTypes(row.shipTypes ?? row.shipType)];
+          })
+        )
+      );
+      setJobCompanyCountryDrafts(
+        Object.fromEntries(
+          list.map((item) => {
+            const row = isRecord(item) ? item : {};
+            const id = typeof row.id === "string" ? row.id : "";
+            const codes = Array.isArray(row.countryCodes)
+              ? row.countryCodes.map((code) => normalizeCountryCode(code)).filter(Boolean)
+              : [];
+            return [id, codes];
           })
         )
       );
@@ -843,6 +912,91 @@ export default function CompanyPage() {
     },
     [loadJobsHeroLogos]
   );
+
+  const handleAddJobBenefitOption = useCallback((jobCompanyId?: string) => {
+    const label = newJobBenefitLabel.replace(/\s+/g, " ").trim();
+    if (!label) return;
+    const tag = label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 80);
+    if (!tag) return;
+    setJobBenefitOptionsDraft((prev) => {
+      if (prev.some((option) => option.tag === tag)) return prev;
+      return [...prev, { tag, label, sortOrder: prev.length, enabled: true }];
+    });
+    if (jobCompanyId) {
+      setJobCompanyBenefitDrafts((prev) => {
+        const current = prev[jobCompanyId] ?? [];
+        if (current.includes(tag)) return prev;
+        return { ...prev, [jobCompanyId]: [...current, tag] };
+      });
+    }
+    setNewJobBenefitLabel("");
+  }, [newJobBenefitLabel]);
+
+  const handleSaveJobBenefitOptions = useCallback(async () => {
+    setJobBenefitOptionsSaving(true);
+    setJobCompaniesError(null);
+    try {
+      const benefits = normalizeBenefitOptions(jobBenefitOptionsDraft);
+      const res = await fetch("/api/company/job-benefits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ benefits }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to save benefit names.");
+      }
+      const saved = normalizeBenefitOptions(data?.benefits);
+      setJobBenefitOptions(saved);
+      setJobBenefitOptionsDraft(saved);
+      await loadJobCompanies();
+    } catch (err) {
+      setJobCompaniesError(err instanceof Error ? err.message : "Failed to save benefit names.");
+    } finally {
+      setJobBenefitOptionsSaving(false);
+    }
+  }, [jobBenefitOptionsDraft, loadJobCompanies]);
+
+  const handleAddJobCountryOption = useCallback(() => {
+    const code = normalizeCountryCode(newJobCountryCode || newJobCountryName);
+    const name = newJobCountryName.replace(/\s+/g, " ").trim();
+    if (!code || !name) return;
+    setJobCountryOptionsDraft((prev) => {
+      if (prev.some((option) => option.code === code)) return prev;
+      return [...prev, { code, name, sortOrder: prev.length, enabled: true }];
+    });
+    setNewJobCountryCode("");
+    setNewJobCountryName("");
+  }, [newJobCountryCode, newJobCountryName]);
+
+  const handleSaveJobCountryOptions = useCallback(async () => {
+    setJobCountryOptionsSaving(true);
+    setJobCompaniesError(null);
+    try {
+      const countries = normalizeCountryOptions(jobCountryOptionsDraft);
+      const res = await fetch("/api/company/job-countries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ countries }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to save country list.");
+      }
+      const saved = normalizeCountryOptions(data?.countries);
+      setJobCountryOptions(saved);
+      setJobCountryOptionsDraft(saved);
+      await loadJobCompanies();
+    } catch (err) {
+      setJobCompaniesError(err instanceof Error ? err.message : "Failed to save country list.");
+    } finally {
+      setJobCountryOptionsSaving(false);
+    }
+  }, [jobCountryOptionsDraft, loadJobCompanies]);
 
   const handleSyncJobCompanies = useCallback(async () => {
     setJobCompaniesSyncing(true);
@@ -1073,6 +1227,7 @@ export default function CompanyPage() {
     async (jobCompanyId: string) => {
       const name = (jobCompanyNameDrafts[jobCompanyId] ?? "").trim();
       const benefitTags = normalizeBenefitTagList(jobCompanyBenefitDrafts[jobCompanyId] ?? []);
+      const countryCodes = normalizeCountryCodeList(jobCompanyCountryDrafts[jobCompanyId] ?? []);
       const shipTypes = normalizeJobShipTypes(jobCompanyShipTypeDrafts[jobCompanyId] ?? []);
       const shipType = shipTypes[0] ?? "";
       if (!jobCompanyId) return;
@@ -1087,6 +1242,7 @@ export default function CompanyPage() {
         const form = new FormData();
         form.set("name", name);
         form.set("benefitTags", JSON.stringify(benefitTags));
+        form.set("countryCodes", JSON.stringify(countryCodes));
         form.set("shipType", shipType);
         form.set("shipTypes", JSON.stringify(shipTypes));
         const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
@@ -1109,6 +1265,9 @@ export default function CompanyPage() {
           (tag): tag is BenefitTag =>
             typeof tag === "string" && AVAILABLE_BENEFIT_TAGS.includes(tag as BenefitTag)
         );
+        const savedCountryCodes = Array.isArray(data?.company?.countryCodes)
+          ? data.company.countryCodes.map((code: unknown) => normalizeCountryCode(code)).filter(Boolean)
+          : countryCodes;
 
         setJobCompanies((prev) =>
           prev.map((item) =>
@@ -1119,6 +1278,7 @@ export default function CompanyPage() {
                   shipType: savedShipType,
                   shipTypes: savedShipTypes,
                   benefitTags: savedTags,
+                  countryCodes: savedCountryCodes,
                 }
               : item
           )
@@ -1126,6 +1286,7 @@ export default function CompanyPage() {
         setJobCompanyNameDrafts((prev) => ({ ...prev, [jobCompanyId]: savedName }));
         setJobCompanyShipTypeDrafts((prev) => ({ ...prev, [jobCompanyId]: savedShipTypes }));
         setJobCompanyBenefitDrafts((prev) => ({ ...prev, [jobCompanyId]: savedTags }));
+        setJobCompanyCountryDrafts((prev) => ({ ...prev, [jobCompanyId]: savedCountryCodes }));
 
         await loadJobCompanies();
       } catch (err) {
@@ -1136,7 +1297,13 @@ export default function CompanyPage() {
         setJobCompaniesActionId(null);
       }
     },
-    [jobCompanyBenefitDrafts, jobCompanyNameDrafts, jobCompanyShipTypeDrafts, loadJobCompanies]
+    [
+      jobCompanyBenefitDrafts,
+      jobCompanyCountryDrafts,
+      jobCompanyNameDrafts,
+      jobCompanyShipTypeDrafts,
+      loadJobCompanies,
+    ]
   );
 
   useEffect(() => {
@@ -1673,6 +1840,11 @@ export default function CompanyPage() {
       setPipelinesLoading(false);
     }
   };
+
+  const mergeHistoryItems = [
+    ...(lastJobCompanyMerge ? [lastJobCompanyMerge] : []),
+    ...recentJobCompanyMerges.filter((merge) => merge.id !== lastJobCompanyMerge?.id),
+  ];
 
   return (
     <div className="h-full">
@@ -2996,14 +3168,26 @@ export default function CompanyPage() {
                       Click a company to edit ship type, benefits, logo, and naming.
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="h-9 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white disabled:opacity-60"
-                    onClick={handleSyncJobCompanies}
-                    disabled={jobCompaniesSyncing}
-                  >
-                    {jobCompaniesSyncing ? "Syncing..." : "Sync companies"}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {mergeHistoryItems.length > 0 ? (
+                      <button
+                        type="button"
+                        className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                        onClick={() => setMergeHistoryOpen(true)}
+                      >
+                        <Undo2 className="h-4 w-4" />
+                        Merge history
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="h-9 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white disabled:opacity-60"
+                      onClick={handleSyncJobCompanies}
+                      disabled={jobCompaniesSyncing}
+                    >
+                      {jobCompaniesSyncing ? "Syncing..." : "Sync companies"}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50/70 p-2">
@@ -3038,51 +3222,6 @@ export default function CompanyPage() {
                   </div>
                 ) : null}
 
-                {lastJobCompanyMerge ? (
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-                    <div className="text-xs font-semibold text-emerald-800">
-                      {lastJobCompanyMerge.sourceName} was merged into {lastJobCompanyMerge.targetName}.{" "}
-                      {lastJobCompanyMerge.positionsMoved} positions moved.
-                    </div>
-                    <button
-                      type="button"
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-800 transition hover:bg-emerald-50 disabled:opacity-60"
-                      onClick={() => void handleUndoJobCompanyMerge(lastJobCompanyMerge.id)}
-                      disabled={jobCompaniesActionId === `undo:${lastJobCompanyMerge.id}`}
-                    >
-                      <Undo2 className="h-4 w-4" />
-                      {jobCompaniesActionId === `undo:${lastJobCompanyMerge.id}` ? "Undoing..." : "Undo merge"}
-                    </button>
-                  </div>
-                ) : recentJobCompanyMerges.length > 0 ? (
-                  <div className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                    <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
-                      Recent merges
-                    </div>
-                    <div className="mt-2 space-y-2">
-                      {recentJobCompanyMerges.map((merge) => (
-                        <div
-                          key={merge.id}
-                          className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600"
-                        >
-                          <span>
-                            {merge.sourceName} into {merge.targetName} · {merge.positionsMoved} positions
-                          </span>
-                          <button
-                            type="button"
-                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 text-[11px] font-bold text-slate-700 transition hover:bg-white disabled:opacity-60"
-                            onClick={() => void handleUndoJobCompanyMerge(merge.id)}
-                            disabled={jobCompaniesActionId === `undo:${merge.id}`}
-                          >
-                            <Undo2 className="h-3.5 w-3.5" />
-                            {jobCompaniesActionId === `undo:${merge.id}` ? "Undoing..." : "Undo"}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
                 {jobCompaniesLoading ? (
                   <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
                     Loading companies...
@@ -3101,6 +3240,9 @@ export default function CompanyPage() {
                         jobCompanyShipTypeDrafts[item.id] ?? item.shipTypes
                       );
                       const draftBenefitTags = jobCompanyBenefitDrafts[item.id] ?? [];
+                      const draftCountryCodes = normalizeCountryCodeList(
+                        jobCompanyCountryDrafts[item.id] ?? item.countryCodes
+                      );
                       const mergeTargetId = jobCompanyMergeTargets[item.id] ?? "";
                       const mergeTarget = jobCompanies.find(
                         (candidate) => candidate.id === mergeTargetId
@@ -3108,7 +3250,15 @@ export default function CompanyPage() {
                       const hasChanges =
                         draftName.trim() !== item.name.trim() ||
                         !sameJobShipTypeSelection(draftShipTypes, item.shipTypes) ||
-                        !sameBenefitTagSelection(draftBenefitTags, item.benefitTags);
+                        !sameBenefitTagSelection(draftBenefitTags, item.benefitTags) ||
+                        !sameCountryCodeSelection(draftCountryCodes, item.countryCodes);
+                      const benefitOptionsChanged =
+                        JSON.stringify(normalizeBenefitOptions(jobBenefitOptionsDraft)) !==
+                        JSON.stringify(normalizeBenefitOptions(jobBenefitOptions));
+                      const countryOptionsChanged = !sameCountryOptions(
+                        jobCountryOptionsDraft,
+                        jobCountryOptions
+                      );
                       const shipTypeLabels =
                         draftShipTypes.length > 0
                           ? draftShipTypes.map((type) => JOB_SHIP_TYPE_LABELS[type])
@@ -3172,6 +3322,9 @@ export default function CompanyPage() {
                                 ))}
                                 <span className="rounded-full bg-sky-50 px-2.5 py-1 text-sky-800">
                                   {draftBenefitTags.length} benefits
+                                </span>
+                                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800">
+                                  {draftCountryCodes.length} countries
                                 </span>
                               </div>
                             </div>
@@ -3266,8 +3419,32 @@ export default function CompanyPage() {
                                         {draftBenefitTags.length} selected
                                       </div>
                                     </div>
+                                    <div className="mt-2 flex flex-col gap-2 rounded-2xl border border-sky-200 bg-sky-50/70 p-2 sm:flex-row">
+                                      <input
+                                        type="text"
+                                        value={newJobBenefitLabel}
+                                        onChange={(event) => setNewJobBenefitLabel(event.target.value)}
+                                        onKeyDown={(event) => {
+                                          if (event.key !== "Enter") return;
+                                          event.preventDefault();
+                                          handleAddJobBenefitOption(item.id);
+                                        }}
+                                        placeholder="Add new benefit here"
+                                        className="h-10 min-w-0 flex-1 rounded-xl border border-sky-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                                      />
+                                      <button
+                                        type="button"
+                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-xs font-bold text-white transition hover:bg-sky-700 disabled:opacity-60"
+                                        onClick={() => handleAddJobBenefitOption(item.id)}
+                                        disabled={jobBenefitOptionsSaving || !newJobBenefitLabel.trim()}
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                        Add and select
+                                      </button>
+                                    </div>
                                     <div className="mt-2 flex flex-wrap gap-2">
-                                      {AVAILABLE_BENEFIT_TAGS.map((tag) => {
+                                      {jobBenefitOptionsDraft.map((option) => {
+                                        const tag = option.tag;
                                         const active = draftBenefitTags.includes(tag);
                                         return (
                                           <button
@@ -3284,16 +3461,273 @@ export default function CompanyPage() {
                                               })
                                             }
                                             className={[
-                                              "rounded-full border px-3.5 py-2 text-xs font-bold transition",
+                                              "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-bold transition",
                                               active
                                                 ? "border-sky-300 bg-sky-50 text-sky-800 ring-2 ring-sky-100"
                                                 : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
                                             ].join(" ")}
                                           >
-                                            {BENEFIT_TAG_LABELS[tag]}
+                                            <span>{option.label || BENEFIT_TAG_LABELS[tag] || tag}</span>
+                                            <PencilLine className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
                                           </button>
                                         );
                                       })}
+                                    </div>
+                                    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                                          Rename or remove benefits
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                                          onClick={() => void handleSaveJobBenefitOptions()}
+                                          disabled={jobBenefitOptionsSaving || !benefitOptionsChanged}
+                                        >
+                                          <Save className="h-3.5 w-3.5" />
+                                          {jobBenefitOptionsSaving ? "Saving..." : "Save names"}
+                                        </button>
+                                      </div>
+
+                                      <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                        {jobBenefitOptionsDraft.map((option) => (
+                                          <div
+                                            key={option.tag}
+                                            className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5"
+                                          >
+                                            <input
+                                              type="text"
+                                              value={option.label}
+                                              disabled={jobBenefitOptionsSaving}
+                                              onChange={(event) =>
+                                                setJobBenefitOptionsDraft((prev) =>
+                                                  prev.map((benefit) =>
+                                                    benefit.tag === option.tag
+                                                      ? { ...benefit, label: event.target.value }
+                                                      : benefit
+                                                  )
+                                                )
+                                              }
+                                              className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                                            />
+                                            <button
+                                              type="button"
+                                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                                              aria-label={`Remove ${option.label}`}
+                                              disabled={
+                                                jobBenefitOptionsSaving ||
+                                                jobBenefitOptionsDraft.length <= 1
+                                              }
+                                              onClick={() => {
+                                                setJobBenefitOptionsDraft((prev) =>
+                                                  prev
+                                                    .filter((benefit) => benefit.tag !== option.tag)
+                                                    .map((benefit, nextIndex) => ({
+                                                      ...benefit,
+                                                      sortOrder: nextIndex,
+                                                    }))
+                                                );
+                                                setJobCompanyBenefitDrafts((prev) =>
+                                                  Object.fromEntries(
+                                                    Object.entries(prev).map(([companyId, tags]) => [
+                                                      companyId,
+                                                      tags.filter((tag) => tag !== option.tag),
+                                                    ])
+                                                  )
+                                                );
+                                              }}
+                                            >
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                                        Nationalities we process
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+                                        disabled={isBusy}
+                                        onClick={() =>
+                                          setJobCompanyCountryDrafts((prev) => ({
+                                            ...prev,
+                                            [item.id]:
+                                              draftCountryCodes.length === jobCountryOptionsDraft.length
+                                                ? []
+                                                : jobCountryOptionsDraft.map((country) => country.code),
+                                          }))
+                                        }
+                                      >
+                                        {draftCountryCodes.length === jobCountryOptionsDraft.length
+                                          ? "Clear all"
+                                          : "Select all"}
+                                      </button>
+                                    </div>
+
+                                    <div className="mt-2 rounded-2xl border border-slate-200 bg-white p-3">
+                                      <div className="flex flex-wrap gap-2">
+                                        {jobCountryOptionsDraft.map((option) => {
+                                          const selected = draftCountryCodes.includes(option.code);
+                                          return (
+                                            <button
+                                              key={option.code}
+                                              type="button"
+                                              disabled={isBusy}
+                                              onClick={() =>
+                                                setJobCompanyCountryDrafts((prev) => {
+                                                  const current = normalizeCountryCodeList(
+                                                    prev[item.id] ?? item.countryCodes
+                                                  );
+                                                  return {
+                                                    ...prev,
+                                                    [item.id]: selected
+                                                      ? current.filter((code) => code !== option.code)
+                                                      : [...current, option.code],
+                                                  };
+                                                })
+                                              }
+                                              className={[
+                                                "inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-bold transition",
+                                                selected
+                                                  ? "border-emerald-300 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-100"
+                                                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                              ].join(" ")}
+                                            >
+                                              <span aria-hidden="true">{toFlagEmoji(option.code)}</span>
+                                              <span>{option.name}</span>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+
+                                    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                                          Rename or remove countries
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                                          onClick={() => void handleSaveJobCountryOptions()}
+                                          disabled={jobCountryOptionsSaving || !countryOptionsChanged}
+                                        >
+                                          <Save className="h-3.5 w-3.5" />
+                                          {jobCountryOptionsSaving ? "Saving..." : "Save countries"}
+                                        </button>
+                                      </div>
+
+                                      <div className="mt-2 grid gap-2 md:grid-cols-[92px_minmax(0,1fr)_auto]">
+                                        <input
+                                          type="text"
+                                          value={newJobCountryCode}
+                                          onChange={(event) =>
+                                            setNewJobCountryCode(event.target.value.toUpperCase())
+                                          }
+                                          onKeyDown={(event) => {
+                                            if (event.key !== "Enter") return;
+                                            event.preventDefault();
+                                            handleAddJobCountryOption();
+                                          }}
+                                          placeholder="Code"
+                                          maxLength={2}
+                                          className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-extrabold uppercase tracking-wide text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                                        />
+                                        <input
+                                          type="text"
+                                          value={newJobCountryName}
+                                          onChange={(event) => setNewJobCountryName(event.target.value)}
+                                          onKeyDown={(event) => {
+                                            if (event.key !== "Enter") return;
+                                            event.preventDefault();
+                                            handleAddJobCountryOption();
+                                          }}
+                                          placeholder="Country name"
+                                          className="h-10 min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                                        />
+                                        <button
+                                          type="button"
+                                          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-xs font-bold text-white transition hover:bg-sky-700 disabled:opacity-60"
+                                          onClick={handleAddJobCountryOption}
+                                          disabled={
+                                            jobCountryOptionsSaving ||
+                                            !normalizeCountryCode(newJobCountryCode || newJobCountryName) ||
+                                            !newJobCountryName.trim()
+                                          }
+                                        >
+                                          <Plus className="h-4 w-4" />
+                                          Add country
+                                        </button>
+                                      </div>
+
+                                      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                        {jobCountryOptionsDraft.map((option) => (
+                                          <div
+                                            key={option.code}
+                                            className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5"
+                                          >
+                                            <div className="flex h-8 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-lg">
+                                              {toFlagEmoji(option.code) || option.code}
+                                            </div>
+                                            <input
+                                              type="text"
+                                              value={option.name}
+                                              disabled={jobCountryOptionsSaving}
+                                              onChange={(event) =>
+                                                setJobCountryOptionsDraft((prev) =>
+                                                  prev.map((country) =>
+                                                    country.code === option.code
+                                                      ? { ...country, name: event.target.value }
+                                                      : country
+                                                  )
+                                                )
+                                              }
+                                              className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                                            />
+                                            <div className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-extrabold text-slate-500">
+                                              {option.code}
+                                            </div>
+                                            <button
+                                              type="button"
+                                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                                              aria-label={`Remove ${option.name}`}
+                                              disabled={
+                                                jobCountryOptionsSaving ||
+                                                jobCountryOptionsDraft.length <= 1
+                                              }
+                                              onClick={() =>
+                                                {
+                                                  setJobCountryOptionsDraft((prev) =>
+                                                    prev
+                                                      .filter((country) => country.code !== option.code)
+                                                      .map((country, nextIndex) => ({
+                                                        ...country,
+                                                        sortOrder: nextIndex,
+                                                      }))
+                                                  );
+                                                  setJobCompanyCountryDrafts((prev) =>
+                                                    Object.fromEntries(
+                                                      Object.entries(prev).map(([companyId, codes]) => [
+                                                        companyId,
+                                                        codes.filter((code) => code !== option.code),
+                                                      ])
+                                                    )
+                                                  );
+                                                }
+                                              }
+                                            >
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
@@ -3447,6 +3881,64 @@ export default function CompanyPage() {
           ) : null}
         </section>
       </div>
+      {mergeHistoryOpen ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setMergeHistoryOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+              <div>
+                <div className="text-sm font-semibold text-slate-900">Merge history</div>
+                <div className="mt-1 text-xs text-slate-500">
+                  Undo recent company merges from this list.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+                onClick={() => setMergeHistoryOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="max-h-[60vh] space-y-2 overflow-auto px-5 py-4">
+              {mergeHistoryItems.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                  No recent merges.
+                </div>
+              ) : (
+                mergeHistoryItems.map((merge) => (
+                  <div
+                    key={merge.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                  >
+                    <div className="min-w-0 text-xs font-semibold text-slate-700">
+                      <span className="font-bold text-slate-950">{merge.sourceName}</span>
+                      {" into "}
+                      <span className="font-bold text-slate-950">{merge.targetName}</span>
+                      {" · "}
+                      {merge.positionsMoved} positions
+                    </div>
+                    <button
+                      type="button"
+                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+                      onClick={() => void handleUndoJobCompanyMerge(merge.id)}
+                      disabled={jobCompaniesActionId === `undo:${merge.id}`}
+                    >
+                      <Undo2 className="h-3.5 w-3.5" />
+                      {jobCompaniesActionId === `undo:${merge.id}` ? "Undoing..." : "Undo"}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
       {isQuestionnaireModalOpen ? (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"

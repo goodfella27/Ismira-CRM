@@ -21,17 +21,29 @@ export type JobCompanyBenefitRow = {
   updated_at?: string | null;
 };
 
-const ALLOWED_TAGS = new Set<string>(AVAILABLE_BENEFIT_TAGS);
+export function normalizeBenefitTag(value: unknown) {
+  return typeof value === "string"
+    ? value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .slice(0, 80)
+    : "";
+}
 
 export function normalizeBenefitTags(value: unknown): BenefitTag[] {
   if (!Array.isArray(value)) return [];
   const deduped = new Set<BenefitTag>();
   for (const item of value) {
-    const tag = typeof item === "string" ? item.trim() : "";
-    if (!ALLOWED_TAGS.has(tag)) continue;
-    deduped.add(tag as BenefitTag);
+    const tag = normalizeBenefitTag(item);
+    if (!tag) continue;
+    deduped.add(tag);
   }
-  return withRequiredBenefitTags(AVAILABLE_BENEFIT_TAGS.filter((tag) => deduped.has(tag)));
+  return withRequiredBenefitTags([
+    ...AVAILABLE_BENEFIT_TAGS.filter((tag) => deduped.has(tag)),
+    ...Array.from(deduped).filter((tag) => !AVAILABLE_BENEFIT_TAGS.includes(tag)),
+  ]);
 }
 
 export async function fetchJobCompanyBenefits(

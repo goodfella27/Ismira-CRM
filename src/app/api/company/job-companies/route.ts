@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
+import { fetchJobCountryOptions } from "@/lib/job-country-options";
+import { fetchJobBenefitOptions } from "@/lib/job-benefit-options";
 import {
   fetchJobCompanyBenefits,
   mapBenefitTagsByJobCompanyId,
@@ -9,6 +11,7 @@ import {
 } from "@/lib/job-company-benefits";
 import {
   normalizeJobCompanyName,
+  resolveKnownJobCompanyName,
   slugifyJobCompanyName,
   signJobCompanyLogoUrls,
   type JobCompanyRow,
@@ -42,6 +45,44 @@ const normalizeJobCompaniesError = (raw?: string | null) => {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getJobCompanyCountryCodes(metadata: unknown) {
+  if (!isRecord(metadata)) return [];
+  const raw = metadata.job_company_country_codes;
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(
+    raw
+      .map((code) => (typeof code === "string" ? code.trim().toUpperCase() : ""))
+      .filter((code) => /^[A-Z]{2}$/.test(code))
+  )];
+}
+
+function normalizeCountryCodeList(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return [
+    ...new Set(
+      value
+        .map((item) => {
+          if (typeof item === "string") return item.trim().toUpperCase();
+          if (isRecord(item) && typeof item.code === "string") {
+            return item.code.trim().toUpperCase();
+          }
+          return "";
+        })
+        .filter((code) => /^[A-Z]{2}$/.test(code))
+    ),
+  ];
+}
+
+function getPositionProcessableCountryCodes(details: unknown) {
+  if (!isRecord(details)) return [];
+  const direct = normalizeCountryCodeList(details.processable_country_codes);
+  if (direct.length > 0) return direct;
+  const countries = isRecord(details.nationality_countries)
+    ? details.nationality_countries
+    : null;
+  return normalizeCountryCodeList(countries?.processable);
 }
 
 export async function GET() {
@@ -113,7 +154,7 @@ export async function GET() {
 
     const { data: positionRows, error: positionError } = await admin
       .from("breezy_positions")
-      .select("breezy_position_id,job_company_id,company,state,org_type")
+      .select("breezy_position_id,job_company_id,company,state,org_type,details")
       .eq("company_id", membership.companyId);
 
     if (positionError) {
@@ -122,6 +163,23 @@ export async function GET() {
 
     const countsById = new Map<string, number>();
     const countsByName = new Map<string, number>();
+    const companyIdByNormalizedName = new Map(
+      activeRows.map((row) => [row.normalized_name, row.id] as const)
+    );
+    const companyNameByNormalized = new Map(
+      activeRows.map((row) => [row.normalized_name, row.name] as const)
+    );
+    const resolveJobCompanyIdFromName = (name: unknown) => {
+      const normalizedName = normalizeJobCompanyName(name);
+      if (!normalizedName) return "";
+      const exactId = companyIdByNormalizedName.get(normalizedName);
+      if (exactId) return exactId;
+      const resolvedName = resolveKnownJobCompanyName(
+        typeof name === "string" ? name : "",
+        companyNameByNormalized
+      );
+      return companyIdByNormalizedName.get(normalizeJobCompanyName(resolvedName)) ?? "";
+    };
     const positionList = Array.isArray(positionRows)
       ? (positionRows as Array<{
           breezy_position_id: string | null;
@@ -129,6 +187,7 @@ export async function GET() {
           company: string | null;
           state: string | null;
           org_type: string | null;
+          details: unknown;
         }>)
       : [];
 
@@ -142,12 +201,82 @@ export async function GET() {
       const normalizedName = normalizeJobCompanyName(row.company);
       if (!normalizedName) continue;
       countsByName.set(normalizedName, (countsByName.get(normalizedName) ?? 0) + 1);
+      const matchedId = resolveJobCompanyIdFromName(row.company);
+      if (matchedId) countsById.set(matchedId, (countsById.get(matchedId) ?? 0) + 1);
     }
 
     const { data: joinRows } = await admin
       .from("job_position_companies")
       .select("job_company_id,breezy_position_id")
       .eq("company_id", membership.companyId);
+
+    const positionCompanyIds = new Map<string, Set<string>>();
+    const addPositionCompany = (positionId: string, jobCompanyId: string) => {
+      const trimmedPositionId = positionId.trim();
+      const trimmedJobCompanyId = jobCompanyId.trim();
+      if (!trimmedPositionId || !trimmedJobCompanyId) return;
+      const ids = positionCompanyIds.get(trimmedPositionId) ?? new Set<string>();
+      ids.add(trimmedJobCompanyId);
+      positionCompanyIds.set(trimmedPositionId, ids);
+    };
+    for (const row of positionList) {
+      if ((row.state ?? "").toLowerCase() !== "published") continue;
+      if ((row.org_type ?? "").toLowerCase() === "pool") continue;
+      addPositionCompany(row.breezy_position_id ?? "", row.job_company_id ?? "");
+      if (!row.job_company_id) {
+        const matchedId = resolveJobCompanyIdFromName(row.company);
+        if (matchedId) addPositionCompany(row.breezy_position_id ?? "", matchedId);
+      }
+    }
+    if (Array.isArray(joinRows)) {
+      for (const row of joinRows) {
+        addPositionCompany(
+          typeof row.breezy_position_id === "string" ? row.breezy_position_id : "",
+          typeof row.job_company_id === "string" ? row.job_company_id : ""
+        );
+      }
+    }
+
+    const countryCodesByPosition = new Map<string, string[]>();
+    for (const row of positionList) {
+      if ((row.state ?? "").toLowerCase() !== "published") continue;
+      if ((row.org_type ?? "").toLowerCase() === "pool") continue;
+      const positionId = (row.breezy_position_id ?? "").trim();
+      if (!positionId) continue;
+      const codes = getPositionProcessableCountryCodes(row.details);
+      if (codes.length > 0) countryCodesByPosition.set(positionId, codes);
+    }
+
+    const { data: countryRows } = await admin
+      .from("breezy_position_countries")
+      .select("breezy_position_id,country_code,group")
+      .eq("company_id", membership.companyId)
+      .eq("group", "processable");
+    if (Array.isArray(countryRows)) {
+      for (const row of countryRows) {
+        const positionId =
+          typeof row.breezy_position_id === "string" ? row.breezy_position_id.trim() : "";
+        const code = typeof row.country_code === "string" ? row.country_code.trim().toUpperCase() : "";
+        if (!positionId || !/^[A-Z]{2}$/.test(code)) continue;
+        const current = countryCodesByPosition.get(positionId) ?? [];
+        if (!current.includes(code)) current.push(code);
+        countryCodesByPosition.set(positionId, current);
+      }
+    }
+
+    const countryCodesByJobCompanyId = new Map<string, string[]>();
+    for (const [positionId, countryCodes] of countryCodesByPosition.entries()) {
+      const jobCompanyIds = positionCompanyIds.get(positionId);
+      if (!jobCompanyIds || jobCompanyIds.size === 0) continue;
+      for (const jobCompanyId of jobCompanyIds) {
+        const current = countryCodesByJobCompanyId.get(jobCompanyId) ?? [];
+        for (const code of countryCodes) {
+          if (!current.includes(code)) current.push(code);
+        }
+        countryCodesByJobCompanyId.set(jobCompanyId, current);
+      }
+    }
+
     const publishedPositionIds = new Set(
       positionList
         .filter((row) => (row.state ?? "").toLowerCase() === "published")
@@ -198,26 +327,38 @@ export async function GET() {
         })
       : [];
 
+    const benefitOptions = await fetchJobBenefitOptions(admin, membership.companyId).catch(() => []);
+    const countryOptions = await fetchJobCountryOptions(admin, membership.companyId).catch(() => []);
+
     return NextResponse.json(
       {
-        companies: activeRows.map((row) => ({
-          id: row.id,
-          name: row.name,
-          slug: row.slug,
-          website: row.website,
-          logoUrl:
-            (typeof row.logo_path === "string" && row.logo_path.trim()
-              ? logoUrls.get(row.logo_path.trim())
-              : null) ?? null,
-          shipType: resolveJobShipType({ metadata: row.metadata, name: row.name }),
-          shipTypes: resolveJobShipTypes({ metadata: row.metadata, name: row.name }),
-          benefitTags: benefitTagsByCompanyId.get(row.id) ?? [],
-          positionsCount:
-            countsById.get(row.id) ?? countsByName.get(row.normalized_name) ?? 0,
-          createdAt: row.created_at ?? null,
-          updatedAt: row.updated_at ?? null,
-        })),
+        companies: activeRows.map((row) => {
+          const savedCountryCodes = getJobCompanyCountryCodes(row.metadata);
+          return {
+            id: row.id,
+            name: row.name,
+            slug: row.slug,
+            website: row.website,
+            logoUrl:
+              (typeof row.logo_path === "string" && row.logo_path.trim()
+                ? logoUrls.get(row.logo_path.trim())
+                : null) ?? null,
+            shipType: resolveJobShipType({ metadata: row.metadata, name: row.name }),
+            shipTypes: resolveJobShipTypes({ metadata: row.metadata, name: row.name }),
+            benefitTags: benefitTagsByCompanyId.get(row.id) ?? [],
+            countryCodes:
+              savedCountryCodes.length > 0
+                ? savedCountryCodes
+                : countryCodesByJobCompanyId.get(row.id) ?? [],
+            positionsCount:
+              countsById.get(row.id) ?? countsByName.get(row.normalized_name) ?? 0,
+            createdAt: row.created_at ?? null,
+            updatedAt: row.updated_at ?? null,
+          };
+        }),
         recentMerges,
+        benefitOptions,
+        countryOptions,
       },
       { status: 200 }
     );

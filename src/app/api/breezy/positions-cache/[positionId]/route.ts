@@ -16,6 +16,8 @@ import { scrubBreezyPositionDetails } from "@/lib/breezy-position-description";
 import {
   ensureJobCompaniesByName,
   fetchPositionJobCompanyNames,
+  normalizeJobCompanyName,
+  resolveKnownJobCompanyName,
   setPositionJobCompanies,
   syncJobCompaniesFromPositions,
 } from "@/lib/job-companies";
@@ -63,6 +65,12 @@ function normalizeCountryCodes(payload: unknown) {
   return codes;
 }
 
+function hasCountryOverride(overrides: unknown) {
+  if (!isRecord(overrides)) return false;
+  if (!Object.prototype.hasOwnProperty.call(overrides, "processable_country_codes")) return false;
+  return normalizeCountryCodes(overrides.processable_country_codes).length > 0;
+}
+
 function parseHiddenOverride(value: unknown): boolean | null {
   if (value === true) return true;
   if (value === false) return false;
@@ -93,6 +101,7 @@ function applyOverrides(details: unknown, overrides: unknown) {
     }
     if (key === "processable_country_codes") {
       const codes = normalizeCountryCodes(value);
+      if (codes.length === 0) continue;
       const countries = codes.map((code) => ({
         code,
         name: canonicalizeCountry(code) ?? code,
@@ -187,6 +196,144 @@ async function fetchPositionJobCompanyIds(init: {
   return Array.from(new Set(ids));
 }
 
+function getJobCompanyCountryCodes(metadata: unknown) {
+  if (!isRecord(metadata)) return [];
+  return normalizeCountryCodes(metadata.job_company_country_codes);
+}
+
+function countryGroupsFromCodes(codes: string[]) {
+  const processable = normalizeCountryCodes(codes).map((code) => ({
+    code,
+    name: canonicalizeCountry(code) ?? code,
+  }));
+  return {
+    processable,
+    blocked: [],
+    mentioned: [],
+    all: processable,
+  };
+}
+
+function getPositionProcessableCountryCodes(details: unknown) {
+  if (!isRecord(details)) return [];
+  const direct = normalizeCountryCodes(details.processable_country_codes);
+  if (direct.length > 0) return direct;
+  const countries = isRecord(details.nationality_countries)
+    ? details.nationality_countries
+    : null;
+  return normalizeCountryCodes(countries?.processable);
+}
+
+async function fetchJobCompanyCountries(init: {
+  admin: ReturnType<typeof createSupabaseAdminClient>;
+  companyId: string;
+  jobCompanyIds: string[];
+}) {
+  const ids = Array.from(new Set(init.jobCompanyIds.map((id) => id.trim()).filter(Boolean)));
+  if (ids.length === 0) return null;
+
+  const { data, error } = await init.admin
+    .from("job_companies")
+    .select("id,metadata")
+    .eq("company_id", init.companyId)
+    .in("id", ids);
+
+  if (error || !Array.isArray(data)) return null;
+
+  const byId = new Map(
+    (data as Array<{ id: string | null; metadata: unknown }>).map((row) => [
+      (row.id ?? "").trim(),
+      row.metadata,
+    ])
+  );
+  const codes = ids.flatMap((id) => getJobCompanyCountryCodes(byId.get(id)));
+  const uniqueCodes = normalizeCountryCodes(codes);
+  if (uniqueCodes.length > 0) return countryGroupsFromCodes(uniqueCodes);
+
+  const derivedCodes: string[] = [];
+  const positionIds = new Set<string>();
+
+  const { data: directPositions } = await init.admin
+    .from("breezy_positions")
+    .select("breezy_position_id,details,state,org_type")
+    .eq("company_id", init.companyId)
+    .in("job_company_id", ids)
+    .eq("state", "published");
+
+  if (Array.isArray(directPositions)) {
+    for (const row of directPositions as Array<{
+      breezy_position_id: string | null;
+      details: unknown;
+      state: string | null;
+      org_type: string | null;
+    }>) {
+      if ((row.org_type ?? "").toLowerCase() === "pool") continue;
+      const positionId = (row.breezy_position_id ?? "").trim();
+      if (positionId) positionIds.add(positionId);
+      derivedCodes.push(...getPositionProcessableCountryCodes(row.details));
+    }
+  }
+
+  const { data: joinRows } = await init.admin
+    .from("job_position_companies")
+    .select("breezy_position_id")
+    .eq("company_id", init.companyId)
+    .in("job_company_id", ids);
+
+  const joinedPositionIds = Array.isArray(joinRows)
+    ? Array.from(
+        new Set(
+          (joinRows as Array<{ breezy_position_id: string | null }>)
+            .map((row) => (row.breezy_position_id ?? "").trim())
+            .filter(Boolean)
+        )
+      )
+    : [];
+
+  if (joinedPositionIds.length > 0) {
+    const { data: joinedPositions } = await init.admin
+      .from("breezy_positions")
+      .select("breezy_position_id,details,state,org_type")
+      .eq("company_id", init.companyId)
+      .in("breezy_position_id", joinedPositionIds)
+      .eq("state", "published");
+
+    if (Array.isArray(joinedPositions)) {
+      for (const row of joinedPositions as Array<{
+        breezy_position_id: string | null;
+        details: unknown;
+        state: string | null;
+        org_type: string | null;
+      }>) {
+        if ((row.org_type ?? "").toLowerCase() === "pool") continue;
+        const positionId = (row.breezy_position_id ?? "").trim();
+        if (positionId) positionIds.add(positionId);
+        derivedCodes.push(...getPositionProcessableCountryCodes(row.details));
+      }
+    }
+  }
+
+  if (positionIds.size > 0) {
+    const { data: countryRows } = await init.admin
+      .from("breezy_position_countries")
+      .select("country_code,group")
+      .eq("company_id", init.companyId)
+      .eq("group", "processable")
+      .in("breezy_position_id", Array.from(positionIds));
+
+    if (Array.isArray(countryRows)) {
+      for (const row of countryRows as Array<{ country_code: string | null; group: string | null }>) {
+        if ((row.group ?? "").toLowerCase() !== "processable") continue;
+        const code = (row.country_code ?? "").trim().toUpperCase();
+        if (/^[A-Z]{2}$/.test(code)) derivedCodes.push(code);
+      }
+    }
+  }
+
+  const uniqueDerivedCodes = normalizeCountryCodes(derivedCodes);
+  return uniqueDerivedCodes.length > 0 ? countryGroupsFromCodes(uniqueDerivedCodes) : null;
+}
+
 async function hydrateSavedSelections(
   details: Record<string, unknown>,
   init: {
@@ -194,6 +341,7 @@ async function hydrateSavedSelections(
     companyId: string;
     breezyCompanyId: string;
     positionId: string;
+    fallbackCompany?: string | null;
     jobCompanyId?: string | null;
     overrides?: unknown;
   }
@@ -201,12 +349,31 @@ async function hydrateSavedSelections(
   const next = { ...details };
   const overrides = isRecord(init.overrides) ? init.overrides : {};
 
-  const jobCompanyIds = await fetchPositionJobCompanyIds({
+  const jobCompanyIds: string[] = await fetchPositionJobCompanyIds({
     admin: init.admin,
     companyId: init.companyId,
     positionId: init.positionId,
     fallbackJobCompanyId: init.jobCompanyId,
-  }).catch(() => []);
+  }).catch(() => [] as string[]);
+  if (jobCompanyIds.length === 0 && init.fallbackCompany?.trim()) {
+    const { data } = await init.admin
+      .from("job_companies")
+      .select("id,name,normalized_name")
+      .eq("company_id", init.companyId);
+    const rows = Array.isArray(data)
+      ? (data as Array<{ id: string | null; name: string | null; normalized_name: string | null }>)
+      : [];
+    const nameByNormalized = new Map(
+      rows
+        .map((row) => [(row.normalized_name ?? "").trim(), (row.name ?? "").trim()] as const)
+        .filter(([normalized, name]) => normalized && name)
+    );
+    const resolvedName = resolveKnownJobCompanyName(init.fallbackCompany, nameByNormalized);
+    const resolvedNormalized = normalizeJobCompanyName(resolvedName || init.fallbackCompany);
+    const matchedId =
+      rows.find((row) => (row.normalized_name ?? "").trim() === resolvedNormalized)?.id ?? "";
+    if (matchedId.trim()) jobCompanyIds.push(matchedId.trim());
+  }
   if (!Object.prototype.hasOwnProperty.call(overrides, "benefit_tags") && jobCompanyIds.length > 0) {
     const benefitRows = await fetchJobCompanyBenefits(
       init.admin,
@@ -218,13 +385,17 @@ async function hydrateSavedSelections(
     next.benefit_tags = normalizeBenefitTags(tags);
   }
 
-  if (!Object.prototype.hasOwnProperty.call(overrides, "processable_country_codes")) {
-    const countries = await fetchSavedPositionCountries({
+  if (!hasCountryOverride(overrides)) {
+    const countries = (await fetchSavedPositionCountries({
       admin: init.admin,
       companyId: init.companyId,
       breezyCompanyId: init.breezyCompanyId,
       positionId: init.positionId,
-    }).catch(() => null);
+    }).catch(() => null)) ?? (await fetchJobCompanyCountries({
+      admin: init.admin,
+      companyId: init.companyId,
+      jobCompanyIds,
+    }).catch(() => null));
     if (countries) {
       next.nationality_countries = countries;
       next.processable_country_codes = countries.processable.map((country) => country.code);
@@ -366,6 +537,7 @@ export async function GET(
         companyId,
         breezyCompanyId,
         positionId: posId,
+        fallbackCompany: companies[0] ?? row.company,
         jobCompanyId: row.job_company_id,
         overrides: row.overrides,
       });
@@ -464,6 +636,7 @@ export async function GET(
       companyId,
       breezyCompanyId,
       positionId: posId,
+      fallbackCompany: companies[0] ?? effectiveCompany,
       jobCompanyId: null,
       overrides,
     });
@@ -660,7 +833,9 @@ export async function PATCH(
           continue;
         }
         if (key === "processable_country_codes") {
-          nextOverrides.processable_country_codes = normalizeCountryCodes(value);
+          const codes = normalizeCountryCodes(value);
+          if (codes.length > 0) nextOverrides.processable_country_codes = codes;
+          else delete nextOverrides.processable_country_codes;
           continue;
         }
         if (typeof value !== "string") {

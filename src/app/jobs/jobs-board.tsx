@@ -151,11 +151,13 @@ type JobListItemIndexed = JobListItem & {
 };
 
 type JobsBoardCache = {
-  v: 6;
+  v: 8;
   savedAt: number;
   etag?: string;
   items: JobListItem[];
   priorityTypes: BreezyPriorityType[];
+  benefitLabels?: Record<string, string>;
+  countryLabels?: Record<string, string>;
 };
 
 type JobTestimonial = {
@@ -213,9 +215,11 @@ const HERO_LOGOS_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 const TESTIMONIALS_CACHE_KEY = "jobs:testimonials:v5";
 const TESTIMONIALS_CACHE_TTL_MS = 1000 * 60 * 5; // keep short so ordering/edits reflect quickly
 
-function countryLabelFromCode(code: string) {
+function countryLabelFromCode(code: string, labels?: Record<string, string>) {
   const upper = (code ?? "").trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(upper)) return upper || "—";
+  const custom = labels?.[upper]?.trim();
+  if (custom) return custom;
   return COUNTRY_DISPLAY_NAMES?.of(upper) ?? upper;
 }
 
@@ -962,7 +966,7 @@ type NationalityCountries = {
   mentioned?: Array<{ code: string; name: string }>;
 };
 
-const BENEFIT_TAG_LABELS: Record<string, string> = {
+const DEFAULT_BENEFIT_TAG_LABELS: Record<string, string> = {
   meals: "Free Meals",
   accommodation: "Free Accommodation",
   travel_tickets: "Travel Expenses Covered",
@@ -988,11 +992,15 @@ const BENEFIT_TAG_DISPLAY_ORDER = [
   "growth",
 ];
 
-function formatBenefitTag(tag: string) {
+function formatBenefitTag(
+  tag: string,
+  labels: Record<string, string> = DEFAULT_BENEFIT_TAG_LABELS
+) {
   const normalized = asString(tag).trim();
   if (!normalized) return "Unknown";
   return (
-    BENEFIT_TAG_LABELS[normalized] ??
+    labels[normalized] ??
+    DEFAULT_BENEFIT_TAG_LABELS[normalized] ??
     normalized
       .split("_")
       .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
@@ -1031,7 +1039,7 @@ function getVisibleBenefitTags(tags: string[]) {
   const available = new Set<string>(AVAILABLE_BENEFIT_TAGS);
   const normalized = tags
     .map((tag) => asString(tag).trim())
-    .filter((tag): tag is BenefitTag => available.has(tag));
+    .filter((tag): tag is BenefitTag => Boolean(tag) && (available.has(tag) || !tag.includes(" ")));
   const visibleTags = withRequiredBenefitTags(normalized);
   return visibleTags.sort((a, b) => {
     const aIndex = BENEFIT_TAG_DISPLAY_ORDER.indexOf(a);
@@ -1043,7 +1051,13 @@ function getVisibleBenefitTags(tags: string[]) {
   });
 }
 
-function BenefitTagDatapoints({ tags }: { tags: string[] }) {
+function BenefitTagDatapoints({
+  tags,
+  benefitLabels,
+}: {
+  tags: string[];
+  benefitLabels: Record<string, string>;
+}) {
   if (tags.length === 0) return null;
 
   return (
@@ -1055,7 +1069,7 @@ function BenefitTagDatapoints({ tags }: { tags: string[] }) {
     >
       {tags.map((tag) => {
         const Icon = getBenefitTagIcon(tag);
-        const label = formatBenefitTag(tag);
+        const label = formatBenefitTag(tag, benefitLabels);
         return (
           <span
             key={tag}
@@ -1077,14 +1091,20 @@ function BenefitTagDatapoints({ tags }: { tags: string[] }) {
   );
 }
 
-function BenefitTagFeatureList({ tags }: { tags: string[] }) {
+function BenefitTagFeatureList({
+  tags,
+  benefitLabels,
+}: {
+  tags: string[];
+  benefitLabels: Record<string, string>;
+}) {
   if (tags.length === 0) return null;
 
   return (
     <div className="flex flex-wrap gap-2 xl:grid xl:gap-3 xl:grid-cols-3">
       {tags.map((tag) => {
         const Icon = getBenefitTagIcon(tag);
-        const label = formatBenefitTag(tag);
+        const label = formatBenefitTag(tag, benefitLabels);
 
         return (
           <div
@@ -1110,12 +1130,18 @@ function BenefitTagFeatureList({ tags }: { tags: string[] }) {
   );
 }
 
-function CountryChips({ items }: { items: Array<{ code: string; name: string }> }) {
+function CountryChips({
+  items,
+  countryLabels,
+}: {
+  items: Array<{ code: string; name: string }>;
+  countryLabels: Record<string, string>;
+}) {
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item) => {
         const code = asString(item.code).toUpperCase().trim();
-        const name = asString(item.name).trim() || code;
+        const name = asString(item.name).trim() || countryLabelFromCode(code, countryLabels);
         const flag = toFlagEmoji(code);
         return (
           <span
@@ -1157,7 +1183,7 @@ function extractHeroImageFromSafeHtml(html: string): { heroSrc: string; bodyHtml
   }
 }
 
-const JOBS_CACHE_KEY = "jobsboard:list:v6";
+const JOBS_CACHE_KEY = "jobsboard:list:v8";
 const JOBS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const JOBS_PAGE_SIZE = 24;
 
@@ -1170,15 +1196,23 @@ function readJobsCache(): JobsBoardCache | null {
       | (Partial<JobsBoardCache> & { v?: number; priorityTypes?: unknown })
       | null;
     if (!parsed || typeof parsed.savedAt !== "number" || !Array.isArray(parsed.items)) return null;
-    if (parsed.v === 6) {
+    if (parsed.v === 8) {
       return {
-        v: 6,
+        v: 8,
         savedAt: parsed.savedAt,
         etag: typeof parsed.etag === "string" ? parsed.etag : undefined,
         items: parsed.items as JobListItem[],
         priorityTypes: Array.isArray(parsed.priorityTypes)
           ? (parsed.priorityTypes as BreezyPriorityType[])
           : DEFAULT_BREEZY_PRIORITY_TYPES,
+        benefitLabels:
+          parsed.benefitLabels && typeof parsed.benefitLabels === "object" && !Array.isArray(parsed.benefitLabels)
+            ? (parsed.benefitLabels as Record<string, string>)
+            : DEFAULT_BENEFIT_TAG_LABELS,
+        countryLabels:
+          parsed.countryLabels && typeof parsed.countryLabels === "object" && !Array.isArray(parsed.countryLabels)
+            ? (parsed.countryLabels as Record<string, string>)
+            : {},
       };
     }
     return null;
@@ -1524,6 +1558,10 @@ export default function JobsBoard() {
   const [priorityTypes, setPriorityTypes] = useState<BreezyPriorityType[]>(
     DEFAULT_BREEZY_PRIORITY_TYPES
   );
+  const [benefitLabels, setBenefitLabels] = useState<Record<string, string>>(
+    DEFAULT_BENEFIT_TAG_LABELS
+  );
+  const [countryLabels, setCountryLabels] = useState<Record<string, string>>({});
   const [priorityFilters, setPriorityFilters] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -1828,6 +1866,8 @@ export default function JobsBoard() {
     jobsRef.current = indexed;
     setJobs(indexed);
     setPriorityTypes(cache.priorityTypes);
+    setBenefitLabels(cache.benefitLabels ?? DEFAULT_BENEFIT_TAG_LABELS);
+    setCountryLabels(cache.countryLabels ?? {});
     setLoading(false);
   }, []);
 
@@ -2136,7 +2176,7 @@ export default function JobsBoard() {
         if (blockedSet.has(code)) continue;
         const existing = map.get(code);
         if (existing) existing.count += 1;
-        else map.set(code, { code, label: countryLabelFromCode(code), count: 1 });
+        else map.set(code, { code, label: countryLabelFromCode(code, countryLabels), count: 1 });
       }
     }
     return Array.from(map.values()).sort((a, b) =>
@@ -2145,6 +2185,7 @@ export default function JobsBoard() {
   }, [
     baseJobs,
     companyFilters,
+    countryLabels,
     deferredFilter,
     departmentFilters,
     hasPriorityFilter,
@@ -2285,20 +2326,40 @@ export default function JobsBoard() {
       const nextPriorityTypes = hasPriorityTypesPayload
         ? ((data as { priorityTypes: BreezyPriorityType[] }).priorityTypes ?? [])
         : DEFAULT_BREEZY_PRIORITY_TYPES;
+      const nextBenefitLabels =
+        data &&
+        typeof data === "object" &&
+        (data as { benefitLabels?: unknown }).benefitLabels &&
+        typeof (data as { benefitLabels?: unknown }).benefitLabels === "object" &&
+        !Array.isArray((data as { benefitLabels?: unknown }).benefitLabels)
+          ? ((data as { benefitLabels: Record<string, string> }).benefitLabels ?? {})
+          : DEFAULT_BENEFIT_TAG_LABELS;
+      const nextCountryLabels =
+        data &&
+        typeof data === "object" &&
+        (data as { countryLabels?: unknown }).countryLabels &&
+        typeof (data as { countryLabels?: unknown }).countryLabels === "object" &&
+        !Array.isArray((data as { countryLabels?: unknown }).countryLabels)
+          ? ((data as { countryLabels: Record<string, string> }).countryLabels ?? {})
+          : {};
       const indexed = indexJobs(list);
       setJobs(indexed);
       setPriorityTypes(nextPriorityTypes);
+      setBenefitLabels(nextBenefitLabels);
+      setCountryLabels(nextCountryLabels);
 
       const etag = res.headers.get("etag") ?? "";
       etagRef.current = etag.trim() ? etag.trim() : null;
       // Persist the raw list (smaller) and let the UI rebuild indices quickly on refresh.
       setTimeout(() => {
         writeJobsCache({
-          v: 6,
+          v: 8,
           savedAt: Date.now(),
           etag: etagRef.current ?? undefined,
           items: list,
           priorityTypes: nextPriorityTypes,
+          benefitLabels: nextBenefitLabels,
+          countryLabels: nextCountryLabels,
         });
       }, 0);
     } catch (err) {
@@ -3991,7 +4052,7 @@ export default function JobsBoard() {
                               </div>
                             </div>
 
-                            <BenefitTagDatapoints tags={benefitTags} />
+                            <BenefitTagDatapoints tags={benefitTags} benefitLabels={benefitLabels} />
                             <div className="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-semibold xl:mt-5">
 			                              {department ? (
 			                                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-gradient-to-r from-amber-100 to-[#ffc45c]/70 px-2.5 py-1.5 text-amber-950 shadow-sm shadow-amber-200/40">
@@ -4263,16 +4324,18 @@ export default function JobsBoard() {
                     <span className="hidden xl:inline">Company Benefits</span>
                   </div>
                   <div className="mt-3">
-                    <BenefitTagFeatureList tags={modalBenefitTags} />
+                    <BenefitTagFeatureList tags={modalBenefitTags} benefitLabels={benefitLabels} />
                   </div>
                 </div>
               ) : null}
 
               {(() => {
                 const raw = (details as Record<string, unknown>)?.nationality_countries;
-                if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-                const countries = raw as NationalityCountries;
-                const processable = Array.isArray(countries.processable)
+                const countries =
+                  raw && typeof raw === "object" && !Array.isArray(raw)
+                    ? (raw as NationalityCountries)
+                    : null;
+                const processableFromDetails = Array.isArray(countries?.processable)
                   ? countries.processable
                       .filter((item) => item && typeof item === "object")
                       .map((item) => ({
@@ -4281,7 +4344,21 @@ export default function JobsBoard() {
                       }))
                       .filter((item) => item.code.trim())
                   : [];
-                const blocked = Array.isArray(countries.blocked)
+                const processable =
+                  processableFromDetails.length > 0
+                    ? processableFromDetails
+                    : Array.isArray(selectedSummary?.processable_countries)
+                      ? selectedSummary.processable_countries
+                          .map((code) => {
+                            const normalized = asString(code).trim().toUpperCase();
+                            return {
+                              code: normalized,
+                              name: countryLabelFromCode(normalized, countryLabels),
+                            };
+                          })
+                          .filter((item) => item.code)
+                      : [];
+                const blockedFromDetails = Array.isArray(countries?.blocked)
                   ? countries.blocked
                       .filter((item) => item && typeof item === "object")
                       .map((item) => ({
@@ -4290,6 +4367,20 @@ export default function JobsBoard() {
                       }))
                       .filter((item) => item.code.trim())
                   : [];
+                const blocked =
+                  blockedFromDetails.length > 0
+                    ? blockedFromDetails
+                    : Array.isArray(selectedSummary?.blocked_countries)
+                      ? selectedSummary.blocked_countries
+                          .map((code) => {
+                            const normalized = asString(code).trim().toUpperCase();
+                            return {
+                              code: normalized,
+                              name: countryLabelFromCode(normalized, countryLabels),
+                            };
+                          })
+                          .filter((item) => item.code)
+                      : [];
 
                 if (processable.length === 0 && blocked.length === 0) return null;
 
@@ -4301,7 +4392,7 @@ export default function JobsBoard() {
                           Nationalities we process
                         </div>
                         <div className="mt-2">
-                          <CountryChips items={processable} />
+                          <CountryChips items={processable} countryLabels={countryLabels} />
                         </div>
                       </div>
                     ) : null}
@@ -4312,7 +4403,7 @@ export default function JobsBoard() {
                           Nationalities we can’t process
                         </div>
                         <div className="mt-2">
-                          <CountryChips items={blocked} />
+                          <CountryChips items={blocked} countryLabels={countryLabels} />
                         </div>
                       </div>
                     ) : null}

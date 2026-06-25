@@ -1,14 +1,4 @@
-export type BenefitTag =
-  | "meals"
-  | "accommodation"
-  | "travel_tickets"
-  | "visa_support"
-  | "medical_exam"
-  | "certification"
-  | "bonus_tips"
-  | "contract_length"
-  | "growth"
-  | "travel_opportunity";
+export type BenefitTag = string;
 
 export const AVAILABLE_BENEFIT_TAGS: BenefitTag[] = [
   "accommodation",
@@ -23,7 +13,7 @@ export const AVAILABLE_BENEFIT_TAGS: BenefitTag[] = [
   "travel_opportunity",
 ];
 
-export const REQUIRED_BENEFIT_TAGS: BenefitTag[] = ["travel_opportunity"];
+export const REQUIRED_BENEFIT_TAGS: BenefitTag[] = [];
 
 export const BENEFIT_TAG_LABELS: Record<BenefitTag, string> = {
   accommodation: "Free Accommodation",
@@ -43,7 +33,9 @@ export function withRequiredBenefitTags(tags: BenefitTag[]) {
   for (const tag of REQUIRED_BENEFIT_TAGS) {
     deduped.add(tag);
   }
-  return AVAILABLE_BENEFIT_TAGS.filter((tag) => deduped.has(tag));
+  const orderedDefaults = AVAILABLE_BENEFIT_TAGS.filter((tag) => deduped.has(tag));
+  const customTags = tags.filter((tag) => !AVAILABLE_BENEFIT_TAGS.includes(tag) && deduped.has(tag));
+  return [...orderedDefaults, ...customTags];
 }
 
 type BenefitRule = {

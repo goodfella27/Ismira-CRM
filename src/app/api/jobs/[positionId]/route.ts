@@ -115,6 +115,7 @@ function applyOverrides(details: unknown, overrides: unknown) {
             )
           )
         : [];
+      if (codes.length === 0) continue;
       const countries = codes.map((code) => ({
         code,
         name: canonicalizeCountry(code) ?? code,
@@ -139,6 +140,23 @@ function applyOverrides(details: unknown, overrides: unknown) {
   }
 
   return base;
+}
+
+function normalizeCountryCodes(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(
+      value
+        .map((item) => (typeof item === "string" ? item.trim().toUpperCase() : ""))
+        .filter((code) => /^[A-Z]{2}$/.test(code))
+    )
+  );
+}
+
+function hasCountryOverride(overrides: unknown) {
+  if (!isRecord(overrides)) return false;
+  if (!Object.prototype.hasOwnProperty.call(overrides, "processable_country_codes")) return false;
+  return normalizeCountryCodes(overrides.processable_country_codes).length > 0;
 }
 
 function hasBenefitOverride(overrides: unknown) {
@@ -569,9 +587,7 @@ export async function GET(
 		            enriched = merged;
 		          }
 		          enriched = ensureApplicationUrl(enriched);
-              const hasManualCountries =
-                isRecord(row.overrides) &&
-                Object.prototype.hasOwnProperty.call(row.overrides, "processable_country_codes");
+              const hasManualCountries = hasCountryOverride(row.overrides);
               if (!hasManualCountries) {
 		            await storeNationalityCountries({
 		              admin,
@@ -654,9 +670,7 @@ export async function GET(
           ],
           { onConflict: "company_id,breezy_position_id", defaultToNull: false }
         );
-        const hasManualCountries =
-          isRecord(row.overrides) &&
-          Object.prototype.hasOwnProperty.call(row.overrides, "processable_country_codes");
+        const hasManualCountries = hasCountryOverride(row.overrides);
         if (!hasManualCountries) {
           await storeNationalityCountries({
             admin,

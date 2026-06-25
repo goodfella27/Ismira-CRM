@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import { fetchJobCompanyBenefits, mapBenefitTagsByJobCompanyId, normalizeBenefitTags } from "@/lib/job-company-benefits";
+import { normalizeCountryCode } from "@/lib/job-country-options";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import { signJobCompanyLogoUrls, type JobCompanyRow } from "@/lib/job-companies";
 import { normalizeJobShipTypes, resolveJobShipType, resolveJobShipTypes } from "@/lib/job-ship-types";
@@ -23,6 +24,22 @@ async function requireUser() {
 
 const sanitizeFilename = (name: string) =>
   name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
+
+function getMetadata(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? { ...(value as Record<string, unknown>) }
+    : {};
+}
+
+function normalizeCountryCodeList(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((code) => normalizeCountryCode(code)).filter(Boolean))];
+}
+
+function getJobCompanyCountryCodes(metadata: unknown) {
+  const record = getMetadata(metadata);
+  return normalizeCountryCodeList(record.job_company_country_codes);
+}
 
 export async function POST(
   request: Request,
@@ -62,6 +79,7 @@ export async function POST(
     const websiteRaw = form.get("website");
     const nameRaw = form.get("name");
     const benefitTagsRaw = form.get("benefitTags");
+    const countryCodesRaw = form.get("countryCodes");
     const shipTypeRaw = form.get("shipType");
     const shipTypesRaw = form.get("shipTypes");
 
@@ -104,20 +122,25 @@ export async function POST(
       update.name = name;
     }
     if (typeof benefitTagsRaw === "string") {
-      const metadata =
-        existing.metadata && typeof existing.metadata === "object" && !Array.isArray(existing.metadata)
-          ? { ...(existing.metadata as Record<string, unknown>) }
-          : {};
+      const metadata = getMetadata(existing.metadata);
       metadata.job_company_benefits_manual_override = true;
+      update.metadata = metadata;
+    }
+    if (typeof countryCodesRaw === "string") {
+      const metadata =
+        update.metadata && typeof update.metadata === "object" && !Array.isArray(update.metadata)
+          ? { ...(update.metadata as Record<string, unknown>) }
+          : getMetadata(existing.metadata);
+      const countryCodes = normalizeCountryCodeList(JSON.parse(countryCodesRaw) as unknown);
+      if (countryCodes.length > 0) metadata.job_company_country_codes = countryCodes;
+      else delete metadata.job_company_country_codes;
       update.metadata = metadata;
     }
     if (typeof shipTypesRaw === "string" || typeof shipTypeRaw === "string") {
       const metadata =
         (update.metadata && typeof update.metadata === "object" && !Array.isArray(update.metadata)
           ? { ...(update.metadata as Record<string, unknown>) }
-          : existing.metadata && typeof existing.metadata === "object" && !Array.isArray(existing.metadata)
-            ? { ...(existing.metadata as Record<string, unknown>) }
-            : {});
+          : getMetadata(existing.metadata));
       const shipTypes = normalizeJobShipTypes(
         typeof shipTypesRaw === "string" ? shipTypesRaw : shipTypeRaw
       );
@@ -207,6 +230,7 @@ export async function POST(
           shipType: resolveJobShipType({ metadata: company.metadata, name: company.name }),
           shipTypes: resolveJobShipTypes({ metadata: company.metadata, name: company.name }),
           benefitTags: benefitTagsByCompanyId.get(company.id) ?? [],
+          countryCodes: getJobCompanyCountryCodes(company.metadata),
           logoUrl: logoPath ? signedUrls.get(logoPath) ?? null : null,
         },
       },

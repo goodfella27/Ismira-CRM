@@ -22,6 +22,7 @@ import {
   normalizeBenefitTags,
   syncAutoBenefitsFromCachedPositions,
 } from "@/lib/job-company-benefits";
+import { benefitLabelMap, fetchJobBenefitOptions } from "@/lib/job-benefit-options";
 import { setJobsResponseCache } from "@/lib/jobs-api-cache";
 import {
   fetchJobCompaniesByNormalizedName,
@@ -31,6 +32,7 @@ import {
   type JobCompanyRow,
 } from "@/lib/job-companies";
 import { applyDepartmentOverridesToJobs } from "@/lib/job-departments";
+import { fetchJobCountryOptions } from "@/lib/job-country-options";
 import { resolveJobShipTypes } from "@/lib/job-ship-types";
 
 export const runtime = "nodejs";
@@ -119,6 +121,19 @@ function attachPublicApplyUrls(items: JobListItem[]) {
   });
 }
 
+function getJobCompanyCountryCodes(metadata: unknown) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return [];
+  const raw = (metadata as Record<string, unknown>).job_company_country_codes;
+  if (!Array.isArray(raw)) return [];
+  return [
+    ...new Set(
+      raw
+        .map((code) => (typeof code === "string" ? code.trim().toUpperCase() : ""))
+        .filter((code) => /^[A-Z]{2}$/.test(code))
+    ),
+  ];
+}
+
 const isMissingCountriesTableError = (message: string) =>
   /could not find the table/i.test(message) && /breezy_position_countries/i.test(message);
 
@@ -128,6 +143,7 @@ async function attachNationalityCountries(
     admin: ReturnType<typeof createSupabaseAdminClient>;
     companyId: string;
     breezyCompanyId: string;
+    enabledCountryCodes?: Set<string>;
   }
 ) {
   const ids = items.map((item) => item.id).filter(Boolean);
@@ -158,6 +174,7 @@ async function attachNationalityCountries(
       const id = (row.breezy_position_id ?? "").trim();
       const code = (row.country_code ?? "").toUpperCase().trim();
       if (!id || !code) continue;
+      if (init.enabledCountryCodes?.size && !init.enabledCountryCodes.has(code)) continue;
       const entry =
         byId.get(id) ??
         { processable: new Set<string>(), blocked: new Set<string>(), mentioned: new Set<string>() };
@@ -169,6 +186,9 @@ async function attachNationalityCountries(
     }
 
     return items.map((item) => {
+      if (Array.isArray(item.processable_countries) && item.processable_countries.length > 0) {
+        return item;
+      }
       const entry = byId.get(item.id);
       if (!entry) return item;
       return {
@@ -317,6 +337,9 @@ async function attachJobCompanyBranding(
       fallback: item.name,
     });
     const hasPositionBenefitTags = Object.prototype.hasOwnProperty.call(item, "benefit_tags");
+    const hasPositionCountryCodes =
+      Array.isArray(item.processable_countries) && item.processable_countries.length > 0;
+    const countryCodes = getJobCompanyCountryCodes(company.metadata);
     return {
       ...item,
       name: replacePositionTitleCompany(item.name, item.company, company.name) || item.name,
@@ -328,6 +351,9 @@ async function attachJobCompanyBranding(
       benefit_tags: hasPositionBenefitTags
         ? normalizeBenefitTags(item.benefit_tags)
         : benefitTagsByCompanyId.get(company.id) ?? [],
+      ...(!hasPositionCountryCodes && countryCodes.length > 0
+        ? { processable_countries: countryCodes }
+        : {}),
     };
   });
 }
@@ -648,6 +674,19 @@ export async function GET(request: Request) {
         } catch {
           // Ignore join overlay failures and keep legacy single-company data.
         }
+
+        const countryOptions = await fetchJobCountryOptions(admin, primaryCompanyId).catch(() => []);
+        try {
+          const enabledCountryCodes = new Set(countryOptions.map((option) => option.code));
+          enriched = await attachNationalityCountries(enriched, {
+            admin,
+            companyId: primaryCompanyId,
+            breezyCompanyId: companyId,
+            enabledCountryCodes,
+          });
+        } catch {
+          // ignore
+        }
         try {
           enriched = await attachJobCompanyBranding(enriched, {
             admin,
@@ -655,16 +694,6 @@ export async function GET(request: Request) {
           });
         } catch {
           enriched = attachPublicApplyUrls(enriched);
-        }
-
-        try {
-          enriched = await attachNationalityCountries(enriched, {
-            admin,
-            companyId: primaryCompanyId,
-            breezyCompanyId: companyId,
-          });
-        } catch {
-          // ignore
         }
 
         enriched = attachPublicApplyUrls(enriched);
@@ -675,7 +704,13 @@ export async function GET(request: Request) {
         }
 
         const priorityTypes = await loadPriorityTypes(admin, primaryCompanyId);
-        const payload = { jobs: enriched, priorityTypes };
+        const benefitLabels = await fetchJobBenefitOptions(admin, primaryCompanyId)
+          .then((options) => benefitLabelMap(options))
+          .catch(() => ({}));
+        const countryLabels = Object.fromEntries(
+          countryOptions.map((option) => [option.code, option.name])
+        );
+        const payload = { jobs: enriched, priorityTypes, benefitLabels, countryLabels };
         setJobsResponseCache(cacheKey, {
           expiresAt: Date.now() + 60_000,
           payload,
@@ -757,11 +792,14 @@ export async function GET(request: Request) {
         enriched = attachPublicApplyUrls(enriched);
       }
 
+      const countryOptions = await fetchJobCountryOptions(admin, primaryCompanyId).catch(() => []);
       try {
+        const enabledCountryCodes = new Set(countryOptions.map((option) => option.code));
         enriched = await attachNationalityCountries(enriched, {
           admin,
           companyId: primaryCompanyId,
           breezyCompanyId: companyId,
+          enabledCountryCodes,
         });
       } catch {
         // ignore
@@ -776,7 +814,13 @@ export async function GET(request: Request) {
       } catch {
         priorityTypes = DEFAULT_BREEZY_PRIORITY_TYPES;
       }
-      const payload = { jobs: enriched, priorityTypes };
+      const benefitLabels = await fetchJobBenefitOptions(admin, primaryCompanyId)
+        .then((options) => benefitLabelMap(options))
+        .catch(() => ({}));
+      const countryLabels = Object.fromEntries(
+        countryOptions.map((option) => [option.code, option.name])
+      );
+      const payload = { jobs: enriched, priorityTypes, benefitLabels, countryLabels };
       setJobsResponseCache(cacheKey, {
         expiresAt: Date.now() + 60_000,
         payload,

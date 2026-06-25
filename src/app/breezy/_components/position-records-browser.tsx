@@ -49,6 +49,11 @@ import {
   normalizePriorityKey,
   type BreezyPriorityType,
 } from "@/lib/breezy-priority-types";
+import {
+  DEFAULT_JOB_COUNTRY_OPTIONS,
+  normalizeCountryOptions,
+  type JobCountryOption,
+} from "@/lib/job-country-options";
 
 const PRIORITY_BADGE_STYLES = [
   "bg-gradient-to-r from-[#ff9d2e] to-[#ffbf5f] text-white shadow-orange-200/40",
@@ -129,6 +134,7 @@ type JobCompanyLogoResponse = {
     name?: string;
     logoUrl?: string | null;
     benefitTags?: string[];
+    countryCodes?: string[];
   }>;
 };
 
@@ -138,27 +144,10 @@ type JobCompanyPickerOption = {
   logoUrl: string;
   count: number;
   benefitTags: BenefitTag[];
+  countryCodes: string[];
 };
 
-const DEFAULT_PROCESSABLE_COUNTRIES = [
-  { code: "LT", name: "Lithuania" },
-  { code: "LV", name: "Latvia" },
-  { code: "EE", name: "Estonia" },
-  { code: "PL", name: "Poland" },
-  { code: "MD", name: "Moldova" },
-  { code: "KZ", name: "Kazakhstan" },
-  { code: "KG", name: "Kyrgyzstan" },
-  { code: "UZ", name: "Uzbekistan" },
-  { code: "AM", name: "Armenia" },
-  { code: "GE", name: "Georgia" },
-  { code: "AZ", name: "Azerbaijan" },
-  { code: "TJ", name: "Tajikistan" },
-  { code: "TM", name: "Turkmenistan" },
-  { code: "UA", name: "Ukraine" },
-  { code: "RU", name: "Russia" },
-  { code: "BY", name: "Belarus" },
-] as const;
-
+const DEFAULT_PROCESSABLE_COUNTRIES = DEFAULT_JOB_COUNTRY_OPTIONS;
 const DEFAULT_PROCESSABLE_COUNTRY_CODES = DEFAULT_PROCESSABLE_COUNTRIES.map((country) => country.code);
 
 type CompanyCountsResponse = {
@@ -234,6 +223,8 @@ function getBenefitIcon(tag: BenefitTag) {
       return TrendingUp;
     case "travel_opportunity":
       return Compass;
+    default:
+      return FileText;
   }
 }
 
@@ -310,6 +301,24 @@ function extractProcessableCountryCodesFromDetails(details: BreezyPositionDetail
     ? details.nationality_countries
     : null;
   return normalizeCountryCodeList(countries?.processable);
+}
+
+function CountryChips({ countries }: { countries: JobCountryOption[] }) {
+  if (countries.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {countries.map((country) => (
+        <span
+          key={country.code}
+          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700"
+        >
+          <span aria-hidden="true">{toFlagEmoji(country.code)}</span>
+          <span>{country.name}</span>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function normalizePositions(payload: unknown): BreezyPosition[] {
@@ -625,7 +634,13 @@ export default function BreezyPositionRecordsBrowser({
   const [loadMoreInView, setLoadMoreInView] = useState(false);
   const positionsQueryKeyRef = useRef<string>("");
   const [jobCompanies, setJobCompanies] = useState<
-    Array<{ id?: string; name: string; logoUrl: string; benefitTags: BenefitTag[] }>
+    Array<{
+      id?: string;
+      name: string;
+      logoUrl: string;
+      benefitTags: BenefitTag[];
+      countryCodes: string[];
+    }>
   >([]);
   const [jobCompanyFilter, setJobCompanyFilter] = useState("");
   const [openingTypeFilter, setOpeningTypeFilter] = useState("");
@@ -635,6 +650,9 @@ export default function BreezyPositionRecordsBrowser({
   const [priorityCounts, setPriorityCounts] = useState<Array<{ key: string; count: number }>>([]);
   const [priorityCountsLoading, setPriorityCountsLoading] = useState(false);
   const [priorityCountsRefreshKey, setPriorityCountsRefreshKey] = useState(0);
+  const [processableCountries, setProcessableCountries] = useState<JobCountryOption[]>(
+    DEFAULT_PROCESSABLE_COUNTRIES
+  );
   const collapsedCompaniesRowRef = useRef<HTMLDivElement | null>(null);
   const [collapsedCompaniesLimit, setCollapsedCompaniesLimit] = useState(8);
   const [selectedPositionId, setSelectedPositionId] = useState<string | null>(
@@ -724,6 +742,10 @@ export default function BreezyPositionRecordsBrowser({
     responsibilities: "",
     requirements: "",
   });
+  const processableCountryCodes = useMemo(
+    () => processableCountries.map((country) => country.code),
+    [processableCountries]
+  );
 
   const startEditing = useCallback(() => {
     if (!details) return;
@@ -902,6 +924,7 @@ export default function BreezyPositionRecordsBrowser({
         logoUrl,
         count: byCount(name),
         benefitTags: company?.benefitTags ?? [],
+        countryCodes: company?.countryCodes ?? [],
       };
     });
 
@@ -1093,6 +1116,25 @@ export default function BreezyPositionRecordsBrowser({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [deleteConfirm]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/company/job-countries", { cache: "no-store" })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error ?? "Failed to load countries.");
+        return normalizeCountryOptions(data?.countries);
+      })
+      .then((countries) => {
+        if (!cancelled) setProcessableCountries(countries);
+      })
+      .catch(() => {
+        if (!cancelled) setProcessableCountries(DEFAULT_PROCESSABLE_COUNTRIES);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const isHidden = useMemo(() => {
     const override = (detailsOverrides as Record<string, unknown>)?.hidden;
@@ -1388,7 +1430,7 @@ export default function BreezyPositionRecordsBrowser({
         priority: "",
         location_name: "",
         benefit_tags: withRequiredBenefitTags([]),
-        processable_country_codes: DEFAULT_PROCESSABLE_COUNTRY_CODES,
+        processable_country_codes: processableCountryCodes,
         summary: "",
         description: "",
         responsibilities: "",
@@ -2432,6 +2474,7 @@ export default function BreezyPositionRecordsBrowser({
                   AVAILABLE_BENEFIT_TAGS.includes(tag as BenefitTag)
                 ) as BenefitTag[])
               : [],
+            countryCodes: normalizeCountryCodeList(company?.countryCodes),
           }))
           .filter((item) => item.name);
 
@@ -2622,7 +2665,7 @@ export default function BreezyPositionRecordsBrowser({
 	                    priority: "",
 	                    location_name: "",
 	                    benefit_tags: withRequiredBenefitTags([]),
-	                    processable_country_codes: DEFAULT_PROCESSABLE_COUNTRY_CODES,
+	                    processable_country_codes: processableCountryCodes,
 	                    summary: "",
 	                    description: "",
 	                    responsibilities: "",
@@ -3703,17 +3746,22 @@ export default function BreezyPositionRecordsBrowser({
                                   !nextDept ||
                                   allowedDepartments.size === 0 ||
                                   allowedDepartments.has(nextDept.toLowerCase());
+                                const nextCountryCodes = selectedEditCompany?.countryCodes.length
+                                  ? selectedEditCompany.countryCodes
+                                  : editForm.processable_country_codes;
 
                                 setEditForm((prev) => ({
                                   ...prev,
                                   company: primary,
                                   department: keepDept ? prev.department : "",
+                                  processable_country_codes: nextCountryCodes,
                                 }));
                                 setDetailsCompanyNames(selectedCompanies);
                                 void saveQuickOverride(
                                   {
                                     company: primary,
                                     department: keepDept ? editForm.department : "",
+                                    processable_country_codes: nextCountryCodes,
                                   },
                                   { companies: selectedCompanies }
                                 );
@@ -4008,20 +4056,20 @@ export default function BreezyPositionRecordsBrowser({
                                       ...prev,
                                       processable_country_codes:
                                         prev.processable_country_codes.length ===
-                                        DEFAULT_PROCESSABLE_COUNTRY_CODES.length
+                                        processableCountryCodes.length
                                           ? []
-                                          : DEFAULT_PROCESSABLE_COUNTRY_CODES,
+                                          : processableCountryCodes,
                                     }))
                                   }
                                 >
                                   {editForm.processable_country_codes.length ===
-                                  DEFAULT_PROCESSABLE_COUNTRY_CODES.length
+                                  processableCountryCodes.length
                                     ? "Clear all"
                                     : "Select all"}
                                 </button>
                               </div>
                               <div className="flex flex-wrap gap-2">
-                                {DEFAULT_PROCESSABLE_COUNTRIES.map((country) => {
+                                {processableCountries.map((country) => {
                                   const selected =
                                     editForm.processable_country_codes.includes(country.code);
                                   return (
@@ -4127,6 +4175,36 @@ export default function BreezyPositionRecordsBrowser({
 
                     return (
                       <>
+                        {(() => {
+                          const selectedCodes = extractProcessableCountryCodesFromDetails(details);
+                          if (selectedCodes.length === 0) return null;
+                          const optionByCode = new Map(
+                            processableCountries.map((country) => [country.code, country] as const)
+                          );
+                          const countries = selectedCodes.map((code, index) => {
+                            const option = optionByCode.get(code);
+                            return (
+                              option ?? {
+                                code,
+                                name: code,
+                                enabled: true,
+                                sortOrder: processableCountries.length + index,
+                              }
+                            );
+                          });
+
+                          return (
+                            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Nationalities we process
+                              </div>
+                              <div className="mt-2">
+                                <CountryChips countries={countries} />
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                         {description ? (
                           <div className="rounded-2xl border border-slate-200 bg-white p-4">
                             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -4308,6 +4386,10 @@ export default function BreezyPositionRecordsBrowser({
                                         item.benefitTags.length > 0
                                           ? withRequiredBenefitTags(item.benefitTags)
                                           : prev.benefit_tags,
+                                      processable_country_codes:
+                                        item.countryCodes.length > 0
+                                          ? item.countryCodes
+                                          : prev.processable_country_codes,
                                     }));
                                     setCreateCompanyQuery("");
                                     setCreateCompanyPickerOpen(false);
@@ -4641,20 +4723,20 @@ export default function BreezyPositionRecordsBrowser({
                         ...prev,
                         processable_country_codes:
                           prev.processable_country_codes.length ===
-                          DEFAULT_PROCESSABLE_COUNTRY_CODES.length
+                          processableCountryCodes.length
                             ? []
-                            : DEFAULT_PROCESSABLE_COUNTRY_CODES,
+                            : processableCountryCodes,
                       }))
                     }
                   >
                     {createOpeningDraft.processable_country_codes.length ===
-                    DEFAULT_PROCESSABLE_COUNTRY_CODES.length
+                    processableCountryCodes.length
                       ? "Clear all"
                       : "Select all"}
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {DEFAULT_PROCESSABLE_COUNTRIES.map((country) => {
+                  {processableCountries.map((country) => {
                     const selected = createOpeningDraft.processable_country_codes.includes(
                       country.code
                     );
