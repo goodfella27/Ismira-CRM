@@ -36,12 +36,16 @@ import WysiwygEditor from "@/components/wysiwyg-editor";
 import { loadBreezyCompanyId, saveBreezyCompanyId } from "@/lib/breezy-storage";
 import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
 import {
-  AVAILABLE_BENEFIT_TAGS,
   BENEFIT_TAG_LABELS,
   REQUIRED_BENEFIT_TAGS,
   withRequiredBenefitTags,
   type BenefitTag,
 } from "@/lib/job-benefits";
+import {
+  DEFAULT_JOB_BENEFIT_OPTIONS,
+  normalizeBenefitOptions,
+  type JobBenefitOption,
+} from "@/lib/job-benefit-options";
 import {
   DEFAULT_BREEZY_PRIORITY_TYPES,
   getPriorityLabel,
@@ -136,6 +140,7 @@ type JobCompanyLogoResponse = {
     benefitTags?: string[];
     countryCodes?: string[];
   }>;
+  benefitOptions?: unknown;
 };
 
 type JobCompanyPickerOption = {
@@ -259,12 +264,19 @@ function normalizeStringList(payload: unknown) {
 
 function normalizeBenefitTagList(payload: unknown): BenefitTag[] {
   if (!Array.isArray(payload)) return withRequiredBenefitTags([]);
-  const available = new Set<string>(AVAILABLE_BENEFIT_TAGS);
   const seen = new Set<string>();
   const list: BenefitTag[] = [];
   for (const item of payload) {
-    const tag = typeof item === "string" ? item.trim() : "";
-    if (!tag || !available.has(tag) || seen.has(tag)) continue;
+    const tag =
+      typeof item === "string"
+        ? item
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "_")
+            .replace(/^_+|_+$/g, "")
+            .slice(0, 80)
+        : "";
+    if (!tag || seen.has(tag)) continue;
     seen.add(tag);
     list.push(tag as BenefitTag);
   }
@@ -317,6 +329,43 @@ function CountryChips({ countries }: { countries: JobCountryOption[] }) {
           <span>{country.name}</span>
         </span>
       ))}
+    </div>
+  );
+}
+
+function BenefitChips({
+  tags,
+  options,
+}: {
+  tags: BenefitTag[];
+  options: JobBenefitOption[];
+}) {
+  if (tags.length === 0) return null;
+
+  const labels = new Map(options.map((option) => [option.tag, option.label]));
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {tags.map((tag) => {
+        const Icon = getBenefitIcon(tag);
+        const label =
+          labels.get(tag) ||
+          BENEFIT_TAG_LABELS[tag] ||
+          tag
+            .split("_")
+            .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+            .join(" ");
+
+        return (
+          <span
+            key={tag}
+            className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-900"
+          >
+            <Icon className="h-3.5 w-3.5 text-sky-600" aria-hidden="true" />
+            <span>{label}</span>
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -642,6 +691,9 @@ export default function BreezyPositionRecordsBrowser({
       countryCodes: string[];
     }>
   >([]);
+  const [benefitOptions, setBenefitOptions] = useState<JobBenefitOption[]>(
+    DEFAULT_JOB_BENEFIT_OPTIONS
+  );
   const [jobCompanyFilter, setJobCompanyFilter] = useState("");
   const [openingTypeFilter, setOpeningTypeFilter] = useState("");
   const [showAllCompanies, setShowAllCompanies] = useState(false);
@@ -745,6 +797,10 @@ export default function BreezyPositionRecordsBrowser({
   const processableCountryCodes = useMemo(
     () => processableCountries.map((country) => country.code),
     [processableCountries]
+  );
+  const benefitOptionTags = useMemo(
+    () => benefitOptions.map((option) => option.tag),
+    [benefitOptions]
   );
 
   const startEditing = useCallback(() => {
@@ -2463,6 +2519,10 @@ export default function BreezyPositionRecordsBrowser({
         const data = (await res.json().catch(() => null)) as JobCompanyLogoResponse | null;
         if (!res.ok || !data?.companies || ignore) return;
 
+        const nextBenefitOptions = normalizeBenefitOptions(data.benefitOptions);
+        const availableBenefitTags = new Set(
+          nextBenefitOptions.map((option) => option.tag)
+        );
         const nextList = data.companies
           .map((company) => ({
             id: asString(company?.id).trim(),
@@ -2471,7 +2531,7 @@ export default function BreezyPositionRecordsBrowser({
             benefitTags: Array.isArray(company?.benefitTags)
               ? (company.benefitTags.filter((tag): tag is BenefitTag =>
                   typeof tag === "string" &&
-                  AVAILABLE_BENEFIT_TAGS.includes(tag as BenefitTag)
+                  availableBenefitTags.has(tag as BenefitTag)
                 ) as BenefitTag[])
               : [],
             countryCodes: normalizeCountryCodeList(company?.countryCodes),
@@ -2489,11 +2549,13 @@ export default function BreezyPositionRecordsBrowser({
         if (!ignore) {
           setCompanyLogoByName(next);
           setJobCompanies(nextList);
+          setBenefitOptions(nextBenefitOptions);
         }
       } catch {
         if (!ignore) {
           setCompanyLogoByName({});
           setJobCompanies([]);
+          setBenefitOptions(DEFAULT_JOB_BENEFIT_OPTIONS);
         }
       }
     };
@@ -3984,7 +4046,7 @@ export default function BreezyPositionRecordsBrowser({
                                       benefit_tags:
                                         selectedEditCompany?.benefitTags.length
                                           ? withRequiredBenefitTags(selectedEditCompany.benefitTags)
-                                          : withRequiredBenefitTags(AVAILABLE_BENEFIT_TAGS.slice(0, 6)),
+                                          : withRequiredBenefitTags(benefitOptionTags.slice(0, 6)),
                                     }))
                                   }
                                 >
@@ -3992,7 +4054,8 @@ export default function BreezyPositionRecordsBrowser({
                                 </button>
                               </div>
                               <div className="grid gap-2 sm:grid-cols-2">
-                                {AVAILABLE_BENEFIT_TAGS.map((tag) => {
+                                {benefitOptions.map((option) => {
+                                  const tag = option.tag;
                                   const selected = editForm.benefit_tags.includes(tag);
                                   const required = REQUIRED_BENEFIT_TAGS.includes(tag);
                                   const Icon = getBenefitIcon(tag);
@@ -4029,7 +4092,7 @@ export default function BreezyPositionRecordsBrowser({
                                         <Icon className="h-4 w-4" />
                                       </span>
                                       <span className="min-w-0 flex-1 font-semibold">
-                                        {BENEFIT_TAG_LABELS[tag]}
+                                        {option.label || BENEFIT_TAG_LABELS[tag] || tag}
                                       </span>
                                       {selected ? (
                                         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-sky-600 text-white">
@@ -4175,6 +4238,25 @@ export default function BreezyPositionRecordsBrowser({
 
                     return (
                       <>
+                        {(() => {
+                          const selectedBenefits = extractBenefitTagsFromDetails(details);
+                          if (selectedBenefits.length === 0) return null;
+
+                          return (
+                            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Company benefits
+                              </div>
+                              <div className="mt-2">
+                                <BenefitChips
+                                  tags={selectedBenefits}
+                                  options={benefitOptions}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                         {(() => {
                           const selectedCodes = extractProcessableCountryCodesFromDetails(details);
                           if (selectedCodes.length === 0) return null;
@@ -4646,7 +4728,7 @@ export default function BreezyPositionRecordsBrowser({
                         benefit_tags:
                           selectedCreateCompany?.benefitTags.length
                             ? withRequiredBenefitTags(selectedCreateCompany.benefitTags)
-                            : withRequiredBenefitTags(AVAILABLE_BENEFIT_TAGS.slice(0, 6)),
+                            : withRequiredBenefitTags(benefitOptionTags.slice(0, 6)),
                       }))
                     }
                   >
@@ -4654,7 +4736,8 @@ export default function BreezyPositionRecordsBrowser({
                   </button>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {AVAILABLE_BENEFIT_TAGS.map((tag) => {
+                  {benefitOptions.map((option) => {
+                    const tag = option.tag;
                     const selected = createOpeningDraft.benefit_tags.includes(tag);
                     const required = REQUIRED_BENEFIT_TAGS.includes(tag);
                     const Icon = getBenefitIcon(tag);
@@ -4691,7 +4774,7 @@ export default function BreezyPositionRecordsBrowser({
                           <Icon className="h-4 w-4" />
                         </span>
                         <span className="min-w-0 flex-1 font-semibold">
-                          {BENEFIT_TAG_LABELS[tag]}
+                          {option.label || BENEFIT_TAG_LABELS[tag] || tag}
                         </span>
                         {selected ? (
                           <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-sky-600 text-white">

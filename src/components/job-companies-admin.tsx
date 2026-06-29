@@ -620,6 +620,7 @@ export default function JobCompaniesAdmin() {
         const form = new FormData();
         form.set("name", name);
         form.set("benefitTags", JSON.stringify(benefitTags));
+        form.set("benefitOptions", JSON.stringify(jobBenefitOptionsDraft));
         form.set("countryCodes", JSON.stringify(countryCodes));
         form.set("shipType", shipType);
         form.set("shipTypes", JSON.stringify(shipTypes));
@@ -646,6 +647,7 @@ export default function JobCompaniesAdmin() {
       jobCompanyCountryDrafts,
       jobCompanyNameDrafts,
       jobCompanyShipTypeDrafts,
+      jobBenefitOptionsDraft,
       loadJobCompanies,
     ]
   );

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import { fetchJobCompanyBenefits, mapBenefitTagsByJobCompanyId, normalizeBenefitTags } from "@/lib/job-company-benefits";
+import { normalizeBenefitOptions } from "@/lib/job-benefit-options";
 import { normalizeCountryCode } from "@/lib/job-country-options";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import { signJobCompanyLogoUrls, type JobCompanyRow } from "@/lib/job-companies";
@@ -79,6 +80,7 @@ export async function POST(
     const websiteRaw = form.get("website");
     const nameRaw = form.get("name");
     const benefitTagsRaw = form.get("benefitTags");
+    const benefitOptionsRaw = form.get("benefitOptions");
     const countryCodesRaw = form.get("countryCodes");
     const shipTypeRaw = form.get("shipType");
     const shipTypesRaw = form.get("shipTypes");
@@ -165,6 +167,26 @@ export async function POST(
         .eq("company_id", membership.companyId)
         .eq("id", id);
       if (updateError) throw new Error(updateError.message ?? "Failed to update job company");
+    }
+
+    if (typeof benefitOptionsRaw === "string") {
+      const options = normalizeBenefitOptions(JSON.parse(benefitOptionsRaw) as unknown);
+      const { error: optionsError } = await admin.from("job_benefit_options").upsert(
+        options.map((option, index) => ({
+          company_id: membership.companyId,
+          tag: option.tag,
+          label: option.label,
+          sort_order: index,
+          enabled: true,
+        })),
+        { onConflict: "company_id,tag" }
+      );
+      if (optionsError) {
+        throw new Error(
+          optionsError.message ??
+            "Failed to save benefit options. Run `supabase/job_benefit_options.sql` first."
+        );
+      }
     }
 
     if (typeof benefitTagsRaw === "string") {
