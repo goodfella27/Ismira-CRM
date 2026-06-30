@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 const snippet = `<div id="ismira-jobs"></div>
 <script
   defer
-  src="https://YOUR_CRM_DOMAIN/embed/jobs/v4/mount.js"
-  data-api-base="https://YOUR_CRM_DOMAIN"
+  src="https://ismira-crm.vercel.app/embed/jobs/v4/mount.js"
+  data-api-base="https://ismira-crm.vercel.app"
   data-target="#ismira-jobs"
   data-refresh-seconds="60"
 ></script>`;
@@ -20,7 +20,7 @@ const snippetWordPress = `add_action('wp_enqueue_scripts', function () {
 
   wp_register_script(
     'ismira-jobs-feed',
-    'https://YOUR_CRM_DOMAIN/embed/jobs/v4/mount.js?v=1',
+    'https://ismira-crm.vercel.app/embed/jobs/v4/mount.js?v=1',
     [],
     null,
     true
@@ -28,7 +28,7 @@ const snippetWordPress = `add_action('wp_enqueue_scripts', function () {
 
   wp_add_inline_script(
     'ismira-jobs-feed',
-    'window.IsmiraJobsFeedConfig = { apiBase: "https://YOUR_CRM_DOMAIN", target: "#ismira-jobs", refreshSeconds: 60 };',
+    'window.IsmiraJobsFeedConfig = { apiBase: "https://ismira-crm.vercel.app", target: "#ismira-jobs", refreshSeconds: 60 };',
     'before'
   );
 
