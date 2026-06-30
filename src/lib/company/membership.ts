@@ -27,7 +27,16 @@ export const ensureCompanyMembership = async (
   const list = Array.isArray(existingRows) ? (existingRows as unknown as MemberRow[]) : [];
   const existing = list[0] ?? null;
   if (existing) {
-    return { companyId, role: existing.role ?? "Member" };
+    const role = existing.role ?? "Member";
+    const normalizedRole = role.trim().toLowerCase();
+    if (
+      !["admin", "member premium", "member_premium", "premium", "recruiter"].includes(
+        normalizedRole
+      )
+    ) {
+      throw new Error("HR editor access required.");
+    }
+    return { companyId, role };
   }
 
   const { count, error: countError } = await admin
@@ -39,7 +48,11 @@ export const ensureCompanyMembership = async (
     throw new Error(countError.message ?? "Failed to load member count");
   }
 
-  const role = (count ?? 0) === 0 ? "Admin" : "Member";
+  if ((count ?? 0) > 0) {
+    throw new Error("HR editor access required.");
+  }
+
+  const role = "Admin";
   const { error: insertError } = await admin.from("company_members").insert({
     company_id: companyId,
     user_id: userId,

@@ -455,8 +455,8 @@ export async function GET(
     }
 
     const admin = createSupabaseAdminClient();
-    const membership = await ensureCompanyMembership(admin, user.id);
-    const canEdit = membership.role.toLowerCase() === "admin";
+    await ensureCompanyMembership(admin, user.id);
+    const canEdit = true;
     const companyId = await getPrimaryCompanyId(admin);
 
     const { data, error } = await admin
@@ -781,10 +781,7 @@ export async function PATCH(
     }
 
     const admin = createSupabaseAdminClient();
-    const membership = await ensureCompanyMembership(admin, user.id);
-    if (membership.role.toLowerCase() !== "admin") {
-      return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-    }
+    await ensureCompanyMembership(admin, user.id);
     const companyId = await getPrimaryCompanyId(admin);
 
     const { data: existing, error: existingError } = await admin
@@ -998,10 +995,7 @@ export async function DELETE(
     }
 
     const admin = createSupabaseAdminClient();
-    const membership = await ensureCompanyMembership(admin, user.id);
-    if (membership.role.toLowerCase() !== "admin") {
-      return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-    }
+    await ensureCompanyMembership(admin, user.id);
     const companyId = await getPrimaryCompanyId(admin);
 
     const { error } = await admin

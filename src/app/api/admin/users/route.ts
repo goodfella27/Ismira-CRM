@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 
+import {
+  normalizeManagedUserRole,
+  setManagedUserRole,
+} from "@/lib/auth/access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -88,16 +92,6 @@ const resolveName = (user: {
   return email.split("@")[0] || "User";
 };
 
-const resolveRole = (
-  user: { user_metadata?: Record<string, unknown> | null },
-  roleOverride?: string | null
-) => {
-  if (roleOverride && roleOverride.trim()) return roleOverride.trim();
-  const metadata = user.user_metadata ?? {};
-  const role = typeof metadata.role === "string" ? metadata.role.trim() : "";
-  return role || "Member";
-};
-
 const resolveAvatarPath = (user: {
   user_metadata?: Record<string, unknown> | null;
 }) => {
@@ -181,12 +175,27 @@ export async function GET() {
       { status: 500 }
     );
   }
-  const roleMap = new Map<string, string>();
+  const memberRoleByUserId = new Map<string, string>();
   (memberRows ?? []).forEach((row) => {
-    if (row.user_id) {
-      roleMap.set(row.user_id as string, (row.role as string) ?? "Member");
+    if (row.user_id && typeof row.role === "string") {
+      memberRoleByUserId.set(row.user_id as string, row.role.trim().toLowerCase());
     }
   });
+  const { data: portalRows, error: portalError } = await admin
+    .from("job_portal_access")
+    .select("user_id,access_level,status,access_until");
+  const portalTableMissing = /job_portal_access|schema cache|does not exist|could not find the table/i.test(
+    portalError?.message ?? ""
+  );
+  if (portalError && !portalTableMissing) {
+    return NextResponse.json(
+      { error: portalError.message ?? "Failed to load portal access" },
+      { status: 500 }
+    );
+  }
+  const portalByUserId = new Map(
+    (portalRows ?? []).map((row) => [row.user_id as string, row] as const)
+  );
   const { data, error } = await admin.auth.admin.listUsers({
     page: 1,
     perPage: 200,
@@ -201,12 +210,20 @@ export async function GET() {
 
   const users = await Promise.all(
     (data?.users ?? [])
-      .filter((item) => roleMap.size === 0 || roleMap.has(item.id))
       .map(async (item) => ({
       id: item.id,
       email: item.email ?? "",
       name: resolveName(item),
-      role: resolveRole(item, roleMap.get(item.id)),
+      role: memberRoleByUserId.get(item.id) === "admin"
+        ? "Admin"
+        : ["member premium", "member_premium", "premium", "recruiter"].includes(
+              memberRoleByUserId.get(item.id) ?? ""
+            ) || portalByUserId.get(item.id)?.access_level === "member_premium"
+          ? "Member Premium"
+          : portalByUserId.get(item.id)?.access_level === "member_basic"
+            ? "Member Basic"
+            : "Visitor",
+      access_until: portalByUserId.get(item.id)?.access_until ?? null,
       avatar_url: await resolveAvatarUrl(admin, item),
       avatar_path: resolveAvatarPath(item),
       status: item.email_confirmed_at ? "active" : "pending",
@@ -279,7 +296,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid email" }, { status: 400 });
   }
 
-  const role = payload.role?.trim() || "Member";
+  const role = normalizeManagedUserRole(payload.role);
   const name = payload.name?.trim() || email.split("@")[0] || "User";
 
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
@@ -301,17 +318,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invite failed" }, { status: 500 });
   }
 
-  const { error: membershipError } = await admin
-    .from("company_members")
-    .upsert({
-      company_id: companyId,
-      user_id: invited.id,
-      role,
-    });
-
-  if (membershipError) {
+  try {
+    await setManagedUserRole(admin, companyId, invited.id, role);
+  } catch (roleError) {
     return NextResponse.json(
-      { error: membershipError.message ?? "Failed to add member" },
+      { error: roleError instanceof Error ? roleError.message : "Failed to set access" },
       { status: 500 }
     );
   }
@@ -321,7 +332,7 @@ export async function POST(request: Request) {
       id: invited.id,
       email: invited.email ?? "",
       name: resolveName(invited),
-      role: resolveRole(invited, role),
+      role,
       avatar_url: await resolveAvatarUrl(admin, invited),
       avatar_path: resolveAvatarPath(invited),
       status: invited.email_confirmed_at ? "active" : "pending",

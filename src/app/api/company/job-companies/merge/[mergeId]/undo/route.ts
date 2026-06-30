@@ -30,9 +30,6 @@ export async function POST(
 
     const admin = createSupabaseAdminClient();
     const membership = await ensureCompanyMembership(admin, user.id);
-    if (membership.role.toLowerCase() !== "admin") {
-      return NextResponse.json({ error: "Admin access required." }, { status: 403 });
-    }
 
     const { data, error } = await admin.rpc("undo_job_company_merge", {
       p_company_id: membership.companyId,

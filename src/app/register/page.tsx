@@ -52,7 +52,8 @@ export default function RegisterPage() {
     }
 
     if (data.session) {
-      router.push("/pipeline");
+      router.replace("/auth/continue");
+      router.refresh();
       return;
     }
 
@@ -62,7 +63,7 @@ export default function RegisterPage() {
   return (
     <AuthLayout
       title="Create account"
-      subtitle="Join the workspace and start reviewing candidates."
+      subtitle="Create a jobs portal account. Member access can be enabled after registration."
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="grid gap-3 sm:grid-cols-2">

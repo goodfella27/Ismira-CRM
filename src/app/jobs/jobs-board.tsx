@@ -14,6 +14,9 @@ import {
 import {
   Search,
   ChevronDown,
+  Check,
+  Copy,
+  Share2,
   Building2,
   UserRound,
   MapPin,
@@ -33,16 +36,19 @@ import {
   FileText,
   TrendingUp,
   Compass,
+  LockKeyhole,
   Quote,
   Star,
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
+import { DropdownMenu } from "radix-ui";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 
 import DetailsModalShell from "@/components/details-modal-shell";
+import { JobPremiumDetailsPanel } from "@/components/job-premium-details-panel";
 import { LogoStackSlider, type LogoStackItem } from "@/components/logo-stack-slider";
 import {
   extractCompany,
@@ -69,6 +75,17 @@ import {
   withRequiredBenefitTags,
   type BenefitTag,
 } from "@/lib/job-benefits";
+import {
+  normalizeJobPremiumDetails,
+  type JobPremiumDetails,
+} from "@/lib/job-premium-details";
+
+type PremiumAccessResponse = {
+  available: boolean;
+  canView: boolean;
+  access: "visitor" | "member_basic" | "member_premium" | "admin";
+  details: JobPremiumDetails | null;
+};
 
 function HeroCoverImage({ src }: { src: string }) {
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
@@ -1130,6 +1147,62 @@ function BenefitTagFeatureList({
   );
 }
 
+function PremiumJobDetailsPanel({
+  premium,
+  loading,
+  onLogin,
+}: {
+  premium: PremiumAccessResponse | null;
+  loading: boolean;
+  onLogin: () => void;
+}) {
+  if (loading) {
+    return (
+      <div className="h-28 animate-pulse rounded-3xl border border-amber-100 bg-amber-50/60" />
+    );
+  }
+  if (!premium?.available) return null;
+
+  if (!premium.canView || !premium.details) {
+    return (
+      <div className="relative isolate overflow-hidden rounded-3xl border border-orange-200 bg-gradient-to-r from-amber-100 via-orange-50 to-pink-100 shadow-[0_18px_50px_-40px_rgba(249,115,22,0.65)]">
+        <div
+          className="pointer-events-none absolute -right-8 -top-20 -z-10 h-44 w-44 rounded-full bg-fuchsia-300/30 blur-3xl"
+          aria-hidden="true"
+        />
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-300 via-orange-400 to-pink-400 text-slate-950 shadow-sm ring-1 ring-white/60">
+              <LockKeyhole className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div>
+              <div className="text-sm font-bold text-slate-950">Salary and insider details</div>
+              <p className="mt-1 max-w-xl text-sm leading-6 text-slate-600">
+                Member access reveals salary, gratuities, contract length, rank and cabin details.
+              </p>
+            </div>
+          </div>
+          {premium.access === "visitor" ? (
+            <button
+              type="button"
+              onClick={onLogin}
+              className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-5 text-sm font-bold text-white shadow-md shadow-orange-200/60 transition hover:from-orange-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:ring-offset-2"
+            >
+              Log in to view
+            </button>
+          ) : (
+            <span className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-orange-200 bg-white/75 px-4 text-xs font-bold uppercase tracking-wide text-orange-800 shadow-sm backdrop-blur-sm">
+              Member access required
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return <JobPremiumDetailsPanel details={premium.details} />;
+}
+
 function CountryChips({
   items,
   countryLabels,
@@ -1672,8 +1745,12 @@ export default function JobsBoard() {
 
   const [detailsById, setDetailsById] = useState<Record<string, Record<string, unknown>>>({});
   const [detailsLoadingId, setDetailsLoadingId] = useState<string | null>(null);
+  const [premiumById, setPremiumById] = useState<Record<string, PremiumAccessResponse>>({});
+  const [premiumLoadingId, setPremiumLoadingId] = useState<string | null>(null);
   const details = selectedId ? detailsById[selectedId] ?? null : null;
   const detailsLoading = selectedId ? detailsLoadingId === selectedId : false;
+  const premium = selectedId ? premiumById[selectedId] ?? null : null;
+  const premiumLoading = selectedId ? premiumLoadingId === selectedId : false;
   const [shareCopied, setShareCopied] = useState(false);
   const [applyNavigating, setApplyNavigating] = useState(false);
   const [applyDisclaimerOpen, setApplyDisclaimerOpen] = useState(false);
@@ -2630,6 +2707,45 @@ export default function JobsBoard() {
     void loadDetails(selectedId, controller.signal);
     return () => controller.abort();
   }, [detailsById, loadDetails, selectedId]);
+
+  useEffect(() => {
+    const positionId = selectedId?.trim() ?? "";
+    if (!positionId) {
+      setPremiumLoadingId(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setPremiumLoadingId(positionId);
+    void fetch(`/api/jobs/${encodeURIComponent(positionId)}/premium`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !isRecord(data)) return;
+        const next: PremiumAccessResponse = {
+          available: data.available === true,
+          canView: data.canView === true,
+          access:
+            data.access === "admin" ||
+            data.access === "member_premium" ||
+            data.access === "member_basic"
+              ? data.access
+              : "visitor",
+          details: data.canView === true ? normalizeJobPremiumDetails(data.details) : null,
+        };
+        setPremiumById((prev) => ({ ...prev, [positionId]: next }));
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setPremiumLoadingId((current) => (current === positionId ? null : current));
+        }
+      });
+
+    return () => controller.abort();
+  }, [selectedId]);
 
   useEffect(() => {
     const ids = visibleJobs
@@ -4132,13 +4248,37 @@ export default function JobsBoard() {
           }
           heroActions={
             <>
-              <button
-                type="button"
-                className="inline-flex items-center justify-center rounded-full border border-white/30 bg-white/85 px-4 py-2 text-xs font-semibold text-slate-800 shadow-sm backdrop-blur hover:bg-white"
-                onClick={handleCopyShareLink}
-              >
-                {shareCopied ? "Link copied" : "Copy link"}
-              </button>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/40 bg-white/90 text-slate-800 shadow-sm backdrop-blur transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-white/70"
+                    aria-label="Share job"
+                    title="Share job"
+                  >
+                    <Share2 className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    align="end"
+                    sideOffset={8}
+                    className="z-[12000] min-w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-950/15"
+                  >
+                    <DropdownMenu.Item
+                      onSelect={handleCopyShareLink}
+                      className="flex h-10 cursor-default select-none items-center gap-2.5 rounded-lg px-3 text-sm font-semibold text-slate-700 outline-none transition data-[highlighted]:bg-gradient-to-r data-[highlighted]:from-amber-100 data-[highlighted]:to-pink-50 data-[highlighted]:text-slate-950"
+                    >
+                      {shareCopied ? (
+                        <Check className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+                      ) : (
+                        <Copy className="h-4 w-4 text-orange-500" aria-hidden="true" />
+                      )}
+                      {shareCopied ? "Link copied" : "Copy link"}
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
               <button
                 type="button"
                 aria-label="Close"
@@ -4317,6 +4457,17 @@ export default function JobsBoard() {
             </div>
           ) : (
             <div className="space-y-5 xl:space-y-6 xl:rounded-2xl xl:border xl:border-slate-200 xl:bg-white xl:p-5">
+              <PremiumJobDetailsPanel
+                premium={premium}
+                loading={premiumLoading}
+                onLogin={() => {
+                  const next = selectedId
+                    ? `/jobs?job=${encodeURIComponent(selectedId)}`
+                    : "/jobs";
+                  router.push(`/login?next=${encodeURIComponent(next)}`);
+                }}
+              />
+
               {modalBenefitTags.length > 0 ? (
                 <div>
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">

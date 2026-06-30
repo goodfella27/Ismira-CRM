@@ -125,9 +125,6 @@ export async function POST(request: Request) {
         const user = await requireUser();
         const admin = createSupabaseAdminClient();
         const membership = await ensureCompanyMembership(admin, user.id);
-        if (membership.role.toLowerCase() !== "admin") {
-          return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-        }
 
         const now = new Date().toISOString();
         const localId = `local_${randomUUID().slice(0, 8)}`;

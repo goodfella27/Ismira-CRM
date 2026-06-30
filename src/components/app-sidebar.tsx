@@ -74,7 +74,7 @@ function isActiveRoute(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function AppSidebar() {
+export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -188,7 +188,7 @@ export function AppSidebar() {
         </div>
 
         <nav className="flex flex-1 flex-col gap-2 px-4">
-          {navItems.map((item) => {
+          {navItems.filter((item) => item.href !== "/company" || isAdmin).map((item) => {
             const active = isActiveRoute(pathname, item.href);
             const Icon = item.icon;
             return (
@@ -276,7 +276,7 @@ export function AppSidebar() {
   );
 }
 
-export function MobileTopNav() {
+export function MobileTopNav({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
   const [brandTitle, setBrandTitle] = useState("ISMIRA CRM");
   const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
@@ -333,7 +333,7 @@ export function MobileTopNav() {
         <TaskNotificationBell />
       </div>
       <nav className="flex items-center gap-2 overflow-x-auto px-4 pb-4 text-xs">
-        {navItems.map((item) => {
+        {navItems.filter((item) => item.href !== "/company" || isAdmin).map((item) => {
           const active = isActiveRoute(pathname, item.href);
           return (
             <Link

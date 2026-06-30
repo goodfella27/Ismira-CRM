@@ -67,10 +67,7 @@ export async function POST(
     }
 
     const admin = createSupabaseAdminClient();
-    const membership = await ensureCompanyMembership(admin, user.id);
-    if (membership.role.toLowerCase() !== "admin") {
-      return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-    }
+    await ensureCompanyMembership(admin, user.id);
 
     const companyId = await getPrimaryCompanyId(admin);
     const { data, error } = await admin

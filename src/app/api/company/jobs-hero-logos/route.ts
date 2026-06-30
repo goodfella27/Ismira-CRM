@@ -85,9 +85,6 @@ export async function POST(request: Request) {
     const user = await requireUser();
     const admin = createSupabaseAdminClient();
     const membership = await ensureCompanyMembership(admin, user.id);
-    if (membership.role.toLowerCase() !== "admin") {
-      return NextResponse.json({ error: "Admin access required." }, { status: 403 });
-    }
 
     const body = (await request.json().catch(() => null)) as
       | { label?: string | null }

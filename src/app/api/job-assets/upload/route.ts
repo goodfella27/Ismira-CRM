@@ -37,9 +37,6 @@ export async function POST(request: Request) {
 
     const admin = createSupabaseAdminClient();
     const membership = await ensureCompanyMembership(admin, user.id);
-    if (membership.role.toLowerCase() !== "admin") {
-      return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-    }
 
     const { data: buckets, error: bucketsError } = await admin.storage.listBuckets();
     if (bucketsError) {
@@ -88,4 +85,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

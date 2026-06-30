@@ -45,9 +45,6 @@ export async function POST(request: Request) {
     const user = await requireUser();
     const admin = createSupabaseAdminClient();
     const membership = await ensureCompanyMembership(admin, user.id);
-    if (membership.role.toLowerCase() !== "admin") {
-      return NextResponse.json({ error: "Admin access required." }, { status: 403 });
-    }
 
     const payload = await request.json().catch(() => null);
     const options = normalizeCountryOptions(isRecord(payload) ? payload.countries : null);
@@ -94,4 +91,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status });
   }
 }
-

@@ -5,10 +5,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const defaultNext = code ? "/login?confirmed=1" : "/pipeline";
+  const defaultNext = code ? "/login?confirmed=1" : "/auth/continue";
   const rawNext = url.searchParams.get("next") ?? defaultNext;
   const next =
-    rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/pipeline";
+    rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/auth/continue";
 
   if (code) {
     const supabase = await createSupabaseServerClient();

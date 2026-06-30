@@ -1,37 +1,51 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Select } from "radix-ui";
 import {
   AlignJustify,
+  BadgeDollarSign,
+  BedDouble,
   Building2,
+  CalendarDays,
   RefreshCw,
   Search,
   ChevronDown,
+  ChevronsUp,
   Check,
+  CircleOff,
   Coins,
   Compass,
   FileText,
+  Gift,
   GraduationCap,
   HeartPulse,
   House,
+  HandCoins,
   Layers,
+  LockKeyhole,
   MapPin,
   FolderKanban,
   PencilLine,
   MoreHorizontal,
+  NotebookText,
   Eye,
   EyeOff,
   Plane,
   Plus,
   Shield,
+  StickyNote,
   TrendingUp,
   Trash2,
   UtensilsCrossed,
+  UsersRound,
   X,
+  type LucideIcon,
 } from "lucide-react";
 
 import DetailsModalShell from "@/components/details-modal-shell";
+import { JobPremiumDetailsPanel } from "@/components/job-premium-details-panel";
 import WysiwygEditor from "@/components/wysiwyg-editor";
 import { loadBreezyCompanyId, saveBreezyCompanyId } from "@/lib/breezy-storage";
 import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
@@ -58,6 +72,12 @@ import {
   normalizeCountryOptions,
   type JobCountryOption,
 } from "@/lib/job-country-options";
+import {
+  EMPTY_JOB_PREMIUM_DETAILS,
+  hasJobPremiumDetails,
+  normalizeJobPremiumDetails,
+  type JobPremiumDetails,
+} from "@/lib/job-premium-details";
 
 const PRIORITY_BADGE_STYLES = [
   "bg-gradient-to-r from-[#ff9d2e] to-[#ffbf5f] text-white shadow-orange-200/40",
@@ -368,6 +388,267 @@ function BenefitChips({
       })}
     </div>
   );
+}
+
+type PremiumSelectOption = {
+  value: string;
+  label: string;
+  Icon: LucideIcon;
+};
+
+const EMPTY_PREMIUM_SELECT_VALUE = "__none__";
+
+const POSITION_COMPENSATION_OPTIONS: PremiumSelectOption[] = [
+  { value: EMPTY_PREMIUM_SELECT_VALUE, label: "Select type", Icon: CircleOff },
+  { value: "tipping", label: "Tipping position", Icon: HandCoins },
+  { value: "non_tipping", label: "Non-tipping position", Icon: BadgeDollarSign },
+];
+
+const STRIPE_OPTIONS: PremiumSelectOption[] = [
+  { value: EMPTY_PREMIUM_SELECT_VALUE, label: "Select stripes", Icon: CircleOff },
+  { value: "1", label: "1 stripe", Icon: ChevronsUp },
+  { value: "1.5", label: "1.5 stripes", Icon: ChevronsUp },
+  { value: "2", label: "2 stripes", Icon: ChevronsUp },
+];
+
+const CABIN_OPTIONS: PremiumSelectOption[] = [
+  { value: EMPTY_PREMIUM_SELECT_VALUE, label: "Select cabin", Icon: CircleOff },
+  { value: "single", label: "Single cabin", Icon: BedDouble },
+  { value: "shared", label: "Shared cabin", Icon: UsersRound },
+];
+
+function PremiumSelectField({
+  label,
+  LabelIcon,
+  value,
+  options,
+  onValueChange,
+  disabled,
+}: {
+  label: string;
+  LabelIcon: LucideIcon;
+  value: string;
+  options: PremiumSelectOption[];
+  onValueChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const labelId = useId();
+  const selectedValue = value || EMPTY_PREMIUM_SELECT_VALUE;
+  const selectedOption =
+    options.find((option) => option.value === selectedValue) ?? options[0];
+  const SelectedIcon = selectedOption.Icon;
+
+  return (
+    <div className="grid content-start gap-1.5">
+      <div
+        id={labelId}
+        className="flex items-center gap-1.5 text-xs font-semibold text-slate-700"
+      >
+        <LabelIcon className="h-3.5 w-3.5 text-orange-500" aria-hidden="true" />
+        {label}
+      </div>
+      <Select.Root
+        value={selectedValue}
+        disabled={disabled}
+        onValueChange={(nextValue) =>
+          onValueChange(nextValue === EMPTY_PREMIUM_SELECT_VALUE ? "" : nextValue)
+        }
+      >
+        <Select.Trigger
+          aria-labelledby={labelId}
+          className="group inline-flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 data-[state=open]:border-orange-400 data-[state=open]:ring-2 data-[state=open]:ring-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="flex min-w-0 items-center gap-2.5">
+            <SelectedIcon className="h-4 w-4 shrink-0 text-orange-500" aria-hidden="true" />
+            <span className="truncate">{selectedOption.label}</span>
+          </span>
+          <Select.Icon asChild>
+            <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-data-[state=open]:rotate-180" />
+          </Select.Icon>
+        </Select.Trigger>
+        <Select.Portal>
+          <Select.Content
+            position="popper"
+            sideOffset={6}
+            className="z-[12000] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-950/15"
+          >
+            <Select.Viewport>
+              {options.map((option) => {
+                const OptionIcon = option.Icon;
+                return (
+                  <Select.Item
+                    key={option.value}
+                    value={option.value}
+                    className="relative flex h-10 cursor-default select-none items-center gap-2.5 rounded-lg px-3 pr-9 text-sm font-medium text-slate-700 outline-none transition data-[disabled]:pointer-events-none data-[highlighted]:bg-orange-50 data-[highlighted]:text-slate-950 data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-amber-100 data-[state=checked]:to-pink-50 data-[state=checked]:text-slate-950"
+                  >
+                    <OptionIcon className="h-4 w-4 shrink-0 text-orange-500" aria-hidden="true" />
+                    <Select.ItemText>{option.label}</Select.ItemText>
+                    <Select.ItemIndicator className="absolute right-3 inline-flex items-center text-pink-500">
+                      <Check className="h-4 w-4" aria-hidden="true" />
+                    </Select.ItemIndicator>
+                  </Select.Item>
+                );
+              })}
+            </Select.Viewport>
+          </Select.Content>
+        </Select.Portal>
+      </Select.Root>
+    </div>
+  );
+}
+
+function PremiumDetailsFields({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: JobPremiumDetails;
+  onChange: (next: JobPremiumDetails) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="relative isolate flex flex-wrap items-center justify-between gap-3 overflow-hidden bg-gradient-to-r from-amber-300 via-orange-400 to-fuchsia-400 px-4 py-4 text-slate-950">
+        <div
+          className="pointer-events-none absolute -right-8 -top-20 -z-10 h-40 w-40 rounded-full bg-white/25 blur-3xl"
+          aria-hidden="true"
+        />
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wide">
+            Premium details
+          </div>
+          <div className="mt-1 text-xs text-slate-900/75">
+            Admin, Member Premium and Member Basic users can view these values.
+          </div>
+        </div>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/50 bg-white/30 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-950 backdrop-blur-sm">
+          <LockKeyhole className="h-3 w-3" aria-hidden="true" />
+          Protected
+        </span>
+      </div>
+      <div className="grid gap-4 p-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
+            <span className="flex items-center gap-1.5">
+              <BadgeDollarSign className="h-3.5 w-3.5 text-orange-500" aria-hidden="true" />
+              Salary
+            </span>
+            <input
+              value={value.salaryText}
+              disabled={disabled}
+              maxLength={500}
+              onChange={(event) => onChange({ ...value, salaryText: event.target.value })}
+              className="h-11 rounded-xl border border-amber-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:opacity-60"
+              placeholder="Example: €2,500 per month + gratuities or sales commission"
+            />
+          </label>
+          <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
+            <span className="flex items-center gap-1.5">
+              <Gift className="h-3.5 w-3.5 text-orange-500" aria-hidden="true" />
+              Gratuities / bonuses / commissions
+            </span>
+            <input
+              value={value.tipsText}
+              disabled={disabled}
+              maxLength={500}
+              onChange={(event) => onChange({ ...value, tipsText: event.target.value })}
+              className="h-11 rounded-xl border border-amber-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:opacity-60"
+              placeholder="Example: Typical monthly gratuities €600+"
+            />
+          </label>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <PremiumSelectField
+          label="Position compensation"
+          LabelIcon={HandCoins}
+          value={value.positionCompensationType}
+          options={POSITION_COMPENSATION_OPTIONS}
+          disabled={disabled}
+          onValueChange={(positionCompensationType) =>
+            onChange({
+              ...value,
+              positionCompensationType:
+                positionCompensationType as JobPremiumDetails["positionCompensationType"],
+            })
+          }
+        />
+        <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
+          <span className="flex items-center gap-1.5">
+            <CalendarDays className="h-3.5 w-3.5 text-pink-500" aria-hidden="true" />
+            Contract length
+          </span>
+          <input
+            value={value.contractLength}
+            disabled={disabled}
+            maxLength={200}
+            onChange={(event) => onChange({ ...value, contractLength: event.target.value })}
+            className="h-11 rounded-xl border border-amber-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:opacity-60"
+            placeholder="Example: 6 months"
+          />
+        </label>
+        <PremiumSelectField
+          label="Stripes"
+          LabelIcon={ChevronsUp}
+          value={value.stripes}
+          options={STRIPE_OPTIONS}
+          disabled={disabled}
+          onValueChange={(stripes) =>
+            onChange({ ...value, stripes: stripes as JobPremiumDetails["stripes"] })
+          }
+        />
+        </div>
+        <div className="grid items-start gap-3 sm:grid-cols-2">
+        <PremiumSelectField
+          label="Cabin"
+          LabelIcon={BedDouble}
+          value={value.cabinType}
+          options={CABIN_OPTIONS}
+          disabled={disabled}
+          onValueChange={(cabinType) =>
+            onChange({ ...value, cabinType: cabinType as JobPremiumDetails["cabinType"] })
+          }
+        />
+        <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
+          <span className="flex items-center gap-1.5">
+            <StickyNote className="h-3.5 w-3.5 text-pink-500" aria-hidden="true" />
+            Salary note {value.salaryText ? "(required)" : ""}
+          </span>
+          <input
+            value={value.salaryNote}
+            disabled={disabled}
+            required={Boolean(value.salaryText)}
+            maxLength={500}
+            onChange={(event) => onChange({ ...value, salaryNote: event.target.value })}
+            className="h-11 rounded-xl border border-amber-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:opacity-60"
+            placeholder="Paid while on board"
+          />
+          <span className="font-normal text-amber-800/70">
+            Required when salary is provided.
+          </span>
+        </label>
+        </div>
+        <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
+        <span className="flex items-center gap-1.5">
+          <NotebookText className="h-3.5 w-3.5 text-pink-500" aria-hidden="true" />
+          Additional premium information
+        </span>
+        <textarea
+          value={value.additionalInfo}
+          disabled={disabled}
+          maxLength={5000}
+          onChange={(event) => onChange({ ...value, additionalInfo: event.target.value })}
+          className="min-h-[110px] rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none transition hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:opacity-60"
+          placeholder="Add contract, rotation, bonus or other information reserved for members."
+        />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function PremiumDetailsPreview({ details }: { details: JobPremiumDetails }) {
+  if (!hasJobPremiumDetails(details)) return null;
+  return <JobPremiumDetailsPanel details={details} />;
 }
 
 function normalizePositions(payload: unknown): BreezyPosition[] {
@@ -715,6 +996,9 @@ export default function BreezyPositionRecordsBrowser({
   );
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [details, setDetails] = useState<BreezyPositionDetails | null>(null);
+  const [premiumDetails, setPremiumDetails] = useState<JobPremiumDetails>(
+    EMPTY_JOB_PREMIUM_DETAILS
+  );
   const [detailsOverrides, setDetailsOverrides] = useState<Record<string, unknown>>(
     {}
   );
@@ -746,6 +1030,9 @@ export default function BreezyPositionRecordsBrowser({
     hidden: false,
     hero_image_url: "",
   }));
+  const [createPremiumDetails, setCreatePremiumDetails] = useState<JobPremiumDetails>(
+    EMPTY_JOB_PREMIUM_DETAILS
+  );
   const [savingEdits, setSavingEdits] = useState(false);
   const [visibilityMenuOpen, setVisibilityMenuOpen] = useState(false);
   const [visibilitySaving, setVisibilitySaving] = useState(false);
@@ -1384,6 +1671,25 @@ export default function BreezyPositionRecordsBrowser({
     positionsTotal,
   ]);
 
+  const savePremiumDetails = async (positionId: string, value: JobPremiumDetails) => {
+    const res = await fetch(
+      `/api/company/job-premium-details/${encodeURIComponent(positionId)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(value),
+      }
+    );
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(
+        (data && typeof data?.error === "string" && data.error) ||
+          "Failed to save premium job details."
+      );
+    }
+    return normalizeJobPremiumDetails(data?.details);
+  };
+
   const createOpening = async () => {
     const target = companyId.trim();
     if (!target) return;
@@ -1478,6 +1784,8 @@ export default function BreezyPositionRecordsBrowser({
         );
       }
 
+      await savePremiumDetails(createdId, createPremiumDetails);
+
       setCreateOpeningOpen(false);
       setCreateOpeningDraft({
         name: "",
@@ -1494,6 +1802,7 @@ export default function BreezyPositionRecordsBrowser({
         hidden: false,
         hero_image_url: "",
       });
+      setCreatePremiumDetails(EMPTY_JOB_PREMIUM_DETAILS);
       await loadPositions(target);
       setPriorityCountsRefreshKey((value) => value + 1);
       await loadPositionDetails(createdId, name);
@@ -1541,6 +1850,7 @@ export default function BreezyPositionRecordsBrowser({
     setError(null);
     setWarning(null);
     setDetails(null);
+    setPremiumDetails(EMPTY_JOB_PREMIUM_DETAILS);
     setDetailsOverrides({});
     setDetailsCompanyNames([]);
     setCanEdit(false);
@@ -1560,6 +1870,18 @@ export default function BreezyPositionRecordsBrowser({
         );
       }
       const parsed = isRecord(data) ? (data as CachedPositionDetailsResponse) : null;
+      const premiumRes = await fetch(
+        `/api/company/job-premium-details/${encodeURIComponent(posId)}`,
+        { cache: "no-store" }
+      );
+      const premiumData = await premiumRes.json().catch(() => null);
+      if (!premiumRes.ok) {
+        throw new Error(
+          (premiumData && typeof premiumData?.error === "string" && premiumData.error) ||
+            "Failed to load premium job details."
+        );
+      }
+      setPremiumDetails(normalizeJobPremiumDetails(premiumData?.details));
       const nextDetails = parsed && isRecord(parsed.details) ? parsed.details : null;
       const meta = parsed?.meta && isRecord(parsed.meta) ? parsed.meta : {};
       const linkedCompanyNames =
@@ -2305,6 +2627,8 @@ export default function BreezyPositionRecordsBrowser({
             "Failed to save edits."
         );
       }
+      const savedPremiumDetails = await savePremiumDetails(posId, premiumDetails);
+      setPremiumDetails(savedPremiumDetails);
       await loadPositionDetails(posId);
       await loadPositions(targetCompanyId);
       setPriorityCountsRefreshKey((value) => value + 1);
@@ -3471,7 +3795,7 @@ export default function BreezyPositionRecordsBrowser({
                       Editing is disabled:{" "}
                       {isPositionsTableMissing
                         ? "apply `supabase/breezy_positions.sql` in Supabase to enable caching/overrides."
-                        : "your user must be `Admin` in `company_members`."}
+                        : "your user must be `Admin` or `Member Premium` in `company_members`."}
                     </div>
                   ) : null}
                 </div>
@@ -4166,6 +4490,12 @@ export default function BreezyPositionRecordsBrowser({
                               </div>
                             </div>
 
+                            <PremiumDetailsFields
+                              value={premiumDetails}
+                              onChange={setPremiumDetails}
+                              disabled={savingEdits}
+                            />
+
                             <div className="grid gap-1">
                               <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                                 Summary
@@ -4238,6 +4568,8 @@ export default function BreezyPositionRecordsBrowser({
 
                     return (
                       <>
+                        <PremiumDetailsPreview details={premiumDetails} />
+
                         {(() => {
                           const selectedBenefits = extractBenefitTagsFromDetails(details);
                           if (selectedBenefits.length === 0) return null;
@@ -4853,6 +5185,12 @@ export default function BreezyPositionRecordsBrowser({
                   })}
                 </div>
               </div>
+
+              <PremiumDetailsFields
+                value={createPremiumDetails}
+                onChange={setCreatePremiumDetails}
+                disabled={createOpeningSaving}
+              />
 
               <div className="grid gap-1">
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">

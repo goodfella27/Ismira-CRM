@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 
+import {
+  normalizeManagedUserRole,
+  setManagedUserRole,
+} from "@/lib/auth/access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -144,42 +148,42 @@ export async function PATCH(
     );
   }
 
-  const updates: {
-    email_confirm?: boolean;
-    user_metadata?: Record<string, unknown>;
-  } = {};
+  const updates: { email_confirm?: boolean } = {};
 
   if (payload.confirm) {
     updates.email_confirm = true;
   }
 
   if (payload.role) {
-    const role = payload.role.trim();
-    updates.user_metadata = {
-      ...(currentData.user.user_metadata ?? {}),
-      role: role || "Member",
-    };
-    const { error: memberError } = await admin
-      .from("company_members")
-      .upsert({
-        company_id: companyId,
-        user_id: targetUserId,
-        role: role || "Member",
-      });
-    if (memberError) {
+    const role = normalizeManagedUserRole(payload.role);
+    if (targetUserId === user.id && role !== "Admin") {
       return NextResponse.json(
-        { error: memberError.message ?? "Failed to update role" },
+        { error: "You cannot remove your own admin access." },
+        { status: 400 }
+      );
+    }
+    try {
+      await setManagedUserRole(admin, companyId, targetUserId, role);
+    } catch (roleError) {
+      return NextResponse.json(
+        { error: roleError instanceof Error ? roleError.message : "Failed to update access" },
         { status: 500 }
       );
     }
   }
 
-  if (!updates.email_confirm && !updates.user_metadata) {
+  if (!updates.email_confirm && !payload.role) {
     return NextResponse.json({ error: "No updates provided" }, { status: 400 });
   }
 
-  const { data: updated, error: updateError } =
-    await admin.auth.admin.updateUserById(targetUserId, updates);
+  if (!updates.email_confirm) {
+    return NextResponse.json({ user: currentData.user });
+  }
+
+  const { data: updated, error: updateError } = await admin.auth.admin.updateUserById(
+    targetUserId,
+    updates
+  );
 
   if (updateError || !updated?.user) {
     return NextResponse.json(

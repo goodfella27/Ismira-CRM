@@ -56,9 +56,6 @@ export async function POST(
 
     const admin = createSupabaseAdminClient();
     const membership = await ensureCompanyMembership(admin, user.id);
-    if (membership.role.toLowerCase() !== "admin") {
-      return NextResponse.json({ error: "Admin access required." }, { status: 403 });
-    }
 
     const { data: existing, error: existingError } = await admin
       .from("job_companies")
@@ -279,9 +276,6 @@ export async function DELETE(
 
     const admin = createSupabaseAdminClient();
     const membership = await ensureCompanyMembership(admin, user.id);
-    if (membership.role.toLowerCase() !== "admin") {
-      return NextResponse.json({ error: "Admin access required." }, { status: 403 });
-    }
 
     const { data: existing, error: existingError } = await admin
       .from("job_companies")

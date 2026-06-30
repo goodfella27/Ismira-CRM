@@ -366,7 +366,7 @@ export default function CompanyPage() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("Recruiter");
+  const [inviteRole, setInviteRole] = useState("Member Basic");
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [userActionId, setUserActionId] = useState<string | null>(null);
@@ -1578,7 +1578,7 @@ export default function CompanyPage() {
   const resetInviteModal = () => {
     setInviteName("");
     setInviteEmail("");
-    setInviteRole("Recruiter");
+    setInviteRole("Member Basic");
     setInviteError(null);
   };
 
@@ -1605,7 +1605,7 @@ export default function CompanyPage() {
       const res = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name, role: inviteRole || "Member" }),
+        body: JSON.stringify({ email, name, role: inviteRole || "Member Basic" }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -2344,9 +2344,9 @@ export default function CompanyPage() {
                           disabled={userActionId === user.id}
                         >
                           <option>Admin</option>
-                          <option>Recruiter</option>
-                          <option>Viewer</option>
-                          <option>Member</option>
+                          <option>Member Premium</option>
+                          <option>Member Basic</option>
+                          <option>Visitor</option>
                         </select>
                         {user.status === "pending" ? (
                           <>
@@ -2516,9 +2516,10 @@ export default function CompanyPage() {
           {activeSection === "permissions" ? (
             <div className="mt-6 space-y-4">
               {[
-                { role: "Admin", desc: "Full access to company settings." },
-                { role: "Recruiter", desc: "Manage candidates and notes." },
-                { role: "Viewer", desc: "Read-only access." },
+                { role: "Admin", desc: "Full access, including users, roles and payments." },
+                { role: "Member Premium", desc: "Recruiter access: view private job fields and edit HR Portal data." },
+                { role: "Member Basic", desc: "View private job fields without HR Portal editing access." },
+                { role: "Visitor", desc: "Public job information only." },
               ].map((item) => (
                 <div
                   key={item.role}
@@ -4070,8 +4071,9 @@ export default function CompanyPage() {
                   onChange={(event) => setInviteRole(event.target.value)}
                 >
                   <option>Admin</option>
-                  <option>Recruiter</option>
-                  <option>Viewer</option>
+                  <option>Member Premium</option>
+                  <option>Member Basic</option>
+                  <option>Visitor</option>
                 </select>
               </div>
               {inviteError ? (

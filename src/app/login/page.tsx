@@ -18,6 +18,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   const confirmed = searchParams.get("confirmed");
+  const requestedNext = searchParams.get("next") ?? "";
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -36,13 +37,17 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/pipeline");
+    const destination = requestedNext
+      ? `/auth/continue?next=${encodeURIComponent(requestedNext)}`
+      : "/auth/continue";
+    router.replace(destination);
+    router.refresh();
   };
 
   return (
     <AuthLayout
       title="Welcome back"
-      subtitle="Log in to manage candidates and pipeline updates."
+      subtitle="Log in to continue to your jobs portal or admin workspace."
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-2">
