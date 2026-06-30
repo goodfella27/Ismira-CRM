@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const PUBLIC_ROUTES = ["/login", "/register", "/auth", "/form", "/cv", "/job", "/jobs"];
+const PUBLIC_ROUTES = [
+  "/login",
+  "/register",
+  "/auth",
+  "/form",
+  "/cv",
+  "/job",
+  "/jobs",
+  "/embed",
+];
 const ADMIN_ONLY_ROUTES = ["/company"];
 
 function redirectWithCookies(request: NextRequest, response: NextResponse, pathname: string) {

@@ -1,4 +1,5 @@
 import { normalizePriorityKey } from "./breezy-priority-types";
+import { pickPositionDescription } from "./breezy-position-description";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -24,6 +25,19 @@ export type PublicFrontpageJobsPayload = {
   benefitLabels: Record<string, string>;
 };
 
+export type PublicFrontpageJobDetails = {
+  version: 1;
+  id: string;
+  name: string;
+  company?: string;
+  department?: string;
+  company_logo_url?: string;
+  description_html: string;
+  ship_types: string[];
+  benefit_tags: string[];
+  processable_countries: Array<{ code: string; name: string }>;
+};
+
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -46,6 +60,51 @@ function asStringMap(value: unknown) {
       .map(([key, label]) => [key.trim(), asString(label)] as const)
       .filter(([key, label]) => key && label)
   );
+}
+
+function asCountryRows(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isRecord)
+    .map((country) => ({
+      code: asString(country.code).toUpperCase(),
+      name: asString(country.name),
+    }))
+    .filter((country) => country.code && country.name);
+}
+
+export function buildPublicFrontpageJobDetails(
+  source: unknown,
+  positionId: string
+): PublicFrontpageJobDetails | null {
+  if (!isRecord(source) || source.not_active === true) return null;
+
+  const id = asString(source.id) || asString(source._id) || positionId.trim();
+  const name = asString(source.name);
+  if (!id || !name) return null;
+
+  const shipTypes = asStringArray(source.ship_types);
+  const fallbackShipType = asString(source.ship_type);
+  if (shipTypes.length === 0 && fallbackShipType) shipTypes.push(fallbackShipType);
+
+  const nationalityCountries = isRecord(source.nationality_countries)
+    ? source.nationality_countries
+    : {};
+
+  return {
+    version: 1,
+    id,
+    name,
+    ...(asString(source.company) ? { company: asString(source.company) } : {}),
+    ...(asString(source.department) ? { department: asString(source.department) } : {}),
+    ...(asString(source.company_logo_url)
+      ? { company_logo_url: asString(source.company_logo_url) }
+      : {}),
+    description_html: pickPositionDescription(source),
+    ship_types: shipTypes,
+    benefit_tags: asStringArray(source.benefit_tags),
+    processable_countries: asCountryRows(nationalityCountries.processable),
+  };
 }
 
 export function buildPublicFrontpageJobsPayload(
