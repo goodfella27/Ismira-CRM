@@ -11,6 +11,7 @@ const snippet = `<div id="ismira-jobs"></div>
   defer
   src="https://ismira-crm.vercel.app/embed/jobs/v4/mount.js"
   data-api-base="https://ismira-crm.vercel.app"
+  data-portal-url="https://ismira-crm.vercel.app/jobs"
   data-target="#ismira-jobs"
   data-refresh-seconds="60"
 ></script>`;
@@ -28,7 +29,7 @@ const snippetWordPress = `add_action('wp_enqueue_scripts', function () {
 
   wp_add_inline_script(
     'ismira-jobs-feed',
-    'window.IsmiraJobsFeedConfig = { apiBase: "https://ismira-crm.vercel.app", target: "#ismira-jobs", refreshSeconds: 60 };',
+    'window.IsmiraJobsFeedConfig = { apiBase: "https://ismira-crm.vercel.app", portalUrl: "https://ismira-crm.vercel.app/jobs", target: "#ismira-jobs", refreshSeconds: 60 };',
     'before'
   );
 
