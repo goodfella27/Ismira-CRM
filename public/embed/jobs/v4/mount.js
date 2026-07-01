@@ -157,7 +157,7 @@
     .ijf-card{position:relative;display:grid;grid-template-columns:86px minmax(0,1fr) 42px;gap:20px;align-items:start;border:1px solid var(--ijf-line);border-radius:24px;background:#fff;padding:21px 22px;box-shadow:0 2px 3px rgba(15,23,42,.08);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;animation:ijf-in .35s ease both}
     .ijf-card:hover{transform:translateY(-2px);border-color:#cbd7e6;box-shadow:0 15px 34px -24px rgba(15,23,42,.55)}
     .ijf-logo{display:grid;width:82px;height:82px;place-items:center;overflow:hidden;border:1px solid var(--ijf-line);border-radius:50%;background:#fff;color:#60708a;font-size:15px;font-weight:800}.ijf-logo img{width:100%;height:100%;object-fit:contain;padding:10px;box-sizing:border-box}
-    .ijf-head{display:flex;align-items:center;gap:10px;min-width:0}.ijf-type{display:inline-flex;flex:none;align-items:center;border-radius:999px;background:linear-gradient(90deg,#ffab3d,#ff8a2f);padding:6px 11px;color:#fff;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;box-shadow:0 5px 12px -8px #f97316}.ijf-title{margin:0;min-width:0;font-size:20px;line-height:1.18;font-weight:800;letter-spacing:-.015em;color:var(--ijf-ink)}
+    .ijf-head{display:flex;align-items:center;gap:10px;min-width:0}.ijf-type{display:inline-flex;flex:none;align-items:center;border-radius:999px;background:linear-gradient(90deg,#ff9d2e,#ffbf5f);padding:6px 11px;color:#fff;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;box-shadow:0 5px 12px -8px #f97316}.ijf-type--sky{background:linear-gradient(90deg,#58d0d8,#3ea4e6);box-shadow:0 5px 12px -8px #0284c7}.ijf-type--violet{background:linear-gradient(90deg,#8b5cf6,#c084fc);box-shadow:0 5px 12px -8px #7c3aed}.ijf-type--emerald{background:linear-gradient(90deg,#22c55e,#14b8a6);box-shadow:0 5px 12px -8px #059669}.ijf-title{margin:0;min-width:0;font-size:20px;line-height:1.18;font-weight:800;letter-spacing:-.015em;color:var(--ijf-ink)}
     .ijf-benefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px 22px;margin-top:17px}.ijf-benefit{display:flex;align-items:center;gap:9px;min-width:0;font-size:12px;font-weight:650;color:#20283a}.ijf-benefit-icon{display:grid;width:30px;height:30px;flex:none;place-items:center;border-radius:50%;background:#f1f5f9;color:#172033}.ijf-benefit-icon svg{width:15px;height:15px}.ijf-benefit span:last-child{min-width:0}
     .ijf-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.ijf-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid #ffd06f;border-radius:999px;background:#fff7d7;padding:7px 11px;color:#63431c;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;box-shadow:0 3px 8px -7px #f59e0b}.ijf-pill svg{width:14px;height:14px;color:#f59e0b}.ijf-pill--ship{border-color:#8ce7f0;background:#ddfbff;color:#176173}.ijf-pill--ship svg{color:#0891b2}
     .ijf-go{display:grid;width:40px;height:40px;place-items:center;align-self:center;border-radius:50%;background:#f4f7fa;color:#52617b;transition:.18s ease}.ijf-go svg{width:18px;height:18px}.ijf-card:hover .ijf-go{background:linear-gradient(135deg,#ffb23f,#f472b6);color:#172033;transform:translateX(2px)}
@@ -286,12 +286,15 @@
         ? `<span class="ijf-pill ijf-pill--ship">${iconSvg("compass")} ${escapeHtml(shipType.replaceAll("_", " "))}</span>`
         : "",
     ].join("");
+    const priorityStyle = ["sky", "violet", "emerald"].includes(asString(job.priority_style))
+      ? ` ijf-type--${asString(job.priority_style)}`
+      : "";
 
     return `<article class="ijf-card" style="animation-delay:${Math.min(index * 35, 245)}ms">
       <div class="ijf-logo">${logoHtml}</div>
       <div>
         <div class="ijf-head">
-          <span class="ijf-type">${escapeHtml(job.priority_label || "Opening")}</span>
+          <span class="ijf-type${priorityStyle}">${escapeHtml(job.priority_label || "Opening")}</span>
           <h3 class="ijf-title">${escapeHtml(name)}</h3>
         </div>
         ${benefitsHtml ? `<div class="ijf-benefits">${benefitsHtml}</div>` : ""}

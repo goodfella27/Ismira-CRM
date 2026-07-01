@@ -11,6 +11,7 @@ export type PublicFrontpageJob = {
   department?: string;
   priority: string;
   priority_label: string;
+  priority_style: "orange" | "sky" | "violet" | "emerald";
   company_logo_url?: string;
   application_url?: string;
   details_url: string;
@@ -121,12 +122,20 @@ export function buildPublicFrontpageJobsPayload(
     ? payload.priorityTypes.filter(isRecord)
     : [];
 
-  const visiblePriorityLabels = new Map<string, string>();
-  for (const type of priorityTypes) {
-    if (type.showOnFrontpage !== true) continue;
+  const priorityStyles = ["orange", "sky", "violet", "emerald"] as const;
+  const visiblePriorityLabels = new Map<string, { label: string; style: (typeof priorityStyles)[number] }>();
+  const visiblePriorityTypes = priorityTypes
+    .filter((type) => type.showOnFrontpage === true)
+    .sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0));
+  for (const [index, type] of visiblePriorityTypes.entries()) {
     const key = normalizePriorityKey(asString(type.key));
     const label = asString(type.label);
-    if (key && label) visiblePriorityLabels.set(key, label);
+    if (key && label) {
+      visiblePriorityLabels.set(key, {
+        label,
+        style: priorityStyles[index % priorityStyles.length],
+      });
+    }
   }
 
   const normalizedOrigin = origin.replace(/\/+$/, "");
@@ -135,7 +144,8 @@ export function buildPublicFrontpageJobsPayload(
       const id = asString(job.id);
       const name = asString(job.name);
       const priority = normalizePriorityKey(asString(job.priority));
-      const priorityLabel = visiblePriorityLabels.get(priority) ?? "";
+      const priorityDisplay = visiblePriorityLabels.get(priority);
+      const priorityLabel = priorityDisplay?.label ?? "";
       const state = asString(job.state).toLowerCase();
       const orgType = asString(job.org_type).toLowerCase();
       if (!id || !name || !priorityLabel) return null;
@@ -154,6 +164,7 @@ export function buildPublicFrontpageJobsPayload(
         ...(asString(job.department) ? { department: asString(job.department) } : {}),
         priority,
         priority_label: priorityLabel,
+        priority_style: priorityDisplay?.style ?? "orange",
         ...(asString(job.company_logo_url)
           ? { company_logo_url: asString(job.company_logo_url) }
           : {}),
