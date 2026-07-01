@@ -66,8 +66,10 @@
   }
 
   function safeUrl(value) {
+    const raw = asString(value);
+    if (!raw) return "";
     try {
-      const url = new URL(asString(value), window.location.href);
+      const url = new URL(raw, window.location.href);
       return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : "";
     } catch {
       return "";
