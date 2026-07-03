@@ -166,6 +166,14 @@ type JobListItemIndexed = JobListItem & {
   __updatedAtMs: number;
 };
 
+function compareJobsByOpeningType(a: JobListItemIndexed, b: JobListItemIndexed) {
+  const aHasType = a.__priorityKey ? 1 : 0;
+  const bHasType = b.__priorityKey ? 1 : 0;
+  if (bHasType !== aHasType) return bHasType - aHasType;
+  if (b.__updatedAtMs !== a.__updatedAtMs) return b.__updatedAtMs - a.__updatedAtMs;
+  return asString(a.name).localeCompare(asString(b.name), undefined, { sensitivity: "base" });
+}
+
 type JobsBoardCache = {
   v: 8;
   savedAt: number;
@@ -2381,10 +2389,7 @@ export default function JobsBoard() {
           return job.__search.includes(query);
         });
 
-    return [...matches].sort((a, b) => {
-      if (b.__updatedAtMs !== a.__updatedAtMs) return b.__updatedAtMs - a.__updatedAtMs;
-      return asString(a.name).localeCompare(asString(b.name), undefined, { sensitivity: "base" });
-    });
+    return [...matches].sort(compareJobsByOpeningType);
   }, [
     baseJobs,
     companyFilters,

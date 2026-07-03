@@ -87,6 +87,24 @@ function asString(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
+function compareJobsByOpeningType(a: JobListItem, b: JobListItem) {
+  const aHasType = resolveOpeningType({ override: getPositionOpeningTypeOverride(a) }) ? 1 : 0;
+  const bHasType = resolveOpeningType({ override: getPositionOpeningTypeOverride(b) }) ? 1 : 0;
+  if (bHasType !== aHasType) return bHasType - aHasType;
+
+  const aTime = Date.parse(asString(a.updated_at));
+  const bTime = Date.parse(asString(b.updated_at));
+  const aUpdatedAt = Number.isFinite(aTime) ? aTime : 0;
+  const bUpdatedAt = Number.isFinite(bTime) ? bTime : 0;
+  if (bUpdatedAt !== aUpdatedAt) return bUpdatedAt - aUpdatedAt;
+
+  return asString(a.name).localeCompare(asString(b.name), undefined, { sensitivity: "base" });
+}
+
+function sortJobsByOpeningType(items: JobListItem[]) {
+  return [...items].sort(compareJobsByOpeningType);
+}
+
 function getId(value: { _id?: string; id?: string } | null | undefined) {
   return asString(value?._id).trim() || asString(value?.id).trim();
 }
@@ -723,7 +741,12 @@ export async function GET(request: Request) {
         const countryLabels = Object.fromEntries(
           countryOptions.map((option) => [option.code, option.name])
         );
-        const payload = { jobs: enriched, priorityTypes, benefitLabels, countryLabels };
+        const payload = {
+          jobs: sortJobsByOpeningType(enriched),
+          priorityTypes,
+          benefitLabels,
+          countryLabels,
+        };
         setJobsResponseCache(cacheKey, {
           expiresAt: Date.now() + 60_000,
           payload,
@@ -833,7 +856,12 @@ export async function GET(request: Request) {
       const countryLabels = Object.fromEntries(
         countryOptions.map((option) => [option.code, option.name])
       );
-      const payload = { jobs: enriched, priorityTypes, benefitLabels, countryLabels };
+      const payload = {
+        jobs: sortJobsByOpeningType(enriched),
+        priorityTypes,
+        benefitLabels,
+        countryLabels,
+      };
       setJobsResponseCache(cacheKey, {
         expiresAt: Date.now() + 60_000,
         payload,
@@ -844,7 +872,10 @@ export async function GET(request: Request) {
     }
 
     enriched = attachPublicApplyUrls(enriched);
-    const payload = { jobs: enriched, priorityTypes: DEFAULT_BREEZY_PRIORITY_TYPES };
+    const payload = {
+      jobs: sortJobsByOpeningType(enriched),
+      priorityTypes: DEFAULT_BREEZY_PRIORITY_TYPES,
+    };
     setJobsResponseCache(cacheKey, {
       expiresAt: Date.now() + 60_000,
       payload,
