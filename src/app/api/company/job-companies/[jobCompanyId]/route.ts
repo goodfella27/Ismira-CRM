@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 
+import { normalizePriorityKey } from "@/lib/breezy-priority-types";
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import { fetchJobCompanyBenefits, mapBenefitTagsByJobCompanyId, normalizeBenefitTags } from "@/lib/job-company-benefits";
 import { normalizeBenefitOptions } from "@/lib/job-benefit-options";
 import { normalizeCountryCode } from "@/lib/job-country-options";
+import {
+  getMetadataOpeningType,
+  JOB_COMPANY_OPENING_TYPE_METADATA_KEY,
+} from "@/lib/job-company-opening-types";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import { signJobCompanyLogoUrls, type JobCompanyRow } from "@/lib/job-companies";
 import { normalizeJobShipTypes, resolveJobShipType, resolveJobShipTypes } from "@/lib/job-ship-types";
@@ -81,6 +86,7 @@ export async function POST(
     const countryCodesRaw = form.get("countryCodes");
     const shipTypeRaw = form.get("shipType");
     const shipTypesRaw = form.get("shipTypes");
+    const openingTypeRaw = form.get("openingType");
 
     let nextLogoPath: string | null | undefined = undefined;
     if (removeLogo === "1" || removeLogo === "true") {
@@ -150,6 +156,16 @@ export async function POST(
         delete metadata.ship_types;
         delete metadata.ship_type;
       }
+      update.metadata = metadata;
+    }
+    if (typeof openingTypeRaw === "string") {
+      const metadata =
+        update.metadata && typeof update.metadata === "object" && !Array.isArray(update.metadata)
+          ? { ...(update.metadata as Record<string, unknown>) }
+          : getMetadata(existing.metadata);
+      const openingType = normalizePriorityKey(openingTypeRaw);
+      if (openingType) metadata[JOB_COMPANY_OPENING_TYPE_METADATA_KEY] = openingType;
+      else delete metadata[JOB_COMPANY_OPENING_TYPE_METADATA_KEY];
       update.metadata = metadata;
     }
     if (typeof websiteRaw === "string") {
@@ -248,6 +264,7 @@ export async function POST(
           website: company.website,
           shipType: resolveJobShipType({ metadata: company.metadata, name: company.name }),
           shipTypes: resolveJobShipTypes({ metadata: company.metadata, name: company.name }),
+          openingType: getMetadataOpeningType(company.metadata),
           benefitTags: benefitTagsByCompanyId.get(company.id) ?? [],
           countryCodes: getJobCompanyCountryCodes(company.metadata),
           logoUrl: logoPath ? signedUrls.get(logoPath) ?? null : null,

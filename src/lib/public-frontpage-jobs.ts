@@ -74,6 +74,12 @@ function asCountryRows(value: unknown) {
     .filter((country) => country.code && country.name);
 }
 
+function isUrgentOpeningType(type: UnknownRecord) {
+  const key = normalizePriorityKey(asString(type.key));
+  const label = normalizePriorityKey(asString(type.label));
+  return key === "urgent-opening" || label === "urgent-opening";
+}
+
 export function buildPublicFrontpageJobDetails(
   source: unknown,
   positionId: string
@@ -128,6 +134,7 @@ export function buildPublicFrontpageJobsPayload(
     .filter((type) => type.showOnFrontpage === true)
     .sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0));
   for (const [index, type] of visiblePriorityTypes.entries()) {
+    if (!isUrgentOpeningType(type)) continue;
     const key = normalizePriorityKey(asString(type.key));
     const label = asString(type.label);
     if (key && label) {

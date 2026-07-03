@@ -19,6 +19,11 @@ import {
   syncJobCompaniesFromPositions,
   type JobCompanyRow,
 } from "@/lib/job-companies";
+import {
+  getPositionOpeningTypeOverride,
+  resolveOpeningType,
+  type OpeningTypeOverride,
+} from "@/lib/job-company-opening-types";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -45,10 +50,15 @@ type PositionListItem = {
   company?: string;
   department?: string;
   priority?: string;
+  job_company_id?: string;
   edited?: boolean;
   hidden?: boolean;
   synced_at?: string | null;
   details_synced_at?: string | null;
+};
+
+type InternalPositionListItem = PositionListItem & {
+  priorityOverride?: OpeningTypeOverride;
 };
 
 function asString(value: unknown) {
@@ -167,7 +177,7 @@ async function fetchBreezyPositionsList(breezyCompanyId: string): Promise<Positi
 }
 
 async function expandPositionCompanyJoins(
-  items: PositionListItem[],
+  items: InternalPositionListItem[],
   init: {
     admin: ReturnType<typeof createSupabaseAdminClient>;
     companyId: string;
@@ -226,9 +236,36 @@ async function expandPositionCompanyJoins(
         return {
           ...item,
           view_id: `${item.id}:${company.id}`,
+          job_company_id: company.id,
           company: companyName,
         };
       });
+  });
+}
+
+function applyCompanyOpeningTypeDefaults(
+  items: InternalPositionListItem[],
+  companies: JobCompanyRow[]
+): PositionListItem[] {
+  const companyById = new Map(companies.map((company) => [company.id, company] as const));
+  const companyByNormalizedName = new Map(
+    companies.map((company) => [company.normalized_name, company] as const)
+  );
+
+  return items.map((item) => {
+    const { priorityOverride, ...publicItem } = item;
+    const company =
+      (typeof item.job_company_id === "string" ? companyById.get(item.job_company_id) : undefined) ??
+      companyByNormalizedName.get(normalizeJobCompanyName(item.company));
+    const priority = resolveOpeningType({
+      metadata: company?.metadata,
+      override: priorityOverride,
+    });
+
+    return {
+      ...publicItem,
+      priority: priority || undefined,
+    };
   });
 }
 
@@ -353,7 +390,7 @@ export async function GET(request: Request) {
     const normalizedCompanyFilter = normalizeJobCompanyName(jobCompanyFilter);
     const normalizedSearchFilter = searchFilter.toLowerCase();
 
-    let list: PositionListItem[] = (Array.isArray(data) ? (data as unknown as Row[]) : []).map(
+    let list: InternalPositionListItem[] = (Array.isArray(data) ? (data as unknown as Row[]) : []).map(
       (row) => {
         const overrides =
           row.overrides && typeof row.overrides === "object" && !Array.isArray(row.overrides)
@@ -364,8 +401,7 @@ export async function GET(request: Request) {
           typeof overrides.company === "string" ? overrides.company.trim() : "";
         const overrideDepartment =
           typeof overrides.department === "string" ? overrides.department.trim() : "";
-        const overridePriority =
-          typeof overrides.priority === "string" ? overrides.priority.trim() : "";
+        const priorityOverride = getPositionOpeningTypeOverride(overrides);
         const hidden = parseHiddenOverride(overrides.hidden);
         const edited = Object.keys(overrides).length > 0;
         const rawCompany = overrideCompany || row.company || "";
@@ -383,12 +419,13 @@ export async function GET(request: Request) {
           org_type: row.org_type ?? undefined,
           company: displayCompany || undefined,
           department: overrideDepartment || row.department || undefined,
-          priority: overridePriority || undefined,
+          job_company_id: row.job_company_id ?? undefined,
+          priorityOverride,
           edited,
           hidden,
           synced_at: row.synced_at,
           details_synced_at: row.details_synced_at,
-        } satisfies PositionListItem;
+        } satisfies InternalPositionListItem;
       }
     );
 
@@ -398,7 +435,9 @@ export async function GET(request: Request) {
       // Keep legacy single-company rows if the join overlay is unavailable.
     }
 
-    list = list.filter((position) => {
+    const resolvedList = applyCompanyOpeningTypeDefaults(list, companies);
+
+    const filteredList = resolvedList.filter((position) => {
       if (!normalizedCompanyFilter) return true;
       return normalizeJobCompanyName(position.company) === normalizedCompanyFilter;
     }).filter((position) => {
@@ -411,7 +450,7 @@ export async function GET(request: Request) {
       return haystack.includes(normalizedSearchFilter);
     });
 
-    if (list.length === 0) {
+    if (filteredList.length === 0) {
       if (jobCompanyFilter || searchFilter || priorityFilter) {
         return NextResponse.json(
           { positions: [], total: 0, nextOffset: null },
@@ -434,8 +473,8 @@ export async function GET(request: Request) {
     }
 
     const isServerFiltered = Boolean(jobCompanyFilter || searchFilter || priorityFilter);
-    const total = isServerFiltered ? list.length : typeof count === "number" ? count : offset + list.length;
-    const slice = isServerFiltered ? list.slice(offset, offset + limit) : list;
+    const total = isServerFiltered ? filteredList.length : typeof count === "number" ? count : offset + filteredList.length;
+    const slice = isServerFiltered ? filteredList.slice(offset, offset + limit) : filteredList;
     const nextOffset = offset + slice.length < total ? offset + slice.length : null;
     return NextResponse.json({ positions: slice, total, nextOffset }, { status: 200 });
   } catch (error) {

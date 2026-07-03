@@ -4,6 +4,7 @@ import { ensureCompanyMembership } from "@/lib/company/membership";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import { fetchJobCountryOptions } from "@/lib/job-country-options";
 import { fetchJobBenefitOptions } from "@/lib/job-benefit-options";
+import { getMetadataOpeningType } from "@/lib/job-company-opening-types";
 import {
   fetchJobCompanyBenefits,
   mapBenefitTagsByJobCompanyId,
@@ -345,6 +346,7 @@ export async function GET() {
                 : null) ?? null,
             shipType: resolveJobShipType({ metadata: row.metadata, name: row.name }),
             shipTypes: resolveJobShipTypes({ metadata: row.metadata, name: row.name }),
+            openingType: getMetadataOpeningType(row.metadata),
             benefitTags: benefitTagsByCompanyId.get(row.id) ?? [],
             countryCodes:
               savedCountryCodes.length > 0

@@ -22,6 +22,11 @@ import {
   normalizeBenefitTags,
   syncAutoBenefitsFromCachedPositions,
 } from "@/lib/job-company-benefits";
+import {
+  getPositionOpeningTypeOverride,
+  resolveOpeningType,
+  type OpeningTypeOverride,
+} from "@/lib/job-company-opening-types";
 import { benefitLabelMap, fetchJobBenefitOptions } from "@/lib/job-benefit-options";
 import { setJobsResponseCache } from "@/lib/jobs-api-cache";
 import {
@@ -47,6 +52,7 @@ type JobListItem = {
   company?: string;
   department?: string;
   priority?: string;
+  priorityOverride?: OpeningTypeOverride;
   job_company_id?: string;
   company_logo_url?: string;
   company_slug?: string;
@@ -329,7 +335,8 @@ async function attachJobCompanyBranding(
     const company =
       (typeof item.job_company_id === "string" ? byId.get(item.job_company_id) : undefined) ??
       byNormalized.get(normalizeJobCompanyName(item.company));
-    if (!company) return item;
+    const { priorityOverride, ...publicItem } = item;
+    if (!company) return publicItem;
     const logoPath = typeof company.logo_path === "string" ? company.logo_path.trim() : "";
     const shipTypes = resolveJobShipTypes({
       metadata: company.metadata,
@@ -340,14 +347,19 @@ async function attachJobCompanyBranding(
     const hasPositionCountryCodes =
       Array.isArray(item.processable_countries) && item.processable_countries.length > 0;
     const countryCodes = getJobCompanyCountryCodes(company.metadata);
+    const priority = resolveOpeningType({
+      metadata: company.metadata,
+      override: priorityOverride,
+    });
     return {
-      ...item,
+      ...publicItem,
       name: replacePositionTitleCompany(item.name, item.company, company.name) || item.name,
       company: company.name,
       company_slug: company.slug,
       company_logo_url: logoPath ? signedUrls.get(logoPath) ?? undefined : undefined,
       ship_type: shipTypes[0] ?? undefined,
       ship_types: shipTypes,
+      priority: priority || undefined,
       benefit_tags: hasPositionBenefitTags
         ? normalizeBenefitTags(item.benefit_tags)
         : benefitTagsByCompanyId.get(company.id) ?? [],
@@ -635,8 +647,7 @@ export async function GET(request: Request) {
               typeof overrides.company === "string" ? overrides.company.trim() : "";
             const overrideDepartment =
               typeof overrides.department === "string" ? overrides.department.trim() : "";
-            const overridePriority =
-              typeof overrides.priority === "string" ? overrides.priority.trim() : "";
+            const priorityOverride = getPositionOpeningTypeOverride(overrides);
             const hasBenefitOverride = Object.prototype.hasOwnProperty.call(overrides, "benefit_tags");
             const orgType = normalizeOrgType(row.org_type);
 
@@ -652,7 +663,9 @@ export async function GET(request: Request) {
                 inferCompanyFromPositionName(overrideName || row.name || "") ||
                 undefined,
               department: overrideDepartment || row.department || undefined,
-              priority: overridePriority || undefined,
+              priority:
+                typeof priorityOverride === "string" ? priorityOverride : undefined,
+              priorityOverride,
               job_company_id: row.job_company_id ?? undefined,
               ...(hasBenefitOverride
                 ? { benefit_tags: normalizeBenefitTags(overrides.benefit_tags) }

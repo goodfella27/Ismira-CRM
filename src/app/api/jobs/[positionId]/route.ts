@@ -20,6 +20,10 @@ import {
   normalizeBenefitTags,
 } from "@/lib/job-company-benefits";
 import {
+  getPositionOpeningTypeOverride,
+  resolveOpeningType,
+} from "@/lib/job-company-opening-types";
+import {
   normalizeJobCompanyName,
   resolveActiveJobCompanies,
   resolveKnownJobCompanyName,
@@ -99,6 +103,12 @@ function applyOverrides(details: unknown, overrides: unknown) {
         const normalized = value.trim().toLowerCase();
         if (["1", "true", "yes", "y", "on"].includes(normalized)) base.hidden = true;
       }
+      continue;
+    }
+    if (key === "priority") {
+      const priorityOverride = getPositionOpeningTypeOverride({ priority: value });
+      if (priorityOverride === null) delete base.priority;
+      else if (typeof priorityOverride === "string") base.priority = priorityOverride;
       continue;
     }
     if (key === "benefit_tags") {
@@ -306,6 +316,7 @@ async function attachJobCompanyBranding(
     companyId: string;
     fallbackCompany?: string | null;
     jobCompanyId?: string | null;
+    overrides?: unknown;
   }
 ) {
   const companyName =
@@ -424,6 +435,11 @@ async function attachJobCompanyBranding(
     : await fetchJobCompanyBenefits(init.admin, init.companyId, [company.id])
         .then((rows) => mapBenefitTagsByJobCompanyId(rows).get(company.id) ?? [])
         .catch(() => []);
+  const priorityOverride = getPositionOpeningTypeOverride(init.overrides);
+  const priority = resolveOpeningType({
+    metadata: company.metadata,
+    override: priorityOverride,
+  });
 
   return {
     ...details,
@@ -434,6 +450,7 @@ async function attachJobCompanyBranding(
     ship_type: shipTypes[0] ?? undefined,
     ship_types: shipTypes,
     company_logo_url: logoPath ? signedUrls.get(logoPath) ?? null : null,
+    ...(priority || priorityOverride === null ? { priority: priority || undefined } : {}),
     ...(!hasPositionBenefitTags && benefitTags.length > 0 ? { benefit_tags: benefitTags } : {}),
   };
 }
@@ -582,6 +599,7 @@ export async function GET(
               companyId: primaryCompanyId,
               fallbackCompany: row.company,
               jobCompanyId: row.job_company_id,
+              overrides: row.overrides,
             });
 		          } catch {
 		            enriched = merged;
@@ -703,6 +721,7 @@ export async function GET(
 		            companyId: primaryCompanyId,
 		            fallbackCompany: effectiveCompany,
 		            jobCompanyId: row.job_company_id,
+		            overrides: row.overrides,
 		          });
 		        } catch {
 		          enriched = merged;

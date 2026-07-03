@@ -157,6 +157,7 @@ type JobCompanyLogoResponse = {
     id?: string;
     name?: string;
     logoUrl?: string | null;
+    openingType?: string | null;
     benefitTags?: string[];
     countryCodes?: string[];
   }>;
@@ -167,6 +168,7 @@ type JobCompanyPickerOption = {
   id?: string;
   name: string;
   logoUrl: string;
+  openingType: string;
   count: number;
   benefitTags: BenefitTag[];
   countryCodes: string[];
@@ -968,6 +970,7 @@ export default function BreezyPositionRecordsBrowser({
       id?: string;
       name: string;
       logoUrl: string;
+      openingType: string;
       benefitTags: BenefitTag[];
       countryCodes: string[];
     }>
@@ -1003,6 +1006,7 @@ export default function BreezyPositionRecordsBrowser({
     {}
   );
   const [detailsCompanyNames, setDetailsCompanyNames] = useState<string[]>([]);
+  const [detailsCompanyOpeningType, setDetailsCompanyOpeningType] = useState("");
   const [canEdit, setCanEdit] = useState(false);
   const [editing, setEditing] = useState(false);
   const [createOpeningOpen, setCreateOpeningOpen] = useState(false);
@@ -1265,6 +1269,7 @@ export default function BreezyPositionRecordsBrowser({
         id: company?.id,
         name,
         logoUrl,
+        openingType: company?.openingType ?? "",
         count: byCount(name),
         benefitTags: company?.benefitTags ?? [],
         countryCodes: company?.countryCodes ?? [],
@@ -1363,16 +1368,30 @@ export default function BreezyPositionRecordsBrowser({
   }, [availablePriorityTypes, priorityCounts]);
 
   const selectedCreatePriorityLabel = useMemo(() => {
-    const key = normalizePriorityKey(createOpeningDraft.priority);
+    const key = normalizePriorityKey(
+      createOpeningDraft.priority || selectedCreateCompany?.openingType || ""
+    );
     return getPriorityLabel(key, availablePriorityTypes) || "None";
-  }, [availablePriorityTypes, createOpeningDraft.priority]);
+  }, [availablePriorityTypes, createOpeningDraft.priority, selectedCreateCompany]);
 
   const createPriorityPickerOptions = useMemo(() => {
     const query = createPriorityQuery.trim().toLowerCase();
-    const options = [{ key: "", label: "None" }, ...availablePriorityTypes];
+    const inheritedKey = normalizePriorityKey(selectedCreateCompany?.openingType ?? "");
+    const options = [
+      ...(inheritedKey
+        ? [
+            {
+              key: "__inherit__",
+              label: `Company default (${getPriorityLabel(inheritedKey, availablePriorityTypes)})`,
+            },
+          ]
+        : []),
+      { key: "", label: "None" },
+      ...availablePriorityTypes,
+    ];
     if (!query) return options;
     return options.filter((item) => item.label.toLowerCase().includes(query));
-  }, [availablePriorityTypes, createPriorityQuery]);
+  }, [availablePriorityTypes, createPriorityQuery, selectedCreateCompany]);
 
 	  const closePositionModal = useCallback(() => {
 	    setSelectedPositionId(null);
@@ -1380,6 +1399,7 @@ export default function BreezyPositionRecordsBrowser({
 	    setDetails(null);
 	    setDetailsOverrides({});
     setDetailsCompanyNames([]);
+    setDetailsCompanyOpeningType("");
     setCanEdit(false);
     setEditing(false);
     setInlineEditField(null);
@@ -1853,6 +1873,7 @@ export default function BreezyPositionRecordsBrowser({
     setPremiumDetails(EMPTY_JOB_PREMIUM_DETAILS);
     setDetailsOverrides({});
     setDetailsCompanyNames([]);
+    setDetailsCompanyOpeningType("");
     setCanEdit(false);
     setEditing(false);
     setInlineEditField(null);
@@ -1895,8 +1916,10 @@ export default function BreezyPositionRecordsBrowser({
           : fallbackCompany
             ? [fallbackCompany]
             : [];
+      const companyOpeningType = normalizePriorityKey(asString(meta.companyOpeningType));
       setDetails(nextDetails ?? { data });
       setDetailsCompanyNames(nextCompanyNames);
+      setDetailsCompanyOpeningType(companyOpeningType);
       setDetailsOverrides(
         parsed && isRecord(parsed.overrides) ? (parsed.overrides as Record<string, unknown>) : {}
       );
@@ -1952,6 +1975,7 @@ export default function BreezyPositionRecordsBrowser({
       }
     } catch (err) {
       setDetails(null);
+      setDetailsCompanyOpeningType("");
       setSelectedPositionLabel((label ?? "").trim() || null);
       setError(
         err instanceof Error ? err.message : "Failed to load position details."
@@ -2481,6 +2505,12 @@ export default function BreezyPositionRecordsBrowser({
             else delete next.hidden;
             continue;
           }
+          if (key === "priority") {
+            if (value === null) next.priority = null;
+            else if (typeof value === "string" && value.trim()) next.priority = value.trim();
+            else delete next.priority;
+            continue;
+          }
           if (typeof value !== "string") continue;
           const trimmed = value.trim();
           if (!trimmed) delete next[key];
@@ -2496,6 +2526,13 @@ export default function BreezyPositionRecordsBrowser({
           if (key === "hidden") {
             if (value === true) next.hidden = true;
             else delete next.hidden;
+            continue;
+          }
+          if (key === "priority") {
+            if (value === null) delete next.priority;
+            else if (typeof value === "string" && value.trim()) next.priority = value.trim();
+            else if (detailsCompanyOpeningType) next.priority = detailsCompanyOpeningType;
+            else delete next.priority;
             continue;
           }
           applyStringOverride(next, key, value);
@@ -2531,7 +2568,10 @@ export default function BreezyPositionRecordsBrowser({
             const value = sanitizedOverrides.priority;
             const priorityValue =
               typeof value === "string" && value.trim() ? value.trim() : "";
-            next.priority = priorityValue || undefined;
+            next.priority =
+              value === null
+                ? undefined
+                : priorityValue || detailsCompanyOpeningType || undefined;
           }
           if (Object.prototype.hasOwnProperty.call(sanitizedOverrides, "hidden")) {
             next.hidden = sanitizedOverrides.hidden === true;
@@ -2587,6 +2627,7 @@ export default function BreezyPositionRecordsBrowser({
     [
       companyId,
       details,
+      detailsCompanyOpeningType,
       loadPositionDetails,
       selectedPositionId,
       selectedPositionLabel,
@@ -2607,6 +2648,16 @@ export default function BreezyPositionRecordsBrowser({
         posId
       )}?companyId=${encodeURIComponent(targetCompanyId)}`;
       const overrides = sanitizeOverrides(editForm as unknown as Record<string, unknown>);
+      const hasPriorityOverride = Object.prototype.hasOwnProperty.call(
+        detailsOverrides,
+        "priority"
+      );
+      const normalizedEditPriority = normalizePriorityKey(asString(overrides.priority));
+      if (!hasPriorityOverride && normalizedEditPriority === detailsCompanyOpeningType) {
+        delete overrides.priority;
+      } else if (hasPriorityOverride && !normalizedEditPriority) {
+        overrides.priority = null;
+      }
       const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -2697,6 +2748,7 @@ export default function BreezyPositionRecordsBrowser({
     setSelectedPositionLabel(null);
     setDetails(null);
     setDetailsOverrides({});
+    setDetailsCompanyOpeningType("");
     setCanEdit(false);
     setEditing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2852,6 +2904,7 @@ export default function BreezyPositionRecordsBrowser({
             id: asString(company?.id).trim(),
             name: asString(company?.name).trim(),
             logoUrl: asString(company?.logoUrl).trim(),
+            openingType: normalizePriorityKey(asString(company?.openingType)),
             benefitTags: Array.isArray(company?.benefitTags)
               ? (company.benefitTags.filter((tag): tag is BenefitTag =>
                   typeof tag === "string" &&
@@ -2899,6 +2952,7 @@ export default function BreezyPositionRecordsBrowser({
         setSelectedPositionLabel(null);
         setDetails(null);
         setDetailsOverrides({});
+        setDetailsCompanyOpeningType("");
         setCanEdit(false);
         setEditing(false);
       }
@@ -4247,21 +4301,42 @@ export default function BreezyPositionRecordsBrowser({
                     </div>
 
                     {(() => {
+                      const overrideRecord = detailsOverrides as Record<string, unknown>;
+                      const hasPriorityOverride = Object.prototype.hasOwnProperty.call(
+                        overrideRecord,
+                        "priority"
+                      );
                       const overridePriority =
-                        typeof (detailsOverrides as Record<string, unknown>)?.priority === "string"
-                          ? asString((detailsOverrides as Record<string, unknown>)?.priority).trim()
+                        typeof overrideRecord.priority === "string"
+                          ? normalizePriorityKey(asString(overrideRecord.priority))
                           : "";
-                      const currentPriority =
-                        editForm.priority.trim() ||
-                        overridePriority ||
-                        asString((details as Record<string, unknown> | null)?.priority);
-                      const activeKey = normalizePriorityKey(currentPriority);
+                      const inheritedPriority = normalizePriorityKey(detailsCompanyOpeningType);
+                      const activeKey = hasPriorityOverride
+                        ? overrideRecord.priority === null
+                          ? "__none__"
+                          : overridePriority || "__none__"
+                        : inheritedPriority
+                          ? "__inherit__"
+                          : "__none__";
 
-                      const options: Array<{ key: string; label: string }> = [
-                        { key: "", label: "None" },
+                      const options: Array<{ key: string; label: string; value: string | null }> = [
+                        ...(inheritedPriority
+                          ? [
+                              {
+                                key: "__inherit__",
+                                label: `Company default (${getPriorityLabel(
+                                  inheritedPriority,
+                                  availablePriorityTypes
+                                )})`,
+                                value: "",
+                              },
+                            ]
+                          : []),
+                        { key: "__none__", label: "None", value: null },
                         ...availablePriorityTypes.map((t) => ({
                           key: normalizePriorityKey(t.key),
                           label: t.label,
+                          value: normalizePriorityKey(t.key),
                         })),
                       ];
 
@@ -4270,22 +4345,28 @@ export default function BreezyPositionRecordsBrowser({
                           <div className="mt-4 max-h-[320px] overflow-auto rounded-2xl border border-slate-200">
                             <div className="divide-y divide-slate-100">
                               {options.map((opt) => {
-                                const selected = normalizePriorityKey(opt.key) === activeKey;
+                                const selected = opt.key === activeKey;
                                 return (
                                   <button
-                                    key={opt.key || "__none__"}
+                                    key={opt.key}
                                     type="button"
                                     className={[
                                       "flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold transition hover:bg-slate-50 disabled:opacity-60",
                                       selected ? "bg-sky-50" : "bg-white",
                                     ].join(" ")}
                                     onClick={() => {
-                                      setEditForm((prev) => ({ ...prev, priority: opt.key }));
-                                      setDetailsOverrides((prev) => ({
-                                        ...prev,
-                                        priority: opt.key,
-                                      }));
-                                      void saveQuickOverride({ priority: opt.key });
+                                      const nextPriority =
+                                        opt.value === null
+                                          ? ""
+                                          : opt.value || inheritedPriority || "";
+                                      setEditForm((prev) => ({ ...prev, priority: nextPriority }));
+                                      setDetailsOverrides((prev) => {
+                                        const next = { ...prev };
+                                        if (opt.key === "__inherit__") delete next.priority;
+                                        else next.priority = opt.value;
+                                        return next;
+                                      });
+                                      void saveQuickOverride({ priority: opt.value });
                                       setOpeningTypePickerOpen(false);
                                     }}
                                     disabled={savingEdits || detailsLoading}
@@ -5005,10 +5086,14 @@ export default function BreezyPositionRecordsBrowser({
                         <div className="max-h-60 overflow-y-auto p-2" role="listbox">
                           {createPriorityPickerOptions.map((type) => {
                             const key = normalizePriorityKey(type.key);
-                            const active = key === normalizePriorityKey(createOpeningDraft.priority);
+                            const inheritedKey = normalizePriorityKey(selectedCreateCompany?.openingType ?? "");
+                            const active =
+                              type.key === "__inherit__"
+                                ? !normalizePriorityKey(createOpeningDraft.priority) && Boolean(inheritedKey)
+                                : key === normalizePriorityKey(createOpeningDraft.priority);
                             return (
                               <button
-                                key={key || "none"}
+                                key={type.key || "none"}
                                 type="button"
                                 className={[
                                   "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition",
@@ -5019,7 +5104,10 @@ export default function BreezyPositionRecordsBrowser({
                                 role="option"
                                 aria-selected={active}
                                 onClick={() => {
-                                  setCreateOpeningDraft((prev) => ({ ...prev, priority: key }));
+                                  setCreateOpeningDraft((prev) => ({
+                                    ...prev,
+                                    priority: type.key === "__inherit__" ? "" : key,
+                                  }));
                                   setCreatePriorityQuery("");
                                   setCreatePriorityPickerOpen(false);
                                 }}

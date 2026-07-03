@@ -3,12 +3,14 @@ import { NextResponse } from "next/server";
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import {
   DEFAULT_BREEZY_PRIORITY_TYPES,
   dedupePriorityTypes,
   getDefaultPriorityFrontpageVisibility,
   normalizePriorityKey,
 } from "@/lib/breezy-priority-types";
+import { JOB_COMPANY_OPENING_TYPE_METADATA_KEY } from "@/lib/job-company-opening-types";
 
 export const runtime = "nodejs";
 
@@ -141,6 +143,8 @@ export async function POST(request: Request) {
     });
     if (error) throw error;
 
+    clearJobsResponseCache();
+
     return NextResponse.json(
       { priorityTypes: await readPriorityTypes(membership.companyId) },
       { status: 201 }
@@ -185,6 +189,8 @@ export async function PATCH(request: Request) {
       .eq("company_id", membership.companyId)
       .eq("key", key);
     if (error) throw error;
+
+    clearJobsResponseCache();
 
     return NextResponse.json(
       { priorityTypes: await readPriorityTypes(membership.companyId) },
@@ -240,12 +246,41 @@ export async function DELETE(request: Request) {
       if (updateError) throw updateError;
     }
 
+    const { data: companyRows, error: companySelectError } = await admin
+      .from("job_companies")
+      .select("id,metadata")
+      .eq("company_id", membership.companyId);
+    if (companySelectError) throw companySelectError;
+
+    for (const row of Array.isArray(companyRows)
+      ? (companyRows as Array<{ id: string; metadata: unknown }>)
+      : []) {
+      const metadata =
+        row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+          ? { ...(row.metadata as Record<string, unknown>) }
+          : {};
+      const current =
+        typeof metadata[JOB_COMPANY_OPENING_TYPE_METADATA_KEY] === "string"
+          ? normalizePriorityKey(metadata[JOB_COMPANY_OPENING_TYPE_METADATA_KEY] as string)
+          : "";
+      if (current !== key) continue;
+      delete metadata[JOB_COMPANY_OPENING_TYPE_METADATA_KEY];
+      const { error: updateError } = await admin
+        .from("job_companies")
+        .update({ metadata })
+        .eq("company_id", membership.companyId)
+        .eq("id", row.id);
+      if (updateError) throw updateError;
+    }
+
     const { error } = await admin
       .from("breezy_priority_types")
       .delete()
       .eq("company_id", membership.companyId)
       .eq("key", key);
     if (error) throw error;
+
+    clearJobsResponseCache();
 
     return NextResponse.json(
       { priorityTypes: await readPriorityTypes(membership.companyId) },

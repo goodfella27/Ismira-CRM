@@ -21,6 +21,10 @@ import {
   setPositionJobCompanies,
   syncJobCompaniesFromPositions,
 } from "@/lib/job-companies";
+import {
+  getMetadataOpeningType,
+  getPositionOpeningTypeOverride,
+} from "@/lib/job-company-opening-types";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 
 export const runtime = "nodejs";
@@ -92,6 +96,12 @@ function applyOverrides(details: unknown, overrides: unknown) {
       const parsed = parseHiddenOverride(value);
       if (parsed === true) base.hidden = true;
       else if (parsed === false) delete (base as Record<string, unknown>).hidden;
+      continue;
+    }
+    if (key === "priority") {
+      const priorityOverride = getPositionOpeningTypeOverride({ priority: value });
+      if (priorityOverride === null) delete base.priority;
+      else if (typeof priorityOverride === "string") base.priority = priorityOverride;
       continue;
     }
     if (key === "benefit_tags") {
@@ -334,6 +344,36 @@ async function fetchJobCompanyCountries(init: {
   return uniqueDerivedCodes.length > 0 ? countryGroupsFromCodes(uniqueDerivedCodes) : null;
 }
 
+async function fetchJobCompanyOpeningType(init: {
+  admin: ReturnType<typeof createSupabaseAdminClient>;
+  companyId: string;
+  jobCompanyIds: string[];
+}) {
+  const ids = Array.from(new Set(init.jobCompanyIds.map((id) => id.trim()).filter(Boolean)));
+  if (ids.length === 0) return "";
+
+  const { data, error } = await init.admin
+    .from("job_companies")
+    .select("id,metadata")
+    .eq("company_id", init.companyId)
+    .in("id", ids);
+  if (error || !Array.isArray(data)) return "";
+
+  const metadataById = new Map(
+    (data as Array<{ id: string | null; metadata: unknown }>).map((row) => [
+      (row.id ?? "").trim(),
+      row.metadata,
+    ])
+  );
+
+  for (const id of ids) {
+    const openingType = getMetadataOpeningType(metadataById.get(id));
+    if (openingType) return openingType;
+  }
+
+  return "";
+}
+
 async function hydrateSavedSelections(
   details: Record<string, unknown>,
   init: {
@@ -374,6 +414,21 @@ async function hydrateSavedSelections(
       rows.find((row) => (row.normalized_name ?? "").trim() === resolvedNormalized)?.id ?? "";
     if (matchedId.trim()) jobCompanyIds.push(matchedId.trim());
   }
+
+  const priorityOverride = getPositionOpeningTypeOverride(overrides);
+  if (priorityOverride === null) {
+    delete next.priority;
+  } else if (typeof priorityOverride === "string") {
+    next.priority = priorityOverride;
+  } else {
+    const openingType = await fetchJobCompanyOpeningType({
+      admin: init.admin,
+      companyId: init.companyId,
+      jobCompanyIds,
+    }).catch(() => "");
+    if (openingType) next.priority = openingType;
+  }
+
   if (!Object.prototype.hasOwnProperty.call(overrides, "benefit_tags") && jobCompanyIds.length > 0) {
     const benefitRows = await fetchJobCompanyBenefits(
       init.admin,
@@ -532,6 +587,17 @@ export async function GET(
       if (companies.length > 0) {
         (merged as Record<string, unknown>).companies = companies;
       }
+      const jobCompanyIdsForMeta = await fetchPositionJobCompanyIds({
+        admin,
+        companyId,
+        positionId: posId,
+        fallbackJobCompanyId: row.job_company_id,
+      }).catch(() => [] as string[]);
+      const companyOpeningType = await fetchJobCompanyOpeningType({
+        admin,
+        companyId,
+        jobCompanyIds: jobCompanyIdsForMeta,
+      }).catch(() => "");
       merged = await hydrateSavedSelections(merged as Record<string, unknown>, {
         admin,
         companyId,
@@ -553,6 +619,7 @@ export async function GET(
             updated_at: row.updated_at,
             canEdit,
             companies,
+            companyOpeningType,
           },
         },
         { status: 200 }
@@ -631,6 +698,17 @@ export async function GET(
           ? [effectiveCompany]
           : [];
     if (companies.length > 0) merged.companies = companies;
+    const jobCompanyIdsForMeta = await fetchPositionJobCompanyIds({
+      admin,
+      companyId,
+      positionId: posId,
+      fallbackJobCompanyId: row?.job_company_id,
+    }).catch(() => [] as string[]);
+    const companyOpeningType = await fetchJobCompanyOpeningType({
+      admin,
+      companyId,
+      jobCompanyIds: jobCompanyIdsForMeta,
+    }).catch(() => "");
     merged = await hydrateSavedSelections(merged, {
       admin,
       companyId,
@@ -654,6 +732,7 @@ export async function GET(
           updated_at: null,
           canEdit,
           companies,
+          companyOpeningType,
         },
       },
       { status: 200 }
@@ -833,6 +912,18 @@ export async function PATCH(
           const codes = normalizeCountryCodes(value);
           if (codes.length > 0) nextOverrides.processable_country_codes = codes;
           else delete nextOverrides.processable_country_codes;
+          continue;
+        }
+        if (key === "priority") {
+          if (value === null) {
+            nextOverrides.priority = null;
+          } else if (typeof value === "string") {
+            const priority = value.trim() ? getPositionOpeningTypeOverride({ priority: value }) : undefined;
+            if (typeof priority === "string") nextOverrides.priority = priority;
+            else delete nextOverrides.priority;
+          } else {
+            delete nextOverrides.priority;
+          }
           continue;
         }
         if (typeof value !== "string") {

@@ -11,6 +11,10 @@ import {
   resolveKnownJobCompanyName,
   type JobCompanyRow,
 } from "@/lib/job-companies";
+import {
+  getPositionOpeningTypeOverride,
+  resolveOpeningType,
+} from "@/lib/job-company-opening-types";
 
 export const runtime = "nodejs";
 
@@ -65,7 +69,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await admin
       .from("breezy_positions")
-      .select("company,org_type,job_company_id,overrides")
+      .select("breezy_position_id,company,org_type,job_company_id,overrides")
       .eq("company_id", companyId)
       .eq("breezy_company_id", breezyCompanyId);
 
@@ -84,6 +88,7 @@ export async function GET(request: Request) {
     }
 
     type Row = {
+      breezy_position_id?: string | null;
       company: string | null;
       org_type: string | null;
       job_company_id: string | null;
@@ -101,30 +106,79 @@ export async function GET(request: Request) {
       Array.isArray(companyRows) ? (companyRows as JobCompanyRow[]) : []
     );
     const companyNameById = new Map(companies.map((company) => [company.id, company.name]));
+    const companyById = new Map(companies.map((company) => [company.id, company] as const));
+    const companyByNormalized = new Map(
+      companies.map((company) => [company.normalized_name, company] as const)
+    );
     const companyNameByNormalized = new Map(
       companies.map((company) => [company.normalized_name, company.name])
     );
+    const { data: joinRows } = await admin
+      .from("job_position_companies")
+      .select("breezy_position_id,job_company_id,is_primary")
+      .eq("company_id", companyId);
+    const joinsByPosition = new Map<string, string[]>();
+    if (Array.isArray(joinRows)) {
+      for (const row of joinRows as Array<{
+        breezy_position_id: string | null;
+        job_company_id: string | null;
+        is_primary: boolean | null;
+      }>) {
+        const positionId = (row.breezy_position_id ?? "").trim();
+        const jobCompanyId = (row.job_company_id ?? "").trim();
+        if (!positionId || !jobCompanyId || !companyById.has(jobCompanyId)) continue;
+        const current = joinsByPosition.get(positionId) ?? [];
+        current.push(jobCompanyId);
+        joinsByPosition.set(positionId, current);
+      }
+    }
 
     const counts = new Map<string, number>();
     for (const row of rows) {
       if (normalizePositionType(row.org_type) !== recordType) continue;
 
       const rawCompany = asString(row.company).trim();
-      const company =
+      const positionId = (row.breezy_position_id ?? "").trim();
+      const joinedCompanyIds = positionId ? joinsByPosition.get(positionId) ?? [] : [];
+      const fallbackCompany =
+        (row.job_company_id ? companyById.get(row.job_company_id) : undefined) ??
+        companyByNormalized.get(normalizeJobCompanyName(resolveKnownJobCompanyName(rawCompany, companyNameByNormalized) || rawCompany));
+      const candidateCompanies =
+        joinedCompanyIds.length > 0
+          ? joinedCompanyIds.map((id) => companyById.get(id)).filter((item): item is JobCompanyRow => Boolean(item))
+          : fallbackCompany
+            ? [fallbackCompany]
+            : [];
+      const fallbackCompanyName =
+        fallbackCompany?.name ||
         (row.job_company_id ? companyNameById.get(row.job_company_id) : "") ||
         resolveKnownJobCompanyName(rawCompany, companyNameByNormalized) ||
         rawCompany;
-      if (normalizedCompanyFilter && normalizeJobCompanyName(company) !== normalizedCompanyFilter) {
-        continue;
-      }
 
       const overrides =
         row.overrides && typeof row.overrides === "object" && !Array.isArray(row.overrides)
           ? (row.overrides as Record<string, unknown>)
           : {};
-      const priority = normalizePriorityKey(asString(overrides.priority));
-      if (!priority) continue;
-      counts.set(priority, (counts.get(priority) ?? 0) + 1);
+      const priorityOverride = getPositionOpeningTypeOverride(overrides);
+      const countForCompany = (company: JobCompanyRow | null, companyName: string) => {
+        if (
+          normalizedCompanyFilter &&
+          normalizeJobCompanyName(company?.name || companyName) !== normalizedCompanyFilter
+        ) {
+          return;
+        }
+        const priority = normalizePriorityKey(
+          resolveOpeningType({ metadata: company?.metadata, override: priorityOverride })
+        );
+        if (!priority) return;
+        counts.set(priority, (counts.get(priority) ?? 0) + 1);
+      };
+
+      if (candidateCompanies.length > 0) {
+        candidateCompanies.forEach((company) => countForCompany(company, company.name));
+      } else {
+        countForCompany(null, fallbackCompanyName);
+      }
     }
 
     const priorities = Array.from(counts.entries())

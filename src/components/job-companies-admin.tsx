@@ -1,7 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, GitMerge, PencilLine, Plus, Save, Trash2, Undo2, Upload } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  FolderKanban,
+  GitMerge,
+  PencilLine,
+  Plus,
+  Save,
+  Trash2,
+  Undo2,
+  Upload,
+  X,
+} from "lucide-react";
 
 import { AVAILABLE_BENEFIT_TAGS, BENEFIT_TAG_LABELS, type BenefitTag } from "@/lib/job-benefits";
 import { toFlagEmoji } from "@/lib/country";
@@ -10,6 +24,12 @@ import {
   normalizeBenefitOptions,
   type JobBenefitOption,
 } from "@/lib/job-benefit-options";
+import {
+  DEFAULT_BREEZY_PRIORITY_TYPES,
+  getPriorityLabel,
+  normalizePriorityKey,
+  type BreezyPriorityType,
+} from "@/lib/breezy-priority-types";
 import {
   DEFAULT_JOB_COUNTRY_OPTIONS,
   normalizeCountryCode,
@@ -32,6 +52,7 @@ type JobCompanyAdminItem = {
   logoUrl: string | null;
   shipType: JobShipType | "";
   shipTypes: JobShipType[];
+  openingType: string;
   benefitTags: BenefitTag[];
   countryCodes: string[];
   positionsCount: number;
@@ -83,6 +104,7 @@ export default function JobCompaniesAdmin() {
   const [mergeHistoryOpen, setMergeHistoryOpen] = useState(false);
   const [jobCompanyNameDrafts, setJobCompanyNameDrafts] = useState<Record<string, string>>({});
   const [jobCompanyShipTypeDrafts, setJobCompanyShipTypeDrafts] = useState<Record<string, JobShipType[]>>({});
+  const [jobCompanyOpeningTypeDrafts, setJobCompanyOpeningTypeDrafts] = useState<Record<string, string>>({});
   const [jobCompanyBenefitDrafts, setJobCompanyBenefitDrafts] = useState<Record<string, BenefitTag[]>>({});
   const [jobCompanyCountryDrafts, setJobCompanyCountryDrafts] = useState<Record<string, string[]>>({});
   const [jobBenefitOptions, setJobBenefitOptions] = useState<JobBenefitOption[]>(
@@ -102,11 +124,43 @@ export default function JobCompaniesAdmin() {
   const [newJobCountryCode, setNewJobCountryCode] = useState("");
   const [newJobCountryName, setNewJobCountryName] = useState("");
   const [jobCountryOptionsSaving, setJobCountryOptionsSaving] = useState(false);
+  const [openingTypes, setOpeningTypes] = useState<BreezyPriorityType[]>(
+    DEFAULT_BREEZY_PRIORITY_TYPES
+  );
+  const [openingTypesModalOpen, setOpeningTypesModalOpen] = useState(false);
+  const [openingTypeDrafts, setOpeningTypeDrafts] = useState<Record<string, string>>({});
+  const [newOpeningTypeLabel, setNewOpeningTypeLabel] = useState("");
+  const [openingTypeSaving, setOpeningTypeSaving] = useState(false);
   const [editingJobBenefit, setEditingJobBenefit] = useState<{
     jobCompanyId: string;
     tag: BenefitTag;
   } | null>(null);
   const [editingJobBenefitLabel, setEditingJobBenefitLabel] = useState("");
+
+  const loadOpeningTypes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/breezy/priority-types", { cache: "no-store" });
+      const data = await res.json().catch(() => null);
+      const list = Array.isArray(data?.priorityTypes)
+        ? (data.priorityTypes as BreezyPriorityType[])
+        : DEFAULT_BREEZY_PRIORITY_TYPES;
+      if (!res.ok) throw new Error(data?.error ?? "Failed to load opening types.");
+      setOpeningTypes(list);
+      setOpeningTypeDrafts(
+        Object.fromEntries(list.map((item) => [normalizePriorityKey(item.key), item.label]))
+      );
+    } catch {
+      setOpeningTypes(DEFAULT_BREEZY_PRIORITY_TYPES);
+      setOpeningTypeDrafts(
+        Object.fromEntries(
+          DEFAULT_BREEZY_PRIORITY_TYPES.map((item) => [
+            normalizePriorityKey(item.key),
+            item.label,
+          ])
+        )
+      );
+    }
+  }, []);
 
   const loadJobCompanies = useCallback(async () => {
     setJobCompaniesLoading(true);
@@ -138,6 +192,9 @@ export default function JobCompaniesAdmin() {
             logoUrl: typeof row.logoUrl === "string" ? row.logoUrl : null,
             shipType: normalizeJobShipType(row.shipType),
             shipTypes: normalizeJobShipTypes(row.shipTypes ?? row.shipType),
+            openingType: normalizePriorityKey(
+              typeof row.openingType === "string" ? row.openingType : ""
+            ),
             benefitTags: benefitTagsRaw.filter(
               (tag): tag is BenefitTag =>
                 typeof tag === "string" && availableBenefitTags.has(tag as BenefitTag)
@@ -236,6 +293,17 @@ export default function JobCompaniesAdmin() {
           })
         )
       );
+      setJobCompanyOpeningTypeDrafts(
+        Object.fromEntries(
+          list.map((item) => {
+            const row = isRecord(item) ? item : {};
+            return [
+              typeof row.id === "string" ? row.id : "",
+              typeof row.openingType === "string" ? normalizePriorityKey(row.openingType) : "",
+            ];
+          })
+        )
+      );
       setJobCompanyCountryDrafts(
         Object.fromEntries(
           list.map((item) => {
@@ -259,6 +327,10 @@ export default function JobCompaniesAdmin() {
   useEffect(() => {
     void loadJobCompanies();
   }, [loadJobCompanies]);
+
+  useEffect(() => {
+    void loadOpeningTypes();
+  }, [loadOpeningTypes]);
 
   const handleSyncJobCompanies = useCallback(async () => {
     setJobCompaniesSyncing(true);
@@ -588,6 +660,93 @@ export default function JobCompaniesAdmin() {
     }
   }, [jobCountryOptionsDraft]);
 
+  const createOpeningType = async () => {
+    const label = newOpeningTypeLabel.trim();
+    if (!label) return;
+    setOpeningTypeSaving(true);
+    setJobCompaniesError(null);
+    try {
+      const res = await fetch("/api/breezy/priority-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to create opening type.");
+      }
+      setNewOpeningTypeLabel("");
+      await loadOpeningTypes();
+    } catch (err) {
+      setJobCompaniesError(err instanceof Error ? err.message : "Failed to create opening type.");
+    } finally {
+      setOpeningTypeSaving(false);
+    }
+  };
+
+  const updateOpeningType = async (key: string, showOnFrontpage?: boolean) => {
+    const normalized = normalizePriorityKey(key);
+    const label = (openingTypeDrafts[normalized] ?? "").trim();
+    if (!normalized || !label) return;
+    setOpeningTypeSaving(true);
+    setJobCompaniesError(null);
+    try {
+      const payload: { key: string; label: string; showOnFrontpage?: boolean } = {
+        key: normalized,
+        label,
+      };
+      if (typeof showOnFrontpage === "boolean") {
+        payload.showOnFrontpage = showOnFrontpage;
+      }
+      const res = await fetch("/api/breezy/priority-types", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to update opening type.");
+      }
+      await loadOpeningTypes();
+    } catch (err) {
+      setJobCompaniesError(err instanceof Error ? err.message : "Failed to update opening type.");
+    } finally {
+      setOpeningTypeSaving(false);
+    }
+  };
+
+  const deleteOpeningType = async (key: string) => {
+    const normalized = normalizePriorityKey(key);
+    if (!normalized) return;
+    setOpeningTypeSaving(true);
+    setJobCompaniesError(null);
+    try {
+      const res = await fetch("/api/breezy/priority-types", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: normalized }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to delete opening type.");
+      }
+      setJobCompanyOpeningTypeDrafts((prev) =>
+        Object.fromEntries(
+          Object.entries(prev).map(([companyId, value]) => [
+            companyId,
+            normalizePriorityKey(value) === normalized ? "" : value,
+          ])
+        )
+      );
+      await loadOpeningTypes();
+      await loadJobCompanies();
+    } catch (err) {
+      setJobCompaniesError(err instanceof Error ? err.message : "Failed to delete opening type.");
+    } finally {
+      setOpeningTypeSaving(false);
+    }
+  };
+
   const handleOpenJobBenefitEditor = useCallback(
     (jobCompanyId: string, option: JobBenefitOption) => {
       setEditingJobBenefit({ jobCompanyId, tag: option.tag });
@@ -608,6 +767,7 @@ export default function JobCompaniesAdmin() {
       const countryCodes = normalizeCountryCodeList(jobCompanyCountryDrafts[jobCompanyId] ?? []);
       const shipTypes = normalizeJobShipTypes(jobCompanyShipTypeDrafts[jobCompanyId] ?? []);
       const shipType = shipTypes[0] ?? "";
+      const openingType = normalizePriorityKey(jobCompanyOpeningTypeDrafts[jobCompanyId] ?? "");
       if (!jobCompanyId) return;
       if (!name) {
         setJobCompaniesError("Company name is required.");
@@ -624,6 +784,7 @@ export default function JobCompaniesAdmin() {
         form.set("countryCodes", JSON.stringify(countryCodes));
         form.set("shipType", shipType);
         form.set("shipTypes", JSON.stringify(shipTypes));
+        form.set("openingType", openingType);
         const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
           method: "POST",
           body: form,
@@ -646,6 +807,7 @@ export default function JobCompaniesAdmin() {
       jobCompanyBenefitDrafts,
       jobCompanyCountryDrafts,
       jobCompanyNameDrafts,
+      jobCompanyOpeningTypeDrafts,
       jobCompanyShipTypeDrafts,
       jobBenefitOptionsDraft,
       loadJobCompanies,
@@ -799,6 +961,9 @@ export default function JobCompaniesAdmin() {
             const draftShipTypes = normalizeJobShipTypes(
               jobCompanyShipTypeDrafts[item.id] ?? item.shipTypes
             );
+            const draftOpeningType = normalizePriorityKey(
+              jobCompanyOpeningTypeDrafts[item.id] ?? item.openingType
+            );
             const draftBenefitTags = jobCompanyBenefitDrafts[item.id] ?? [];
             const draftCountryCodes = normalizeCountryCodeList(
               jobCompanyCountryDrafts[item.id] ?? item.countryCodes
@@ -808,12 +973,15 @@ export default function JobCompaniesAdmin() {
             const hasChanges =
               draftName.trim() !== item.name.trim() ||
               !sameJobShipTypeSelection(draftShipTypes, item.shipTypes) ||
+              draftOpeningType !== normalizePriorityKey(item.openingType) ||
               !sameBenefitTagSelection(draftBenefitTags, item.benefitTags) ||
               !sameCountryCodeSelection(draftCountryCodes, item.countryCodes);
             const shipTypeLabels =
               draftShipTypes.length > 0
                 ? draftShipTypes.map((type) => JOB_SHIP_TYPE_LABELS[type])
                 : ["Auto / Unknown"];
+            const openingTypeLabel =
+              getPriorityLabel(draftOpeningType, openingTypes) || "No opening type";
 
             return (
               <div
@@ -870,6 +1038,9 @@ export default function JobCompaniesAdmin() {
                           {label}
                         </span>
                       ))}
+                      <span className="rounded-full bg-sky-50 px-2.5 py-1 text-sky-800">
+                        {openingTypeLabel}
+                      </span>
                       <span className="rounded-full bg-sky-50 px-2.5 py-1 text-sky-800">
                         {draftBenefitTags.length} benefits
                       </span>
@@ -954,6 +1125,69 @@ export default function JobCompaniesAdmin() {
                                 </button>
                               );
                             })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                            Opening type
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() =>
+                                setJobCompanyOpeningTypeDrafts((prev) => ({
+                                  ...prev,
+                                  [item.id]: "",
+                                }))
+                              }
+                              className={[
+                                "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold transition",
+                                !draftOpeningType
+                                  ? "border-slate-950 bg-slate-950 text-white"
+                                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                              ].join(" ")}
+                            >
+                              <FolderKanban className="h-3.5 w-3.5" />
+                              None
+                            </button>
+                            {openingTypes.map((type) => {
+                              const key = normalizePriorityKey(type.key);
+                              if (!key) return null;
+                              const active = draftOpeningType === key;
+                              return (
+                                <button
+                                  key={key}
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() =>
+                                    setJobCompanyOpeningTypeDrafts((prev) => ({
+                                      ...prev,
+                                      [item.id]: active ? "" : key,
+                                    }))
+                                  }
+                                  className={[
+                                    "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold transition",
+                                    active
+                                      ? "border-sky-300 bg-sky-50 text-sky-900 ring-2 ring-sky-100"
+                                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                  ].join(" ")}
+                                >
+                                  {active ? <Check className="h-3.5 w-3.5" /> : null}
+                                  <span>{type.label}</span>
+                                </button>
+                              );
+                            })}
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-2 rounded-full border border-sky-400 bg-gradient-to-r from-[#00b4ff] via-[#1594f5] to-[#006fe6] px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-300/50 transition hover:from-[#16c8ff] hover:via-[#1aa2ff] hover:to-[#075fe0] disabled:opacity-60"
+                              onClick={() => setOpeningTypesModalOpen(true)}
+                              disabled={isBusy}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Add / Remove
+                            </button>
                           </div>
                         </div>
 
@@ -1299,6 +1533,120 @@ export default function JobCompaniesAdmin() {
           })}
         </div>
       )}
+      {openingTypesModalOpen ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4"
+          onClick={() => setOpeningTypesModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+              <div>
+                <div className="text-sm font-extrabold text-slate-950">Opening types</div>
+                <div className="mt-1 text-xs font-semibold text-slate-500">
+                  Edit labels, add new types, and choose which badges appear on the jobs page.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:opacity-60"
+                onClick={() => setOpeningTypesModalOpen(false)}
+                disabled={openingTypeSaving}
+                aria-label="Close opening types"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-auto px-5 py-4">
+              <div className="grid gap-3">
+                {openingTypes.map((type) => {
+                  const key = normalizePriorityKey(type.key);
+                  return (
+                    <div
+                      key={key}
+                      className="grid gap-2 rounded-2xl border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
+                    >
+                      <input
+                        className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
+                        value={openingTypeDrafts[key] ?? type.label}
+                        disabled={openingTypeSaving}
+                        onChange={(event) =>
+                          setOpeningTypeDrafts((prev) => ({
+                            ...prev,
+                            [key]: event.target.value,
+                          }))
+                        }
+                      />
+                      <button
+                        type="button"
+                        className={[
+                          "inline-flex h-11 items-center justify-center gap-2 rounded-2xl border px-4 text-xs font-semibold transition disabled:opacity-60",
+                          type.showOnFrontpage
+                            ? "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100"
+                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                        ].join(" ")}
+                        onClick={() => void updateOpeningType(key, !type.showOnFrontpage)}
+                        disabled={openingTypeSaving || !(openingTypeDrafts[key] ?? type.label).trim()}
+                      >
+                        {type.showOnFrontpage ? (
+                          <Eye className="h-3.5 w-3.5" />
+                        ) : (
+                          <EyeOff className="h-3.5 w-3.5" />
+                        )}
+                        {type.showOnFrontpage ? "Frontpage" : "Hidden"}
+                      </button>
+                      <button
+                        type="button"
+                        className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                        onClick={() => void updateOpeningType(key)}
+                        disabled={openingTypeSaving || !(openingTypeDrafts[key] ?? type.label).trim()}
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                        onClick={() => void deleteOpeningType(key)}
+                        disabled={openingTypeSaving}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </button>
+                    </div>
+                  );
+                })}
+
+                <div className="grid gap-2 rounded-2xl border border-dashed border-slate-300 p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <input
+                    className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
+                    placeholder="New type label"
+                    value={newOpeningTypeLabel}
+                    disabled={openingTypeSaving}
+                    onChange={(event) => setNewOpeningTypeLabel(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter") return;
+                      event.preventDefault();
+                      void createOpeningType();
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-950 bg-slate-950 px-4 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                    onClick={() => void createOpeningType()}
+                    disabled={openingTypeSaving || !newOpeningTypeLabel.trim()}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add type
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {mergeHistoryOpen ? (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4"

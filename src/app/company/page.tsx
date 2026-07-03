@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Building2,
+  Check,
   ChevronDown,
   ClipboardList,
   Database,
   FileText,
+  FolderKanban,
   GitMerge,
   ListTodo,
   PencilLine,
@@ -33,6 +35,12 @@ import {
   normalizeBenefitOptions,
   type JobBenefitOption,
 } from "@/lib/job-benefit-options";
+import {
+  DEFAULT_BREEZY_PRIORITY_TYPES,
+  getPriorityLabel,
+  normalizePriorityKey,
+  type BreezyPriorityType,
+} from "@/lib/breezy-priority-types";
 import { toFlagEmoji } from "@/lib/country";
 import {
   DEFAULT_JOB_COUNTRY_OPTIONS,
@@ -80,6 +88,7 @@ type JobCompanyAdminItem = {
   logoUrl: string | null;
   shipType: JobShipType | "";
   shipTypes: JobShipType[];
+  openingType: string;
   benefitTags: BenefitTag[];
   countryCodes: string[];
   positionsCount: number;
@@ -322,6 +331,9 @@ export default function CompanyPage() {
   const [mergeHistoryOpen, setMergeHistoryOpen] = useState(false);
   const [jobCompanyNameDrafts, setJobCompanyNameDrafts] = useState<Record<string, string>>({});
   const [jobCompanyShipTypeDrafts, setJobCompanyShipTypeDrafts] = useState<Record<string, JobShipType[]>>({});
+  const [jobCompanyOpeningTypeDrafts, setJobCompanyOpeningTypeDrafts] = useState<
+    Record<string, string>
+  >({});
   const [jobCompanyBenefitDrafts, setJobCompanyBenefitDrafts] = useState<
     Record<string, BenefitTag[]>
   >({});
@@ -345,6 +357,9 @@ export default function CompanyPage() {
   const [newJobCountryCode, setNewJobCountryCode] = useState("");
   const [newJobCountryName, setNewJobCountryName] = useState("");
   const [jobCountryOptionsSaving, setJobCountryOptionsSaving] = useState(false);
+  const [openingTypes, setOpeningTypes] = useState<BreezyPriorityType[]>(
+    DEFAULT_BREEZY_PRIORITY_TYPES
+  );
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [pipelineName, setPipelineName] = useState("");
   const [pipelineError, setPipelineError] = useState<string | null>(null);
@@ -628,6 +643,20 @@ export default function CompanyPage() {
     }
   }, [brandingTitle, loadBranding]);
 
+  const loadOpeningTypes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/breezy/priority-types", { cache: "no-store" });
+      const data = await res.json().catch(() => null);
+      const list = Array.isArray(data?.priorityTypes)
+        ? (data.priorityTypes as BreezyPriorityType[])
+        : DEFAULT_BREEZY_PRIORITY_TYPES;
+      if (!res.ok) throw new Error(data?.error ?? "Failed to load opening types.");
+      setOpeningTypes(list);
+    } catch {
+      setOpeningTypes(DEFAULT_BREEZY_PRIORITY_TYPES);
+    }
+  }, []);
+
   const loadJobCompanies = useCallback(async () => {
     setJobCompaniesLoading(true);
     setJobCompaniesError(null);
@@ -658,6 +687,9 @@ export default function CompanyPage() {
             logoUrl: typeof row.logoUrl === "string" ? row.logoUrl : null,
             shipType: normalizeJobShipType(row.shipType),
             shipTypes: normalizeJobShipTypes(row.shipTypes ?? row.shipType),
+            openingType: normalizePriorityKey(
+              typeof row.openingType === "string" ? row.openingType : ""
+            ),
             benefitTags: benefitTagsRaw.filter(
               (tag): tag is BenefitTag =>
                 typeof tag === "string" &&
@@ -750,6 +782,17 @@ export default function CompanyPage() {
             const row = isRecord(item) ? item : {};
             const id = typeof row.id === "string" ? row.id : "";
             return [id, normalizeJobShipTypes(row.shipTypes ?? row.shipType)];
+          })
+        )
+      );
+      setJobCompanyOpeningTypeDrafts(
+        Object.fromEntries(
+          list.map((item) => {
+            const row = isRecord(item) ? item : {};
+            const id = typeof row.id === "string" ? row.id : "";
+            const openingType =
+              typeof row.openingType === "string" ? normalizePriorityKey(row.openingType) : "";
+            return [id, openingType];
           })
         )
       );
@@ -1230,6 +1273,7 @@ export default function CompanyPage() {
       const countryCodes = normalizeCountryCodeList(jobCompanyCountryDrafts[jobCompanyId] ?? []);
       const shipTypes = normalizeJobShipTypes(jobCompanyShipTypeDrafts[jobCompanyId] ?? []);
       const shipType = shipTypes[0] ?? "";
+      const openingType = normalizePriorityKey(jobCompanyOpeningTypeDrafts[jobCompanyId] ?? "");
       if (!jobCompanyId) return;
       if (!name) {
         setJobCompaniesError("Company name is required.");
@@ -1245,6 +1289,7 @@ export default function CompanyPage() {
         form.set("countryCodes", JSON.stringify(countryCodes));
         form.set("shipType", shipType);
         form.set("shipTypes", JSON.stringify(shipTypes));
+        form.set("openingType", openingType);
         const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
           method: "POST",
           body: form,
@@ -1260,6 +1305,11 @@ export default function CompanyPage() {
         );
         const savedShipTypes = parsedSavedShipTypes.length > 0 ? parsedSavedShipTypes : shipTypes;
         const savedShipType = savedShipTypes[0] ?? shipType;
+        const savedOpeningType = normalizePriorityKey(
+          typeof data?.company?.openingType === "string"
+            ? data.company.openingType
+            : openingType
+        );
         const savedTagsRaw = Array.isArray(data?.company?.benefitTags) ? data.company.benefitTags : benefitTags;
         const savedTags = savedTagsRaw.filter(
           (tag): tag is BenefitTag =>
@@ -1277,6 +1327,7 @@ export default function CompanyPage() {
                   name: savedName,
                   shipType: savedShipType,
                   shipTypes: savedShipTypes,
+                  openingType: savedOpeningType,
                   benefitTags: savedTags,
                   countryCodes: savedCountryCodes,
                 }
@@ -1285,6 +1336,10 @@ export default function CompanyPage() {
         );
         setJobCompanyNameDrafts((prev) => ({ ...prev, [jobCompanyId]: savedName }));
         setJobCompanyShipTypeDrafts((prev) => ({ ...prev, [jobCompanyId]: savedShipTypes }));
+        setJobCompanyOpeningTypeDrafts((prev) => ({
+          ...prev,
+          [jobCompanyId]: savedOpeningType,
+        }));
         setJobCompanyBenefitDrafts((prev) => ({ ...prev, [jobCompanyId]: savedTags }));
         setJobCompanyCountryDrafts((prev) => ({ ...prev, [jobCompanyId]: savedCountryCodes }));
 
@@ -1300,6 +1355,7 @@ export default function CompanyPage() {
     [
       jobCompanyBenefitDrafts,
       jobCompanyCountryDrafts,
+      jobCompanyOpeningTypeDrafts,
       jobCompanyNameDrafts,
       jobCompanyShipTypeDrafts,
       loadJobCompanies,
@@ -1313,6 +1369,10 @@ export default function CompanyPage() {
   useEffect(() => {
     loadBranding();
   }, [loadBranding]);
+
+  useEffect(() => {
+    loadOpeningTypes();
+  }, [loadOpeningTypes]);
 
   useEffect(() => {
     loadJobCompanies();
@@ -3240,6 +3300,9 @@ export default function CompanyPage() {
                       const draftShipTypes = normalizeJobShipTypes(
                         jobCompanyShipTypeDrafts[item.id] ?? item.shipTypes
                       );
+                      const draftOpeningType = normalizePriorityKey(
+                        jobCompanyOpeningTypeDrafts[item.id] ?? item.openingType
+                      );
                       const draftBenefitTags = jobCompanyBenefitDrafts[item.id] ?? [];
                       const draftCountryCodes = normalizeCountryCodeList(
                         jobCompanyCountryDrafts[item.id] ?? item.countryCodes
@@ -3251,6 +3314,7 @@ export default function CompanyPage() {
                       const hasChanges =
                         draftName.trim() !== item.name.trim() ||
                         !sameJobShipTypeSelection(draftShipTypes, item.shipTypes) ||
+                        draftOpeningType !== normalizePriorityKey(item.openingType) ||
                         !sameBenefitTagSelection(draftBenefitTags, item.benefitTags) ||
                         !sameCountryCodeSelection(draftCountryCodes, item.countryCodes);
                       const benefitOptionsChanged =
@@ -3264,6 +3328,8 @@ export default function CompanyPage() {
                         draftShipTypes.length > 0
                           ? draftShipTypes.map((type) => JOB_SHIP_TYPE_LABELS[type])
                           : ["Auto / Unknown"];
+                      const openingTypeLabel =
+                        getPriorityLabel(draftOpeningType, openingTypes) || "No opening type";
                       return (
                         <div
                           key={item.id}
@@ -3321,6 +3387,9 @@ export default function CompanyPage() {
                                     {label}
                                   </span>
                                 ))}
+                                <span className="rounded-full bg-sky-50 px-2.5 py-1 text-sky-800">
+                                  {openingTypeLabel}
+                                </span>
                                 <span className="rounded-full bg-sky-50 px-2.5 py-1 text-sky-800">
                                   {draftBenefitTags.length} benefits
                                 </span>
@@ -3405,6 +3474,60 @@ export default function CompanyPage() {
                                             ].join(" ")}
                                           >
                                             {JOB_SHIP_TYPE_LABELS[shipType]}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                                      Opening type
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                      <button
+                                        type="button"
+                                        disabled={isBusy}
+                                        onClick={() =>
+                                          setJobCompanyOpeningTypeDrafts((prev) => ({
+                                            ...prev,
+                                            [item.id]: "",
+                                          }))
+                                        }
+                                        className={[
+                                          "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold transition",
+                                          !draftOpeningType
+                                            ? "border-slate-950 bg-slate-950 text-white"
+                                            : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                        ].join(" ")}
+                                      >
+                                        <FolderKanban className="h-3.5 w-3.5" />
+                                        None
+                                      </button>
+                                      {openingTypes.map((type) => {
+                                        const key = normalizePriorityKey(type.key);
+                                        if (!key) return null;
+                                        const active = draftOpeningType === key;
+                                        return (
+                                          <button
+                                            key={key}
+                                            type="button"
+                                            disabled={isBusy}
+                                            onClick={() =>
+                                              setJobCompanyOpeningTypeDrafts((prev) => ({
+                                                ...prev,
+                                                [item.id]: active ? "" : key,
+                                              }))
+                                            }
+                                            className={[
+                                              "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold transition",
+                                              active
+                                                ? "border-sky-300 bg-sky-50 text-sky-900 ring-2 ring-sky-100"
+                                                : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                            ].join(" ")}
+                                          >
+                                            {active ? <Check className="h-3.5 w-3.5" /> : null}
+                                            <span>{type.label}</span>
                                           </button>
                                         );
                                       })}

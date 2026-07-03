@@ -23,6 +23,7 @@ import {
   X,
   Loader2,
   Send,
+  Plus,
   Flame,
   AlertTriangle,
   ClipboardList,
@@ -44,7 +45,6 @@ import {
 } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import { createPortal } from "react-dom";
 
 import DetailsModalShell from "@/components/details-modal-shell";
@@ -132,7 +132,6 @@ function HeroCoverImage({ src }: { src: string }) {
   );
 }
 import { getCountryCode } from "@/lib/country";
-import jobBanner from "@/images/job_abnner.png";
 import StickyJobsHeader from "./sticky-jobs-header";
 
 type JobListItem = {
@@ -504,6 +503,41 @@ function FilterSectionLabel({ icon: Icon, label }: { icon: LucideIcon; label: st
     <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
       <Icon className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
       <span>{label}</span>
+    </div>
+  );
+}
+
+function JobsDisplayLimitFilter({
+  value,
+  onChange,
+}: {
+  value: JobsDisplayLimit;
+  onChange: (next: JobsDisplayLimit) => void;
+}) {
+  return (
+    <div>
+      <FilterSectionLabel icon={ClipboardList} label="Job Openings" />
+      <div className="mt-2 grid grid-cols-4 gap-2 rounded-2xl border border-slate-200 bg-white p-2">
+        {JOBS_DISPLAY_LIMIT_OPTIONS.map((option) => {
+          const selected = option.value === value;
+          return (
+            <button
+              key={String(option.value)}
+              type="button"
+              className={[
+                "h-9 rounded-xl px-2 text-xs font-semibold transition",
+                selected
+                  ? "bg-slate-950 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-50",
+              ].join(" ")}
+              onClick={() => onChange(option.value)}
+              aria-pressed={selected}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1258,7 +1292,18 @@ function extractHeroImageFromSafeHtml(html: string): { heroSrc: string; bodyHtml
 
 const JOBS_CACHE_KEY = "jobsboard:list:v8";
 const JOBS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-const JOBS_PAGE_SIZE = 24;
+const DEFAULT_JOBS_DISPLAY_LIMIT = 20;
+type JobsDisplayLimit = 20 | 50 | 100 | "all";
+const JOBS_DISPLAY_LIMIT_OPTIONS: Array<{ value: JobsDisplayLimit; label: string }> = [
+  { value: 20, label: "20" },
+  { value: 50, label: "50" },
+  { value: 100, label: "100" },
+  { value: "all", label: "All" },
+];
+
+function getVisibleCountForLimit(limit: JobsDisplayLimit) {
+  return limit === "all" ? Number.MAX_SAFE_INTEGER : limit;
+}
 
 function readJobsCache(): JobsBoardCache | null {
   if (typeof window === "undefined") return null;
@@ -1637,6 +1682,8 @@ export default function JobsBoard() {
   const [countryLabels, setCountryLabels] = useState<Record<string, string>>({});
   const [priorityFilters, setPriorityFilters] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [displayLimit, setDisplayLimit] = useState<JobsDisplayLimit>(DEFAULT_JOBS_DISPLAY_LIMIT);
+  const [visibleCount, setVisibleCount] = useState(DEFAULT_JOBS_DISPLAY_LIMIT);
 
   const [companyModalOpen, setCompanyModalOpen] = useState(false);
   const [departmentModalOpen, setDepartmentModalOpen] = useState(false);
@@ -1695,7 +1742,7 @@ export default function JobsBoard() {
     setShipTypeFilters(nextShipTypes);
     setPriorityFilters(nextPriorities);
     setCountryFilter(nextCountry);
-    setVisibleCount(JOBS_PAGE_SIZE);
+    resetVisibleCount();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
@@ -1755,8 +1802,13 @@ export default function JobsBoard() {
   const [applyNavigating, setApplyNavigating] = useState(false);
   const [applyDisclaimerOpen, setApplyDisclaimerOpen] = useState(false);
 
-  const [visibleCount, setVisibleCount] = useState(JOBS_PAGE_SIZE);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const resetVisibleCount = useCallback(() => {
+    setVisibleCount(getVisibleCountForLimit(displayLimit));
+  }, [displayLimit]);
+
+  useEffect(() => {
+    resetVisibleCount();
+  }, [resetVisibleCount]);
 
   const anyModalOpen =
     Boolean(selectedId) || companyModalOpen || departmentModalOpen || applyDisclaimerOpen;
@@ -2297,17 +2349,7 @@ export default function JobsBoard() {
     const query = deferredFilter.trim().toLowerCase();
     const companySet = new Set(companyFilters);
     const departmentSet = new Set(departmentFilters);
-    const showFeaturedOnly =
-      !hasPriorityFilter &&
-      !hasShipTypeFilter &&
-      companySet.size === 0 &&
-      departmentSet.size === 0 &&
-      !countryFilter &&
-      !query;
-
-    const base = showFeaturedOnly
-      ? baseJobs.filter((job) => publicPriorityTypeKeys.has(job.__priorityKey))
-      : baseJobs;
+    const base = baseJobs;
     const byCompany =
       companySet.size > 0 ? base.filter((job) => companySet.has(job.__companyKey)) : base;
     const byDepartment =
@@ -2351,18 +2393,9 @@ export default function JobsBoard() {
     departmentFilters,
     hasPriorityFilter,
     hasShipTypeFilter,
-    publicPriorityTypeKeys,
     prioritySelection,
     shipTypeSelection,
   ]);
-
-  const showingFeaturedOnly =
-    !hasPriorityFilter &&
-    !hasShipTypeFilter &&
-    companyFilters.length === 0 &&
-    departmentFilters.length === 0 &&
-    !countryFilter &&
-    deferredFilter.trim().length === 0;
 
   const loadJobs = useCallback(async () => {
     jobsAbortRef.current?.abort();
@@ -2653,29 +2686,20 @@ export default function JobsBoard() {
   }, [heroSliderItems]);
 
   useEffect(() => {
-    setVisibleCount(JOBS_PAGE_SIZE);
-  }, [companyFilters, departmentFilters, countryFilter, deferredFilter, priorityFilters, shipTypeFilters]);
+    resetVisibleCount();
+  }, [
+    companyFilters,
+    departmentFilters,
+    countryFilter,
+    deferredFilter,
+    priorityFilters,
+    resetVisibleCount,
+    shipTypeFilters,
+  ]);
 
   const visibleJobs = useMemo(() => {
     return filtered.slice(0, Math.min(filtered.length, visibleCount));
   }, [filtered, visibleCount]);
-
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    if (visibleCount >= filtered.length) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        setVisibleCount((current) => Math.min(filtered.length, current + JOBS_PAGE_SIZE));
-      },
-      { rootMargin: "700px" }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [filtered.length, visibleCount]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -2929,7 +2953,7 @@ export default function JobsBoard() {
             setPriorityFilters((prev) => (prev.includes(key) ? prev : [...prev, key]));
             setSearchSuggestOpen(false);
             setSearchActiveIndex(-1);
-            setVisibleCount(JOBS_PAGE_SIZE);
+            resetVisibleCount();
           },
         });
       });
@@ -2954,7 +2978,7 @@ export default function JobsBoard() {
             setDepartmentFilters((prev) => (prev.includes(opt.key) ? prev : [...prev, opt.key]));
             setSearchSuggestOpen(false);
             setSearchActiveIndex(-1);
-            setVisibleCount(JOBS_PAGE_SIZE);
+            resetVisibleCount();
           },
         });
       });
@@ -2978,7 +3002,7 @@ export default function JobsBoard() {
             setCountryFilter(opt.code);
             setSearchSuggestOpen(false);
             setSearchActiveIndex(-1);
-            setVisibleCount(JOBS_PAGE_SIZE);
+            resetVisibleCount();
           },
         });
       });
@@ -3003,7 +3027,7 @@ export default function JobsBoard() {
 	            setFilter(title);
 	            setSearchSuggestOpen(false);
 	            setSearchActiveIndex(-1);
-	            setVisibleCount(JOBS_PAGE_SIZE);
+	            resetVisibleCount();
 	            requestAnimationFrame(() => {
 	              suppressNextSuggestOpenRef.current = true;
 	              searchInputRef.current?.focus();
@@ -3034,7 +3058,7 @@ export default function JobsBoard() {
             setFilter(title);
             setSearchSuggestOpen(false);
             setSearchActiveIndex(-1);
-            setVisibleCount(JOBS_PAGE_SIZE);
+            resetVisibleCount();
             setTimeout(() => searchInputRef.current?.focus(), 0);
           },
         });
@@ -3056,7 +3080,7 @@ export default function JobsBoard() {
               setFilter("");
               setSearchSuggestOpen(false);
               setSearchActiveIndex(-1);
-              setVisibleCount(JOBS_PAGE_SIZE);
+              resetVisibleCount();
             },
           });
         });
@@ -3081,7 +3105,7 @@ export default function JobsBoard() {
               setFilter("");
               setSearchSuggestOpen(false);
               setSearchActiveIndex(-1);
-              setVisibleCount(JOBS_PAGE_SIZE);
+              resetVisibleCount();
             },
           });
         });
@@ -3112,7 +3136,7 @@ export default function JobsBoard() {
               setFilter("");
               setSearchSuggestOpen(false);
               setSearchActiveIndex(-1);
-              setVisibleCount(JOBS_PAGE_SIZE);
+              resetVisibleCount();
             },
           });
         });
@@ -3128,6 +3152,7 @@ export default function JobsBoard() {
     filter,
     priorityCounts,
     publicPriorityTypes,
+    resetVisibleCount,
     searchSuggestionPool,
   ]);
 
@@ -3174,7 +3199,7 @@ export default function JobsBoard() {
       setFilter(nextValue);
       setSearchSuggestOpen(false);
       setSearchActiveIndex(-1);
-      setVisibleCount(JOBS_PAGE_SIZE);
+      resetVisibleCount();
       requestAnimationFrame(() => {
         const input = searchInputRef.current;
         if (!input) return;
@@ -3188,7 +3213,7 @@ export default function JobsBoard() {
         syncSearchCaret();
       });
     },
-    [syncSearchCaret]
+    [resetVisibleCount, syncSearchCaret]
   );
 
   const inlineAutocomplete = useMemo(() => {
@@ -3426,7 +3451,7 @@ export default function JobsBoard() {
   }, [selectedId]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 px-2.5 pb-10 pt-20 text-slate-900 sm:px-5 sm:pt-28 lg:px-8">
+    <div className="min-h-screen [overflow-x:clip] bg-slate-50 px-2.5 pb-10 pt-20 text-slate-900 sm:px-5 sm:pt-28 lg:px-8">
       <StickyJobsHeader />
       <div className="mx-auto w-full max-w-[1280px]">
         <section
@@ -3457,7 +3482,7 @@ export default function JobsBoard() {
           className="relative z-10 mx-auto -mt-8 w-full max-w-[820px] rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)] sm:-mt-12 sm:rounded-[28px] sm:p-5"
           onSubmit={(event) => {
             event.preventDefault();
-            setVisibleCount(JOBS_PAGE_SIZE);
+            resetVisibleCount();
             setSearchSuggestOpen(false);
             setSearchActiveIndex(-1);
           }}
@@ -3810,14 +3835,18 @@ export default function JobsBoard() {
 	                  </button>
 	                ) : null}
                 </div>
+
+                <div className="mt-5">
+                  <JobsDisplayLimitFilter value={displayLimit} onChange={setDisplayLimit} />
+                </div>
               </div>
             ) : null}
           </div>
 	        </form>
 
         <div className="mt-5 grid gap-6 sm:mt-8 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start">
-				          <aside className="sticky top-6 hidden xl:block self-start">
-					            <div className="hide-scrollbar max-h-[calc(100vh-3rem)] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+				          <aside className="sticky top-24 hidden self-start xl:block">
+					            <div className="hide-scrollbar max-h-[calc(100vh-7rem)] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold text-slate-900">Filter</div>
@@ -3998,17 +4027,8 @@ export default function JobsBoard() {
 		                </div>
 		              </div>
 
-                  <div className="mt-5 overflow-hidden rounded-2xl bg-white">
-                    <div className="relative h-[360px] w-full bg-white">
-                      <Image
-                        src={jobBanner}
-                        alt="Job banner"
-                        fill
-                        sizes="280px"
-                        className="object-contain object-bottom"
-                        priority={false}
-                      />
-                    </div>
+                  <div className="mt-5">
+                    <JobsDisplayLimitFilter value={displayLimit} onChange={setDisplayLimit} />
                   </div>
 		            </div>
 		          </aside>
@@ -4054,9 +4074,7 @@ export default function JobsBoard() {
                   </div>
                 ) : filtered.length === 0 ? (
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                    {showingFeaturedOnly
-                      ? "No featured (priority) positions yet. Use filters to browse all jobs."
-                      : "No positions found."}
+                    No positions found.
                   </div>
                 ) : (
                   visibleJobs.map((job, index) => {
@@ -4208,7 +4226,7 @@ export default function JobsBoard() {
               </div>
 
               {!loading && filtered.length > 0 ? (
-                <div className="mt-5 flex items-center justify-between gap-3 text-xs text-slate-500">
+                <div className="mt-6 flex flex-col items-center justify-center gap-3 text-center text-xs text-slate-500">
                   <div>
                     Showing{" "}
                     <span className="font-semibold text-slate-700">
@@ -4220,19 +4238,19 @@ export default function JobsBoard() {
                   {visibleCount < filtered.length ? (
                     <button
                       type="button"
-                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#0ea5e9] via-[#2f7de1] to-[#2563eb] px-7 text-sm font-extrabold text-white shadow-lg shadow-sky-200/70 ring-1 ring-white/30 transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
                       onClick={() =>
                         setVisibleCount((current) =>
-                          Math.min(filtered.length, current + JOBS_PAGE_SIZE)
+                          Math.min(filtered.length, current + getVisibleCountForLimit(displayLimit))
                         )
                       }
                     >
-                      Load more
+                      <Plus className="h-4 w-4" aria-hidden="true" />
+                      <span>Load more{displayLimit === "all" ? "" : ` ${displayLimit}`}</span>
                     </button>
                   ) : null}
                 </div>
               ) : null}
-              <div ref={sentinelRef} className="h-1" aria-hidden="true" />
             </div>
           </main>
         </div>
