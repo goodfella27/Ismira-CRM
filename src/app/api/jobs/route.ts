@@ -90,18 +90,19 @@ function asString(value: unknown) {
 
 function getOpeningTypeSortRank(key: string) {
   const normalized = normalizePriorityKey(key);
-  if (normalized === "urgent-opening") return 0;
-  if (normalized === "regular-opening") return 1;
-  if (normalized) return 2;
-  return 3;
+  if (!normalized) return 4;
+  if (normalized.includes("urgent")) return 0;
+  if (normalized.includes("regular")) return 1;
+  if (normalized.includes("coming-soon")) return 3;
+  return 2;
 }
 
 function compareJobsByOpeningType(a: JobListItem, b: JobListItem) {
   const aRank = getOpeningTypeSortRank(
-    resolveOpeningType({ override: getPositionOpeningTypeOverride(a) })
+    resolveOpeningType({ override: getPositionOpeningTypeOverride(a) }) || asString(a.priority)
   );
   const bRank = getOpeningTypeSortRank(
-    resolveOpeningType({ override: getPositionOpeningTypeOverride(b) })
+    resolveOpeningType({ override: getPositionOpeningTypeOverride(b) }) || asString(b.priority)
   );
   if (aRank !== bRank) return aRank - bRank;
 
