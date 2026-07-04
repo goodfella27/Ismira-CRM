@@ -247,7 +247,7 @@ async function expandPositionCompanyJoins(
     )) {
       const company = join.job_company_id ? companyById.get(join.job_company_id) : null;
       if (!company) continue;
-      const key = company.normalized_name || normalizeJobCompanyName(company.name) || company.id;
+      const key = normalizeJobCompanyName(company.name) || company.normalized_name || company.id;
       if (!uniqueJoins.has(key)) uniqueJoins.set(key, join);
     }
 

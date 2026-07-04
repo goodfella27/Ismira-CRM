@@ -341,7 +341,7 @@ export async function GET() {
 
     const rowGroupsByNormalizedName = new Map<string, JobCompanyRow[]>();
     for (const row of activeRows) {
-      const groupKey = row.normalized_name || normalizeJobCompanyName(row.name) || row.id;
+      const groupKey = normalizeJobCompanyName(row.name) || row.normalized_name || row.id;
       const group = rowGroupsByNormalizedName.get(groupKey) ?? [];
       group.push(row);
       rowGroupsByNormalizedName.set(groupKey, group);
