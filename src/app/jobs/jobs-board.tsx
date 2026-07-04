@@ -2021,6 +2021,11 @@ export default function JobsBoard() {
     () => new Set(publicPriorityTypes.map((type) => normalizePriorityKey(type.key))),
     [publicPriorityTypes]
   );
+  const priorityBadgeLabelByKey = useMemo(() => {
+    return new Map(
+      availablePriorityTypes.map((item) => [normalizePriorityKey(item.key), item.label] as const)
+    );
+  }, [availablePriorityTypes]);
 
   const priorityLabelByKey = useMemo(() => {
     return new Map(
@@ -3405,9 +3410,9 @@ export default function JobsBoard() {
       ? asString(isRecord(details) ? details["priority"] : undefined).trim().toLowerCase()
       : asString(selectedSummary?.priority).trim().toLowerCase();
     const key = normalizePriorityKey(priority);
-    if (!key || !publicPriorityTypeKeys.has(key)) return "";
-    return getPriorityLabel(priority, publicPriorityTypes);
-  }, [details, publicPriorityTypeKeys, publicPriorityTypes, selectedSummary]);
+    if (!key) return "";
+    return priorityBadgeLabelByKey.get(key) ?? getPriorityLabel(priority, availablePriorityTypes);
+  }, [availablePriorityTypes, details, priorityBadgeLabelByKey, selectedSummary]);
 
   const modalBenefitTags = useMemo(() => {
     if (!selectedId) return [];
@@ -4092,8 +4097,9 @@ export default function JobsBoard() {
                     const avatar = avatarSeed.slice(0, 1).toUpperCase();
 	                    const priority = asString(job.priority).trim().toLowerCase();
 	                    const priorityKey = normalizePriorityKey(priority);
-	                    const priorityLabel = publicPriorityTypeKeys.has(priorityKey)
-	                      ? getPriorityLabel(priorityKey, publicPriorityTypes)
+	                    const priorityLabel = priorityKey
+	                      ? priorityBadgeLabelByKey.get(priorityKey) ??
+	                        getPriorityLabel(priorityKey, availablePriorityTypes)
 	                      : "";
 	                    const shipTypeLabels =
 	                      job.__shipTypeKeys.length > 0
