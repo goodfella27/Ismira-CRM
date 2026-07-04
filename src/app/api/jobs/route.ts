@@ -13,6 +13,7 @@ import {
   DEFAULT_BREEZY_PRIORITY_TYPES,
   dedupePriorityTypes,
   getDefaultPriorityFrontpageVisibility,
+  normalizePriorityKey,
 } from "@/lib/breezy-priority-types";
 import { buildBreezyPublicPositionUrl } from "@/lib/breezy-public";
 import {
@@ -87,10 +88,22 @@ function asString(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
+function getOpeningTypeSortRank(key: string) {
+  const normalized = normalizePriorityKey(key);
+  if (normalized === "urgent-opening") return 0;
+  if (normalized === "regular-opening") return 1;
+  if (normalized) return 2;
+  return 3;
+}
+
 function compareJobsByOpeningType(a: JobListItem, b: JobListItem) {
-  const aHasType = resolveOpeningType({ override: getPositionOpeningTypeOverride(a) }) ? 1 : 0;
-  const bHasType = resolveOpeningType({ override: getPositionOpeningTypeOverride(b) }) ? 1 : 0;
-  if (bHasType !== aHasType) return bHasType - aHasType;
+  const aRank = getOpeningTypeSortRank(
+    resolveOpeningType({ override: getPositionOpeningTypeOverride(a) })
+  );
+  const bRank = getOpeningTypeSortRank(
+    resolveOpeningType({ override: getPositionOpeningTypeOverride(b) })
+  );
+  if (aRank !== bRank) return aRank - bRank;
 
   const aTime = Date.parse(asString(a.updated_at));
   const bTime = Date.parse(asString(b.updated_at));

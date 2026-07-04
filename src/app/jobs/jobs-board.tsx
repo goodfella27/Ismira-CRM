@@ -166,10 +166,18 @@ type JobListItemIndexed = JobListItem & {
   __updatedAtMs: number;
 };
 
+function getOpeningTypeSortRank(key: string) {
+  const normalized = normalizePriorityKey(key);
+  if (normalized === "urgent-opening") return 0;
+  if (normalized === "regular-opening") return 1;
+  if (normalized) return 2;
+  return 3;
+}
+
 function compareJobsByOpeningType(a: JobListItemIndexed, b: JobListItemIndexed) {
-  const aHasType = a.__priorityKey ? 1 : 0;
-  const bHasType = b.__priorityKey ? 1 : 0;
-  if (bHasType !== aHasType) return bHasType - aHasType;
+  const aRank = getOpeningTypeSortRank(a.__priorityKey);
+  const bRank = getOpeningTypeSortRank(b.__priorityKey);
+  if (aRank !== bRank) return aRank - bRank;
   if (b.__updatedAtMs !== a.__updatedAtMs) return b.__updatedAtMs - a.__updatedAtMs;
   return asString(a.name).localeCompare(asString(b.name), undefined, { sensitivity: "base" });
 }
