@@ -417,15 +417,28 @@ async function expandPositionCompanyJoins(
 
   const { data: companyData, error: companyError } = await init.admin
     .from("job_companies")
-    .select("id,name,normalized_name")
+    .select("id,name,normalized_name,metadata")
     .eq("company_id", init.companyId)
     .in("id", companyIds);
   if (companyError || !Array.isArray(companyData)) return items;
 
   const companyById = new Map(
-    (companyData as Array<{ id: string; name: string | null; normalized_name: string | null }>).map(
-      (row) => [row.id, row] as const
+    (
+      companyData as Array<{
+        id: string;
+        name: string | null;
+        normalized_name: string | null;
+        metadata?: unknown;
+      }>
     )
+      .filter((row) => {
+        const metadata =
+          row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+            ? (row.metadata as Record<string, unknown>)
+            : {};
+        return typeof metadata.merged_into_job_company_id !== "string";
+      })
+      .map((row) => [row.id, row] as const)
   );
   const joinsByPosition = new Map<string, typeof joins>();
   for (const row of joins) {
@@ -439,8 +452,18 @@ async function expandPositionCompanyJoins(
   return items.flatMap((item) => {
     const positionJoins = joinsByPosition.get(item.id) ?? [];
     if (positionJoins.length === 0) return [item];
-    return positionJoins
-      .sort((a, b) => Number(b.is_primary === true) - Number(a.is_primary === true))
+
+    const uniqueJoins = new Map<string, (typeof positionJoins)[number]>();
+    for (const join of [...positionJoins].sort(
+      (a, b) => Number(b.is_primary === true) - Number(a.is_primary === true)
+    )) {
+      const company = join.job_company_id ? companyById.get(join.job_company_id) : null;
+      if (!company) continue;
+      const key = company.normalized_name || normalizeJobCompanyName(company.name) || company.id;
+      if (!uniqueJoins.has(key)) uniqueJoins.set(key, join);
+    }
+
+    const expanded = Array.from(uniqueJoins.values())
       .map((join) => {
         const company = join.job_company_id ? companyById.get(join.job_company_id) : null;
         const companyName = (company?.name ?? "").trim();
@@ -452,6 +475,7 @@ async function expandPositionCompanyJoins(
           company: companyName,
         };
       });
+    return expanded.length > 0 ? expanded : [item];
   });
 }
 

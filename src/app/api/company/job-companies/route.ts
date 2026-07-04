@@ -86,6 +86,14 @@ function getPositionProcessableCountryCodes(details: unknown) {
   return normalizeCountryCodeList(countries?.processable);
 }
 
+function addUniqueValues(target: string[], values: string[]) {
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (trimmed && !target.includes(trimmed)) target.push(trimmed);
+  }
+  return target;
+}
+
 export async function GET() {
   try {
     const user = await requireUser();
@@ -331,10 +339,79 @@ export async function GET() {
     const benefitOptions = await fetchJobBenefitOptions(admin, membership.companyId).catch(() => []);
     const countryOptions = await fetchJobCountryOptions(admin, membership.companyId).catch(() => []);
 
+    const rowGroupsByNormalizedName = new Map<string, JobCompanyRow[]>();
+    for (const row of activeRows) {
+      const groupKey = row.normalized_name || normalizeJobCompanyName(row.name) || row.id;
+      const group = rowGroupsByNormalizedName.get(groupKey) ?? [];
+      group.push(row);
+      rowGroupsByNormalizedName.set(groupKey, group);
+    }
+
+    const getGroupCountryCodes = (group: JobCompanyRow[]) => {
+      const codes: string[] = [];
+      for (const row of group) {
+        addUniqueValues(codes, getJobCompanyCountryCodes(row.metadata));
+        addUniqueValues(codes, countryCodesByJobCompanyId.get(row.id) ?? []);
+      }
+      return codes;
+    };
+
+    const getGroupBenefitTags = (group: JobCompanyRow[]) => {
+      const tags: string[] = [];
+      for (const row of group) addUniqueValues(tags, benefitTagsByCompanyId.get(row.id) ?? []);
+      return tags;
+    };
+
+    const getGroupPositionCount = (group: JobCompanyRow[]) => {
+      const groupIds = new Set(group.map((row) => row.id));
+      let linkedCount = 0;
+      for (const ids of positionCompanyIds.values()) {
+        if ([...ids].some((id) => groupIds.has(id))) linkedCount += 1;
+      }
+      if (linkedCount > 0) return linkedCount;
+
+      const idCount = group.reduce((total, row) => total + (countsById.get(row.id) ?? 0), 0);
+      if (idCount > 0) return idCount;
+
+      return Math.max(...group.map((row) => countsByName.get(row.normalized_name) ?? 0), 0);
+    };
+
+    const chooseDisplayRow = (group: JobCompanyRow[]) => {
+      return [...group].sort((a, b) => {
+        const countDiff = getGroupPositionCount([b]) - getGroupPositionCount([a]);
+        if (countDiff !== 0) return countDiff;
+
+        const countryDiff = getGroupCountryCodes([b]).length - getGroupCountryCodes([a]).length;
+        if (countryDiff !== 0) return countryDiff;
+
+        const benefitDiff = getGroupBenefitTags([b]).length - getGroupBenefitTags([a]).length;
+        if (benefitDiff !== 0) return benefitDiff;
+
+        const logoDiff =
+          Number(typeof b.logo_path === "string" && b.logo_path.trim().length > 0) -
+          Number(typeof a.logo_path === "string" && a.logo_path.trim().length > 0);
+        if (logoDiff !== 0) return logoDiff;
+
+        const bTime = Date.parse(b.updated_at ?? "");
+        const aTime = Date.parse(a.updated_at ?? "");
+        return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+      })[0];
+    };
+
+    const displayGroups = Array.from(rowGroupsByNormalizedName.values())
+      .map((group) => ({ group, row: chooseDisplayRow(group) }))
+      .filter((item): item is { group: JobCompanyRow[]; row: JobCompanyRow } => Boolean(item.row))
+      .sort((a, b) => a.row.name.localeCompare(b.row.name, undefined, { sensitivity: "base" }));
+
     return NextResponse.json(
       {
-        companies: activeRows.map((row) => {
-          const savedCountryCodes = getJobCompanyCountryCodes(row.metadata);
+        companies: displayGroups.map(({ group, row }) => {
+          const countryCodes = getGroupCountryCodes(group);
+          const benefitTags = getGroupBenefitTags(group);
+          const openingType =
+            getMetadataOpeningType(row.metadata) ||
+            group.map((item) => getMetadataOpeningType(item.metadata)).find(Boolean) ||
+            "";
           return {
             id: row.id,
             name: row.name,
@@ -346,14 +423,10 @@ export async function GET() {
                 : null) ?? null,
             shipType: resolveJobShipType({ metadata: row.metadata, name: row.name }),
             shipTypes: resolveJobShipTypes({ metadata: row.metadata, name: row.name }),
-            openingType: getMetadataOpeningType(row.metadata),
-            benefitTags: benefitTagsByCompanyId.get(row.id) ?? [],
-            countryCodes:
-              savedCountryCodes.length > 0
-                ? savedCountryCodes
-                : countryCodesByJobCompanyId.get(row.id) ?? [],
-            positionsCount:
-              countsById.get(row.id) ?? countsByName.get(row.normalized_name) ?? 0,
+            openingType,
+            benefitTags,
+            countryCodes,
+            positionsCount: getGroupPositionCount(group),
             createdAt: row.created_at ?? null,
             updatedAt: row.updated_at ?? null,
           };
