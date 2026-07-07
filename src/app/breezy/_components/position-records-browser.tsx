@@ -78,6 +78,7 @@ import {
   normalizeJobPremiumDetails,
   type JobPremiumDetails,
 } from "@/lib/job-premium-details";
+import { subscribeJobCompanyLogosChanged } from "@/lib/job-company-logo-events";
 
 const PRIORITY_BADGE_STYLES = [
   "bg-gradient-to-r from-[#ff9d2e] to-[#ffbf5f] text-white shadow-orange-200/40",
@@ -2886,62 +2887,60 @@ export default function BreezyPositionRecordsBrowser({
     return () => ro.disconnect();
   }, []);
 
-  useEffect(() => {
-    let ignore = false;
+  const loadCompanyLogos = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch("/api/company/job-companies", { cache: "no-store", signal });
+      const data = (await res.json().catch(() => null)) as JobCompanyLogoResponse | null;
+      if (!res.ok || !data?.companies || signal?.aborted) return;
 
-    const loadCompanyLogos = async () => {
-      try {
-        const res = await fetch("/api/company/job-companies", { cache: "no-store" });
-        const data = (await res.json().catch(() => null)) as JobCompanyLogoResponse | null;
-        if (!res.ok || !data?.companies || ignore) return;
+      const nextBenefitOptions = normalizeBenefitOptions(data.benefitOptions);
+      const availableBenefitTags = new Set(nextBenefitOptions.map((option) => option.tag));
+      const nextList = data.companies
+        .map((company) => ({
+          id: asString(company?.id).trim(),
+          name: asString(company?.name).trim(),
+          logoUrl: asString(company?.logoUrl).trim(),
+          openingType: normalizePriorityKey(asString(company?.openingType)),
+          benefitTags: Array.isArray(company?.benefitTags)
+            ? (company.benefitTags.filter(
+                (tag): tag is BenefitTag =>
+                  typeof tag === "string" && availableBenefitTags.has(tag as BenefitTag)
+              ) as BenefitTag[])
+            : [],
+          countryCodes: normalizeCountryCodeList(company?.countryCodes),
+        }))
+        .filter((item) => item.name);
 
-        const nextBenefitOptions = normalizeBenefitOptions(data.benefitOptions);
-        const availableBenefitTags = new Set(
-          nextBenefitOptions.map((option) => option.tag)
-        );
-        const nextList = data.companies
-          .map((company) => ({
-            id: asString(company?.id).trim(),
-            name: asString(company?.name).trim(),
-            logoUrl: asString(company?.logoUrl).trim(),
-            openingType: normalizePriorityKey(asString(company?.openingType)),
-            benefitTags: Array.isArray(company?.benefitTags)
-              ? (company.benefitTags.filter((tag): tag is BenefitTag =>
-                  typeof tag === "string" &&
-                  availableBenefitTags.has(tag as BenefitTag)
-                ) as BenefitTag[])
-              : [],
-            countryCodes: normalizeCountryCodeList(company?.countryCodes),
-          }))
-          .filter((item) => item.name);
+      const next = nextList.reduce<Record<string, string>>((acc, company) => {
+        const name = company.name.trim().toLowerCase();
+        const logoUrl = company.logoUrl.trim();
+        if (!name || !logoUrl) return acc;
+        acc[name] = logoUrl;
+        return acc;
+      }, {});
 
-        const next = nextList.reduce<Record<string, string>>((acc, company) => {
-          const name = company.name.trim().toLowerCase();
-          const logoUrl = company.logoUrl.trim();
-          if (!name || !logoUrl) return acc;
-          acc[name] = logoUrl;
-          return acc;
-        }, {});
-
-        if (!ignore) {
-          setCompanyLogoByName(next);
-          setJobCompanies(nextList);
-          setBenefitOptions(nextBenefitOptions);
-        }
-      } catch {
-        if (!ignore) {
-          setCompanyLogoByName({});
-          setJobCompanies([]);
-          setBenefitOptions(DEFAULT_JOB_BENEFIT_OPTIONS);
-        }
-      }
-    };
-
-    void loadCompanyLogos();
-    return () => {
-      ignore = true;
-    };
+      setCompanyLogoByName(next);
+      setJobCompanies(nextList);
+      setBenefitOptions(nextBenefitOptions);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setCompanyLogoByName({});
+      setJobCompanies([]);
+      setBenefitOptions(DEFAULT_JOB_BENEFIT_OPTIONS);
+    }
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadCompanyLogos(controller.signal);
+    return () => controller.abort();
+  }, [loadCompanyLogos]);
+
+  useEffect(() => {
+    return subscribeJobCompanyLogosChanged(() => {
+      void loadCompanyLogos();
+    });
+  }, [loadCompanyLogos]);
 
   useEffect(() => {
     if (!selectedPositionId) return;

@@ -113,12 +113,25 @@ export async function GET() {
     }
 
     const rows = Array.isArray(data) ? (data as JobCompanyRow[]) : [];
+    const mergeTargetIds = new Set(
+      rows
+        .map((row) => {
+          const metadata =
+            row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+              ? row.metadata
+              : {};
+          return typeof metadata.merged_into_job_company_id === "string"
+            ? metadata.merged_into_job_company_id.trim()
+            : "";
+        })
+        .filter(Boolean)
+    );
     const activeRows = rows.filter((row) => {
       const metadata =
         row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
           ? row.metadata
           : {};
-      return typeof metadata.merged_into_job_company_id !== "string";
+      return typeof metadata.merged_into_job_company_id !== "string" || mergeTargetIds.has(row.id);
     });
     const logoUrls = await signJobCompanyLogoUrls(admin, activeRows);
     let benefits = await fetchJobCompanyBenefits(
@@ -378,6 +391,11 @@ export async function GET() {
 
     const chooseDisplayRow = (group: JobCompanyRow[]) => {
       return [...group].sort((a, b) => {
+        const logoDiff =
+          Number(typeof b.logo_path === "string" && b.logo_path.trim().length > 0) -
+          Number(typeof a.logo_path === "string" && a.logo_path.trim().length > 0);
+        if (logoDiff !== 0) return logoDiff;
+
         const countDiff = getGroupPositionCount([b]) - getGroupPositionCount([a]);
         if (countDiff !== 0) return countDiff;
 
@@ -386,11 +404,6 @@ export async function GET() {
 
         const benefitDiff = getGroupBenefitTags([b]).length - getGroupBenefitTags([a]).length;
         if (benefitDiff !== 0) return benefitDiff;
-
-        const logoDiff =
-          Number(typeof b.logo_path === "string" && b.logo_path.trim().length > 0) -
-          Number(typeof a.logo_path === "string" && a.logo_path.trim().length > 0);
-        if (logoDiff !== 0) return logoDiff;
 
         const bTime = Date.parse(b.updated_at ?? "");
         const aTime = Date.parse(a.updated_at ?? "");

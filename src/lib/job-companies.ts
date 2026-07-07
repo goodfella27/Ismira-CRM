@@ -134,43 +134,59 @@ export async function resolveActiveJobCompanies(
   companyId: string,
   rows: JobCompanyRow[]
 ) {
-  const targetIds = Array.from(
-    new Set(
-      rows
-        .map((row) => {
-          const metadata =
-            row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
-              ? row.metadata
-              : {};
-          return typeof metadata.merged_into_job_company_id === "string"
-            ? metadata.merged_into_job_company_id.trim()
-            : "";
-        })
-        .filter(Boolean)
-    )
-  );
-  if (targetIds.length === 0) return rows;
-
-  const { data, error } = await admin
-    .from("job_companies")
-    .select("id,company_id,breezy_company_id,name,normalized_name,slug,logo_path,website,metadata,created_at,updated_at")
-    .eq("company_id", companyId)
-    .in("id", targetIds);
-  if (error) throw new Error(error.message ?? "Failed to load merged job company targets");
-
-  const targetsById = new Map(
-    (Array.isArray(data) ? (data as JobCompanyRow[]) : []).map((row) => [row.id, row] as const)
-  );
-  const resolved = rows.map((row) => {
+  const getMergedTargetId = (row: JobCompanyRow | undefined) => {
     const metadata =
-      row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      row?.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
         ? row.metadata
         : {};
-    const targetId =
-      typeof metadata.merged_into_job_company_id === "string"
-        ? metadata.merged_into_job_company_id.trim()
-        : "";
-    return targetId ? targetsById.get(targetId) ?? row : row;
+    return typeof metadata.merged_into_job_company_id === "string"
+      ? metadata.merged_into_job_company_id.trim()
+      : "";
+  };
+
+  const companiesById = new Map(rows.map((row) => [row.id, row] as const));
+  const loadedTargetIds = new Set(companiesById.keys());
+
+  for (let depth = 0; depth < 10; depth += 1) {
+    const missingTargetIds = Array.from(
+      new Set(
+        Array.from(companiesById.values())
+          .map((row) => getMergedTargetId(row))
+          .filter((targetId) => targetId && !loadedTargetIds.has(targetId))
+      )
+    );
+
+    if (missingTargetIds.length === 0) break;
+
+    const { data, error } = await admin
+      .from("job_companies")
+      .select("id,company_id,breezy_company_id,name,normalized_name,slug,logo_path,website,metadata,created_at,updated_at")
+      .eq("company_id", companyId)
+      .in("id", missingTargetIds);
+    if (error) throw new Error(error.message ?? "Failed to load merged job company targets");
+
+    const targetRows = Array.isArray(data) ? (data as JobCompanyRow[]) : [];
+    for (const row of targetRows) companiesById.set(row.id, row);
+    for (const targetId of missingTargetIds) loadedTargetIds.add(targetId);
+  }
+
+  const resolveRow = (row: JobCompanyRow) => {
+    let current = row;
+    const seen = new Set<string>();
+    for (let depth = 0; depth < 10; depth += 1) {
+      if (seen.has(current.id)) return current;
+      seen.add(current.id);
+
+      const targetId = getMergedTargetId(current);
+      const target = targetId ? companiesById.get(targetId) : undefined;
+      if (!target) return current;
+      current = target;
+    }
+    return current;
+  };
+
+  const resolved = rows.map((row) => {
+    return resolveRow(row);
   });
 
   return Array.from(new Map(resolved.map((row) => [row.id, row] as const)).values());

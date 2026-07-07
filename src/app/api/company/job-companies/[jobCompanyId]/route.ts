@@ -10,7 +10,7 @@ import {
   JOB_COMPANY_OPENING_TYPE_METADATA_KEY,
 } from "@/lib/job-company-opening-types";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
-import { signJobCompanyLogoUrls, type JobCompanyRow } from "@/lib/job-companies";
+import { normalizeJobCompanyName, signJobCompanyLogoUrls, type JobCompanyRow } from "@/lib/job-companies";
 import { normalizeJobShipTypes, resolveJobShipType, resolveJobShipTypes } from "@/lib/job-ship-types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -47,6 +47,36 @@ function getJobCompanyCountryCodes(metadata: unknown) {
   return normalizeCountryCodeList(record.job_company_country_codes);
 }
 
+type LogoSyncRow = Pick<JobCompanyRow, "id" | "name" | "normalized_name" | "metadata">;
+
+function getLogoSyncGroupKey(row: LogoSyncRow) {
+  return normalizeJobCompanyName(row.name) || row.normalized_name || row.id;
+}
+
+async function resolveLogoSyncIds(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  companyId: string,
+  existing: LogoSyncRow
+) {
+  const groupKey = getLogoSyncGroupKey(existing);
+  if (!groupKey) return [existing.id];
+
+  const { data, error } = await admin
+    .from("job_companies")
+    .select("id,name,normalized_name,metadata")
+    .eq("company_id", companyId);
+
+  if (error) throw new Error(error.message ?? "Failed to load logo sync companies");
+
+  const rows = Array.isArray(data) ? (data as LogoSyncRow[]) : [];
+  const ids = rows
+    .filter((row) => getLogoSyncGroupKey(row) === groupKey)
+    .map((row) => row.id)
+    .filter(Boolean);
+
+  return ids.length > 0 ? [...new Set(ids)] : [existing.id];
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ jobCompanyId: string }> }
@@ -64,7 +94,7 @@ export async function POST(
 
     const { data: existing, error: existingError } = await admin
       .from("job_companies")
-      .select("id,name,logo_path,metadata")
+      .select("id,name,normalized_name,logo_path,metadata")
       .eq("company_id", membership.companyId)
       .eq("id", id)
       .maybeSingle();
@@ -173,10 +203,26 @@ export async function POST(
       update.website = website || null;
     }
 
-    if (Object.keys(update).length > 0) {
+    const logoPathChanged = Object.prototype.hasOwnProperty.call(update, "logo_path");
+    const singleRowUpdate = { ...update };
+    if (logoPathChanged) delete singleRowUpdate.logo_path;
+
+    if (logoPathChanged) {
+      const logoSyncIds = await resolveLogoSyncIds(admin, membership.companyId, existing);
+      const { error: logoUpdateError } = await admin
+        .from("job_companies")
+        .update({ logo_path: nextLogoPath ?? null })
+        .eq("company_id", membership.companyId)
+        .in("id", logoSyncIds);
+      if (logoUpdateError) {
+        throw new Error(logoUpdateError.message ?? "Failed to update job company logos");
+      }
+    }
+
+    if (Object.keys(singleRowUpdate).length > 0) {
       const { error: updateError } = await admin
         .from("job_companies")
-        .update(update)
+        .update(singleRowUpdate)
         .eq("company_id", membership.companyId)
         .eq("id", id);
       if (updateError) throw new Error(updateError.message ?? "Failed to update job company");

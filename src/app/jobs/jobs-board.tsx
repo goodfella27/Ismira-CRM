@@ -79,6 +79,10 @@ import {
   normalizeJobPremiumDetails,
   type JobPremiumDetails,
 } from "@/lib/job-premium-details";
+import {
+  getJobCompanyLogosChangedAt,
+  subscribeJobCompanyLogosChanged,
+} from "@/lib/job-company-logo-events";
 
 type PremiumAccessResponse = {
   available: boolean;
@@ -1331,6 +1335,7 @@ function readJobsCache(): JobsBoardCache | null {
       | (Partial<JobsBoardCache> & { v?: number; priorityTypes?: unknown })
       | null;
     if (!parsed || typeof parsed.savedAt !== "number" || !Array.isArray(parsed.items)) return null;
+    if (parsed.savedAt < getJobCompanyLogosChangedAt()) return null;
     if (parsed.v === 8) {
       return {
         v: 8,
@@ -1360,6 +1365,15 @@ function writeJobsCache(cache: JobsBoardCache) {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(JOBS_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // ignore
+  }
+}
+
+function clearJobsCache() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(JOBS_CACHE_KEY);
   } catch {
     // ignore
   }
@@ -2416,7 +2430,7 @@ export default function JobsBoard() {
     shipTypeSelection,
   ]);
 
-  const loadJobs = useCallback(async () => {
+  const loadJobs = useCallback(async (options: { force?: boolean } = {}) => {
     jobsAbortRef.current?.abort();
     const controller = new AbortController();
     jobsAbortRef.current = controller;
@@ -2425,12 +2439,17 @@ export default function JobsBoard() {
     const hasData = jobsRef.current.length > 0;
     setLoading(!hasData);
     try {
+      const force = options.force === true;
       const url = "/api/jobs";
       const headers: HeadersInit = {};
-      if (etagRef.current) {
+      if (etagRef.current && !force) {
         headers["If-None-Match"] = etagRef.current;
       }
-      const res = await fetch(url, { headers, signal: controller.signal });
+      const res = await fetch(url, {
+        headers,
+        signal: controller.signal,
+        cache: force ? "no-store" : "default",
+      });
       if (res.status === 304) {
         touchJobsCache();
         return;
@@ -2529,6 +2548,16 @@ export default function JobsBoard() {
     }
   }, []);
 
+  useEffect(() => {
+    return subscribeJobCompanyLogosChanged(() => {
+      clearJobsCache();
+      etagRef.current = null;
+      setDetailsById({});
+      void loadJobs({ force: true });
+      if (selectedId) void loadDetails(selectedId);
+    });
+  }, [loadDetails, loadJobs, selectedId]);
+
   const replaceSelectedIdInUrl = useCallback(
     (nextId: string | null) => {
       const params = new URLSearchParams(searchParams?.toString() ?? "");
@@ -2563,7 +2592,7 @@ export default function JobsBoard() {
   useEffect(() => {
     const cached = readJobsCache();
     if (cached) applyCachedJobs(cached);
-    void loadJobs();
+    void loadJobs({ force: !cached && getJobCompanyLogosChangedAt() > 0 });
   }, [applyCachedJobs, loadJobs]);
 
   useEffect(() => {

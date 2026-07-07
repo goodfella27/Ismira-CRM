@@ -20,6 +20,7 @@ import {
   Undo2,
   Upload,
   Users2,
+  X,
 } from "lucide-react";
 import { stages } from "@/app/pipeline/data";
 import type { Pipeline, Stage } from "@/app/pipeline/types";
@@ -55,6 +56,7 @@ import {
   getCompanyBranding,
   invalidateCompanyBrandingCache,
 } from "@/lib/company-branding-client";
+import { notifyJobCompanyLogosChanged } from "@/lib/job-company-logo-events";
 
 type SectionId =
   | "overview"
@@ -348,6 +350,7 @@ export default function CompanyPage() {
   );
   const [newJobBenefitLabel, setNewJobBenefitLabel] = useState("");
   const [jobBenefitOptionsSaving, setJobBenefitOptionsSaving] = useState(false);
+  const [benefitOptionsModalOpen, setBenefitOptionsModalOpen] = useState(false);
   const [jobCountryOptions, setJobCountryOptions] = useState<JobCountryOption[]>(
     DEFAULT_JOB_COUNTRY_OPTIONS
   );
@@ -357,6 +360,7 @@ export default function CompanyPage() {
   const [newJobCountryCode, setNewJobCountryCode] = useState("");
   const [newJobCountryName, setNewJobCountryName] = useState("");
   const [jobCountryOptionsSaving, setJobCountryOptionsSaving] = useState(false);
+  const [countryOptionsModalOpen, setCountryOptionsModalOpen] = useState(false);
   const [openingTypes, setOpeningTypes] = useState<BreezyPriorityType[]>(
     DEFAULT_BREEZY_PRIORITY_TYPES
   );
@@ -1227,6 +1231,7 @@ export default function CompanyPage() {
           throw new Error(data?.error ?? "Failed to upload job company logo.");
         }
         await loadJobCompanies();
+        notifyJobCompanyLogosChanged();
       } catch (err) {
         setJobCompaniesError(
           err instanceof Error ? err.message : "Failed to upload job company logo."
@@ -1255,6 +1260,7 @@ export default function CompanyPage() {
           throw new Error(data?.error ?? "Failed to remove job company logo.");
         }
         await loadJobCompanies();
+        notifyJobCompanyLogosChanged();
       } catch (err) {
         setJobCompaniesError(
           err instanceof Error ? err.message : "Failed to remove job company logo."
@@ -1905,6 +1911,10 @@ export default function CompanyPage() {
     ...(lastJobCompanyMerge ? [lastJobCompanyMerge] : []),
     ...recentJobCompanyMerges.filter((merge) => merge.id !== lastJobCompanyMerge?.id),
   ];
+  const benefitOptionsChanged =
+    JSON.stringify(normalizeBenefitOptions(jobBenefitOptionsDraft)) !==
+    JSON.stringify(normalizeBenefitOptions(jobBenefitOptions));
+  const countryOptionsChanged = !sameCountryOptions(jobCountryOptionsDraft, jobCountryOptions);
 
   return (
     <div className="h-full">
@@ -3317,13 +3327,6 @@ export default function CompanyPage() {
                         draftOpeningType !== normalizePriorityKey(item.openingType) ||
                         !sameBenefitTagSelection(draftBenefitTags, item.benefitTags) ||
                         !sameCountryCodeSelection(draftCountryCodes, item.countryCodes);
-                      const benefitOptionsChanged =
-                        JSON.stringify(normalizeBenefitOptions(jobBenefitOptionsDraft)) !==
-                        JSON.stringify(normalizeBenefitOptions(jobBenefitOptions));
-                      const countryOptionsChanged = !sameCountryOptions(
-                        jobCountryOptionsDraft,
-                        jobCountryOptions
-                      );
                       const shipTypeLabels =
                         draftShipTypes.length > 0
                           ? draftShipTypes.map((type) => JOB_SHIP_TYPE_LABELS[type])
@@ -3596,77 +3599,14 @@ export default function CompanyPage() {
                                           </button>
                                         );
                                       })}
-                                    </div>
-                                    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
-                                      <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                                          Rename or remove benefits
-                                        </div>
-                                        <button
-                                          type="button"
-                                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                                          onClick={() => void handleSaveJobBenefitOptions()}
-                                          disabled={jobBenefitOptionsSaving || !benefitOptionsChanged}
-                                        >
-                                          <Save className="h-3.5 w-3.5" />
-                                          {jobBenefitOptionsSaving ? "Saving..." : "Save names"}
-                                        </button>
-                                      </div>
-
-                                      <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                                        {jobBenefitOptionsDraft.map((option) => (
-                                          <div
-                                            key={option.tag}
-                                            className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5"
-                                          >
-                                            <input
-                                              type="text"
-                                              value={option.label}
-                                              disabled={jobBenefitOptionsSaving}
-                                              onChange={(event) =>
-                                                setJobBenefitOptionsDraft((prev) =>
-                                                  prev.map((benefit) =>
-                                                    benefit.tag === option.tag
-                                                      ? { ...benefit, label: event.target.value }
-                                                      : benefit
-                                                  )
-                                                )
-                                              }
-                                              className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-                                            />
-                                            <button
-                                              type="button"
-                                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
-                                              aria-label={`Remove ${option.label}`}
-                                              disabled={
-                                                jobBenefitOptionsSaving ||
-                                                jobBenefitOptionsDraft.length <= 1
-                                              }
-                                              onClick={() => {
-                                                setJobBenefitOptionsDraft((prev) =>
-                                                  prev
-                                                    .filter((benefit) => benefit.tag !== option.tag)
-                                                    .map((benefit, nextIndex) => ({
-                                                      ...benefit,
-                                                      sortOrder: nextIndex,
-                                                    }))
-                                                );
-                                                setJobCompanyBenefitDrafts((prev) =>
-                                                  Object.fromEntries(
-                                                    Object.entries(prev).map(([companyId, tags]) => [
-                                                      companyId,
-                                                      tags.filter((tag) => tag !== option.tag),
-                                                    ])
-                                                  )
-                                                );
-                                              }}
-                                            >
-                                              <Trash2 className="h-3.5 w-3.5" />
-                                            </button>
-                                          </div>
-                                        ))}
-                                      </div>
-
+                                      <button
+                                        type="button"
+                                        className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-sky-400 bg-gradient-to-r from-[#00b4ff] via-[#1594f5] to-[#006fe6] px-4 text-xs font-bold text-white shadow-lg shadow-sky-300/50 transition hover:from-[#16c8ff] hover:via-[#1aa2ff] hover:to-[#075fe0]"
+                                        onClick={() => setBenefitOptionsModalOpen(true)}
+                                      >
+                                        <PencilLine className="h-3.5 w-3.5" />
+                                        Add / manage benefits
+                                      </button>
                                     </div>
                                   </div>
 
@@ -3729,128 +3669,14 @@ export default function CompanyPage() {
                                             </button>
                                           );
                                         })}
-                                      </div>
-                                    </div>
-
-                                    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
-                                      <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                                          Rename or remove countries
-                                        </div>
                                         <button
                                           type="button"
-                                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                                          onClick={() => void handleSaveJobCountryOptions()}
-                                          disabled={jobCountryOptionsSaving || !countryOptionsChanged}
+                                          className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-sky-400 bg-gradient-to-r from-[#00b4ff] via-[#1594f5] to-[#006fe6] px-4 text-xs font-bold text-white shadow-lg shadow-sky-300/50 transition hover:from-[#16c8ff] hover:via-[#1aa2ff] hover:to-[#075fe0]"
+                                          onClick={() => setCountryOptionsModalOpen(true)}
                                         >
-                                          <Save className="h-3.5 w-3.5" />
-                                          {jobCountryOptionsSaving ? "Saving..." : "Save countries"}
+                                          <PencilLine className="h-3.5 w-3.5" />
+                                          Add / manage countries
                                         </button>
-                                      </div>
-
-                                      <div className="mt-2 grid gap-2 md:grid-cols-[92px_minmax(0,1fr)_auto]">
-                                        <input
-                                          type="text"
-                                          value={newJobCountryCode}
-                                          onChange={(event) =>
-                                            setNewJobCountryCode(event.target.value.toUpperCase())
-                                          }
-                                          onKeyDown={(event) => {
-                                            if (event.key !== "Enter") return;
-                                            event.preventDefault();
-                                            handleAddJobCountryOption();
-                                          }}
-                                          placeholder="Code"
-                                          maxLength={2}
-                                          className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-extrabold uppercase tracking-wide text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-                                        />
-                                        <input
-                                          type="text"
-                                          value={newJobCountryName}
-                                          onChange={(event) => setNewJobCountryName(event.target.value)}
-                                          onKeyDown={(event) => {
-                                            if (event.key !== "Enter") return;
-                                            event.preventDefault();
-                                            handleAddJobCountryOption();
-                                          }}
-                                          placeholder="Country name"
-                                          className="h-10 min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-                                        />
-                                        <button
-                                          type="button"
-                                          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-xs font-bold text-white transition hover:bg-sky-700 disabled:opacity-60"
-                                          onClick={handleAddJobCountryOption}
-                                          disabled={
-                                            jobCountryOptionsSaving ||
-                                            !normalizeCountryCode(newJobCountryCode || newJobCountryName) ||
-                                            !newJobCountryName.trim()
-                                          }
-                                        >
-                                          <Plus className="h-4 w-4" />
-                                          Add country
-                                        </button>
-                                      </div>
-
-                                      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                                        {jobCountryOptionsDraft.map((option) => (
-                                          <div
-                                            key={option.code}
-                                            className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5"
-                                          >
-                                            <div className="flex h-8 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-lg">
-                                              {toFlagEmoji(option.code) || option.code}
-                                            </div>
-                                            <input
-                                              type="text"
-                                              value={option.name}
-                                              disabled={jobCountryOptionsSaving}
-                                              onChange={(event) =>
-                                                setJobCountryOptionsDraft((prev) =>
-                                                  prev.map((country) =>
-                                                    country.code === option.code
-                                                      ? { ...country, name: event.target.value }
-                                                      : country
-                                                  )
-                                                )
-                                              }
-                                              className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-                                            />
-                                            <div className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-extrabold text-slate-500">
-                                              {option.code}
-                                            </div>
-                                            <button
-                                              type="button"
-                                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
-                                              aria-label={`Remove ${option.name}`}
-                                              disabled={
-                                                jobCountryOptionsSaving ||
-                                                jobCountryOptionsDraft.length <= 1
-                                              }
-                                              onClick={() =>
-                                                {
-                                                  setJobCountryOptionsDraft((prev) =>
-                                                    prev
-                                                      .filter((country) => country.code !== option.code)
-                                                      .map((country, nextIndex) => ({
-                                                        ...country,
-                                                        sortOrder: nextIndex,
-                                                      }))
-                                                  );
-                                                  setJobCompanyCountryDrafts((prev) =>
-                                                    Object.fromEntries(
-                                                      Object.entries(prev).map(([companyId, codes]) => [
-                                                        companyId,
-                                                        codes.filter((code) => code !== option.code),
-                                                      ])
-                                                    )
-                                                  );
-                                                }
-                                              }
-                                            >
-                                              <Trash2 className="h-3.5 w-3.5" />
-                                            </button>
-                                          </div>
-                                        ))}
                                       </div>
                                     </div>
                                   </div>
@@ -4005,6 +3831,289 @@ export default function CompanyPage() {
           ) : null}
         </section>
       </div>
+      {benefitOptionsModalOpen ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setBenefitOptionsModalOpen(false)}
+        >
+          <div
+            className="flex max-h-[86vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+              <div>
+                <div className="text-sm font-semibold text-slate-900">Manage benefits</div>
+                <div className="mt-1 text-xs text-slate-500">
+                  Add, rename, or remove benefit options used on job company cards.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
+                aria-label="Close benefits"
+                onClick={() => setBenefitOptionsModalOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
+              <div className="flex flex-col gap-2 rounded-2xl border border-sky-200 bg-sky-50/70 p-2 sm:flex-row">
+                <input
+                  type="text"
+                  value={newJobBenefitLabel}
+                  onChange={(event) => setNewJobBenefitLabel(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    handleAddJobBenefitOption();
+                  }}
+                  placeholder="Add new benefit"
+                  className="h-10 min-w-0 flex-1 rounded-xl border border-sky-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                />
+                <button
+                  type="button"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-xs font-bold text-white transition hover:bg-sky-700 disabled:opacity-60"
+                  onClick={() => handleAddJobBenefitOption()}
+                  disabled={jobBenefitOptionsSaving || !newJobBenefitLabel.trim()}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add benefit
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {jobBenefitOptionsDraft.map((option) => (
+                  <div
+                    key={option.tag}
+                    className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5"
+                  >
+                    <input
+                      type="text"
+                      value={option.label}
+                      disabled={jobBenefitOptionsSaving}
+                      onChange={(event) =>
+                        setJobBenefitOptionsDraft((prev) =>
+                          prev.map((benefit) =>
+                            benefit.tag === option.tag
+                              ? { ...benefit, label: event.target.value }
+                              : benefit
+                          )
+                        )
+                      }
+                      className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                    />
+                    <button
+                      type="button"
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                      aria-label={`Remove ${option.label}`}
+                      disabled={jobBenefitOptionsSaving || jobBenefitOptionsDraft.length <= 1}
+                      onClick={() => {
+                        setJobBenefitOptionsDraft((prev) =>
+                          prev
+                            .filter((benefit) => benefit.tag !== option.tag)
+                            .map((benefit, nextIndex) => ({
+                              ...benefit,
+                              sortOrder: nextIndex,
+                            }))
+                        );
+                        setJobCompanyBenefitDrafts((prev) =>
+                          Object.fromEntries(
+                            Object.entries(prev).map(([companyId, tags]) => [
+                              companyId,
+                              tags.filter((tag) => tag !== option.tag),
+                            ])
+                          )
+                        );
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-5 py-3">
+              <div className="text-xs font-semibold text-slate-500">
+                {benefitOptionsChanged ? "Benefit option changes are not saved yet." : "Benefit options are saved."}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                  onClick={() => setBenefitOptionsModalOpen(false)}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-slate-900 px-4 text-xs font-bold text-white transition hover:bg-black disabled:opacity-60"
+                  onClick={() => void handleSaveJobBenefitOptions()}
+                  disabled={jobBenefitOptionsSaving || !benefitOptionsChanged}
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  {jobBenefitOptionsSaving ? "Saving..." : "Save benefits"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {countryOptionsModalOpen ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setCountryOptionsModalOpen(false)}
+        >
+          <div
+            className="flex max-h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+              <div>
+                <div className="text-sm font-semibold text-slate-900">Manage countries</div>
+                <div className="mt-1 text-xs text-slate-500">
+                  Add, rename, or remove country options used by company nationality filters.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
+                aria-label="Close countries"
+                onClick={() => setCountryOptionsModalOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
+              <div className="grid gap-2 rounded-2xl border border-sky-200 bg-sky-50/70 p-2 md:grid-cols-[92px_minmax(0,1fr)_auto]">
+                <input
+                  type="text"
+                  value={newJobCountryCode}
+                  onChange={(event) => setNewJobCountryCode(event.target.value.toUpperCase())}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    handleAddJobCountryOption();
+                  }}
+                  placeholder="Code"
+                  maxLength={2}
+                  className="h-10 rounded-xl border border-sky-200 bg-white px-3 text-sm font-extrabold uppercase tracking-wide text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                />
+                <input
+                  type="text"
+                  value={newJobCountryName}
+                  onChange={(event) => setNewJobCountryName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    handleAddJobCountryOption();
+                  }}
+                  placeholder="Country name"
+                  className="h-10 min-w-0 rounded-xl border border-sky-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                />
+                <button
+                  type="button"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-xs font-bold text-white transition hover:bg-sky-700 disabled:opacity-60"
+                  onClick={handleAddJobCountryOption}
+                  disabled={
+                    jobCountryOptionsSaving ||
+                    !normalizeCountryCode(newJobCountryCode || newJobCountryName) ||
+                    !newJobCountryName.trim()
+                  }
+                >
+                  <Plus className="h-4 w-4" />
+                  Add country
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {jobCountryOptionsDraft.map((option) => (
+                  <div
+                    key={option.code}
+                    className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5"
+                  >
+                    <div className="flex h-8 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-lg">
+                      {toFlagEmoji(option.code) || option.code}
+                    </div>
+                    <input
+                      type="text"
+                      value={option.name}
+                      disabled={jobCountryOptionsSaving}
+                      onChange={(event) =>
+                        setJobCountryOptionsDraft((prev) =>
+                          prev.map((country) =>
+                            country.code === option.code
+                              ? { ...country, name: event.target.value }
+                              : country
+                          )
+                        )
+                      }
+                      className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                    />
+                    <div className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-extrabold text-slate-500">
+                      {option.code}
+                    </div>
+                    <button
+                      type="button"
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                      aria-label={`Remove ${option.name}`}
+                      disabled={jobCountryOptionsSaving || jobCountryOptionsDraft.length <= 1}
+                      onClick={() => {
+                        setJobCountryOptionsDraft((prev) =>
+                          prev
+                            .filter((country) => country.code !== option.code)
+                            .map((country, nextIndex) => ({
+                              ...country,
+                              sortOrder: nextIndex,
+                            }))
+                        );
+                        setJobCompanyCountryDrafts((prev) =>
+                          Object.fromEntries(
+                            Object.entries(prev).map(([companyId, codes]) => [
+                              companyId,
+                              codes.filter((code) => code !== option.code),
+                            ])
+                          )
+                        );
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-5 py-3">
+              <div className="text-xs font-semibold text-slate-500">
+                {countryOptionsChanged ? "Country option changes are not saved yet." : "Country options are saved."}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                  onClick={() => setCountryOptionsModalOpen(false)}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-slate-900 px-4 text-xs font-bold text-white transition hover:bg-black disabled:opacity-60"
+                  onClick={() => void handleSaveJobCountryOptions()}
+                  disabled={jobCountryOptionsSaving || !countryOptionsChanged}
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  {jobCountryOptionsSaving ? "Saving..." : "Save countries"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {mergeHistoryOpen ? (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"

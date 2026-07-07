@@ -371,6 +371,28 @@ async function attachJobCompanyBranding(
   } catch {
     activeExactCompanies = exactCompanies;
   }
+  const activeById = new Map(activeExactCompanies.map((item) => [item.id, item] as const));
+  const sourceIdToActive = new Map<string, JobCompanyRow>();
+  const sourceAliasKeysByActiveId = new Map<string, Set<string>>();
+  for (const source of exactCompanies) {
+    const metadata =
+      source.metadata && typeof source.metadata === "object" && !Array.isArray(source.metadata)
+        ? source.metadata
+        : {};
+    const targetId =
+      typeof metadata.merged_into_job_company_id === "string"
+        ? metadata.merged_into_job_company_id.trim()
+        : "";
+    const target = targetId ? activeById.get(targetId) : undefined;
+    if (!target) continue;
+
+    sourceIdToActive.set(source.id, target);
+    const keys = sourceAliasKeysByActiveId.get(target.id) ?? new Set<string>();
+    if (source.normalized_name) keys.add(source.normalized_name);
+    const canonicalFromName = normalizeJobCompanyName(source.name);
+    if (canonicalFromName) keys.add(canonicalFromName);
+    sourceAliasKeysByActiveId.set(target.id, keys);
+  }
 
   const scoreCompany = (row: JobCompanyRow) => {
     let score = 0;
@@ -380,14 +402,55 @@ async function attachJobCompanyBranding(
     if (typeof row.updated_at === "string" && row.updated_at.trim()) score += 1;
     return score;
   };
+  const updatedTime = (row: JobCompanyRow | undefined) => {
+    const time = Date.parse(row?.updated_at ?? "");
+    return Number.isFinite(time) ? time : 0;
+  };
+  const compareCompanyPreference = (left: JobCompanyRow, right: JobCompanyRow) => {
+    const leftLogoPath = typeof left.logo_path === "string" ? left.logo_path.trim() : "";
+    const rightLogoPath = typeof right.logo_path === "string" ? right.logo_path.trim() : "";
+    const logoDiff = Number(Boolean(rightLogoPath)) - Number(Boolean(leftLogoPath));
+    if (logoDiff !== 0) return logoDiff;
 
+    if (leftLogoPath && rightLogoPath && leftLogoPath !== rightLogoPath) {
+      const logoTimeDiff = updatedTime(right) - updatedTime(left);
+      if (logoTimeDiff !== 0) return logoTimeDiff;
+    }
+
+    const scoreDiff = scoreCompany(right) - scoreCompany(left);
+    if (scoreDiff !== 0) return scoreDiff;
+
+    return updatedTime(right) - updatedTime(left);
+  };
+  const sameNormalizedCompany = (
+    left: JobCompanyRow | undefined,
+    right: JobCompanyRow | undefined,
+    normalized: string
+  ) => {
+    if (!left || !right || !normalized) return false;
+    const leftKeys = new Set([left.normalized_name, normalizeJobCompanyName(left.name)]);
+    const rightKeys = new Set([right.normalized_name, normalizeJobCompanyName(right.name)]);
+    return leftKeys.has(normalized) && rightKeys.has(normalized);
+  };
+
+  const linkedCompany = jobCompanyId
+    ? activeById.get(jobCompanyId) ?? sourceIdToActive.get(jobCompanyId)
+    : undefined;
+  const normalizedCompany = normalizedName
+    ? activeExactCompanies
+        .filter((item) => {
+          const aliases = sourceAliasKeysByActiveId.get(item.id) ?? new Set<string>();
+          return normalizedNameQuery.includes(item.normalized_name) ||
+            normalizedNameQuery.some((name) => aliases.has(name));
+        })
+        .sort((a, b) => compareCompanyPreference(a, b))[0]
+    : undefined;
   let company =
-    (jobCompanyId ? activeExactCompanies.find((item) => item.id === jobCompanyId) : undefined) ??
-    (normalizedName
-      ? activeExactCompanies
-          .filter((item) => normalizedNameQuery.includes(item.normalized_name))
-          .sort((a, b) => scoreCompany(b) - scoreCompany(a))[0]
-      : undefined);
+    linkedCompany && normalizedCompany && sameNormalizedCompany(linkedCompany, normalizedCompany, normalizedName)
+      ? compareCompanyPreference(linkedCompany, normalizedCompany) > 0
+        ? normalizedCompany
+        : linkedCompany
+      : linkedCompany ?? normalizedCompany;
 
   if (!company && normalizedName) {
     const { data, error } = await init.admin
@@ -509,7 +572,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const companyParam = (searchParams.get("companyId") ?? "").trim();
     const companyId = companyParam || requireBreezyCompanyId().companyId;
-    const cacheKey = `company-branding-v5:${companyId}:${positionId}`;
+    const cacheKey = `company-branding-v8:${companyId}:${positionId}`;
 
     // Prefer database cache (fast + supports local edits). Falls back to Breezy.
     try {
