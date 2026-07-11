@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireBreezyCompanyId } from "@/lib/breezy";
+import { getBreezyEnv } from "@/lib/breezy";
 import { getPrimaryCompanyId } from "@/lib/company/primary";
 import { fetchJobCountryOptions } from "@/lib/job-country-options";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -53,19 +53,20 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const companyParam = (searchParams.get("companyId") ?? "").trim();
-    const breezyCompanyId = companyParam || requireBreezyCompanyId().companyId;
+    const breezyCompanyId = companyParam || getBreezyEnv().companyId || "";
 
     const admin = createSupabaseAdminClient();
     const primaryCompanyId = await getPrimaryCompanyId(admin);
     const enabledCountryOptions = await fetchJobCountryOptions(admin, primaryCompanyId).catch(() => []);
     const enabledCodes = new Set(enabledCountryOptions.map((option) => option.code));
 
-    const { data: publishedRows } = await admin
+    let publishedQuery = admin
       .from("breezy_positions")
       .select("breezy_position_id")
       .eq("company_id", primaryCompanyId)
-      .eq("breezy_company_id", breezyCompanyId)
       .eq("state", "published");
+    if (breezyCompanyId) publishedQuery = publishedQuery.eq("breezy_company_id", breezyCompanyId);
+    const { data: publishedRows } = await publishedQuery;
 
     const published = new Set(
       (Array.isArray(publishedRows) ? publishedRows : [])
@@ -73,11 +74,12 @@ export async function GET(request: Request) {
         .filter(Boolean)
     );
 
-    const { data, error } = await admin
+    let countriesQuery = admin
       .from("breezy_position_countries")
       .select("breezy_position_id,country_code,country_name,group")
-      .eq("company_id", primaryCompanyId)
-      .eq("breezy_company_id", breezyCompanyId);
+      .eq("company_id", primaryCompanyId);
+    if (breezyCompanyId) countriesQuery = countriesQuery.eq("breezy_company_id", breezyCompanyId);
+    const { data, error } = await countriesQuery;
 
     if (error) {
       const message = error.message ?? "Failed to load countries";

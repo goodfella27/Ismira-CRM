@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 
-import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
+import { getBreezyEnv } from "@/lib/breezy";
 import { getPrimaryCompanyId } from "@/lib/company/primary";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { applyPublicCacheControl } from "@/lib/http/public-api";
@@ -16,6 +16,10 @@ import {
   normalizePriorityKey,
 } from "@/lib/breezy-priority-types";
 import { buildBreezyPublicPositionUrl } from "@/lib/breezy-public";
+import {
+  pickPositionDescription,
+  scrubBreezyPositionDetails,
+} from "@/lib/breezy-position-description";
 import {
   fetchJobCompanyBenefits,
   hasManualBenefitsOverride,
@@ -65,6 +69,7 @@ type JobListItem = {
   processable_countries?: string[];
   blocked_countries?: string[];
   mentioned_countries?: string[];
+  details?: Record<string, unknown>;
 };
 
 type PriorityTypePayload = {
@@ -72,16 +77,6 @@ type PriorityTypePayload = {
   label: string;
   sortOrder: number;
   showOnFrontpage: boolean;
-};
-
-type BreezyPosition = {
-  _id?: string;
-  id?: string;
-  name?: string;
-  state?: string;
-  friendly_id?: string;
-  org_type?: string;
-  department?: unknown;
 };
 
 function asString(value: unknown) {
@@ -119,21 +114,6 @@ function sortJobsByOpeningType(items: JobListItem[]) {
   return [...items].sort(compareJobsByOpeningType);
 }
 
-function getId(value: { _id?: string; id?: string } | null | undefined) {
-  return asString(value?._id).trim() || asString(value?.id).trim();
-}
-
-function normalizePositions(payload: unknown): BreezyPosition[] {
-  if (Array.isArray(payload)) return payload as BreezyPosition[];
-  if (payload && typeof payload === "object") {
-    const obj = payload as Record<string, unknown>;
-    if (Array.isArray(obj.data)) return obj.data as BreezyPosition[];
-    if (Array.isArray(obj.results)) return obj.results as BreezyPosition[];
-    if (Array.isArray(obj.positions)) return obj.positions as BreezyPosition[];
-  }
-  return [];
-}
-
 function normalizeOrgType(value: unknown) {
   const raw = asString(value).trim();
   const normalized = raw.toLowerCase();
@@ -146,6 +126,36 @@ function parseHiddenOverride(value: unknown): boolean {
   if (typeof value !== "string") return false;
   const normalized = value.trim().toLowerCase();
   return ["1", "true", "yes", "y", "on"].includes(normalized);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function applyOverridesToDetails(details: unknown, overrides: unknown) {
+  const base = isRecord(details) ? { ...details } : {};
+  if (!isRecord(overrides)) return base;
+
+  for (const [key, value] of Object.entries(overrides)) {
+    if (key === "hidden") {
+      if (parseHiddenOverride(value)) base.hidden = true;
+      continue;
+    }
+    if (key === "benefit_tags") {
+      base.benefit_tags = normalizeBenefitTags(value);
+      continue;
+    }
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    base[key] = trimmed;
+  }
+
+  return base;
+}
+
+function hasPublicJobDescription(details: Record<string, unknown>) {
+  return Boolean(pickPositionDescription(details).trim());
 }
 
 function attachPublicApplyUrls(items: JobListItem[]) {
@@ -715,217 +725,111 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const companyParam = (searchParams.get("companyId") ?? "").trim();
-    const companyId = companyParam || requireBreezyCompanyId().companyId;
-    const cacheKey = companyParam ? `company-branding-v7:${companyId}` : "default-branding-v7";
+    const companyId = companyParam || getBreezyEnv().companyId || "";
+    const cacheKey = companyId ? `company-branding-v9:${companyId}` : "default-branding-v9";
 
-    // Prefer database cache (fast + supports local edits). Falls back to Breezy if not available.
-    try {
-      const admin = createSupabaseAdminClient();
-      const primaryCompanyId = await getPrimaryCompanyId(admin);
+    const admin = createSupabaseAdminClient();
+    const primaryCompanyId = await getPrimaryCompanyId(admin);
 
-      const { data, error } = await admin
-        .from("breezy_positions")
-        .select(
-          "breezy_position_id,name,state,friendly_id,org_type,company,department,job_company_id,overrides,updated_at"
-        )
-        .eq("company_id", primaryCompanyId)
-        .eq("breezy_company_id", companyId)
-        .eq("state", "published")
-        .or("org_type.eq.position,org_type.is.null")
-        .order("updated_at", { ascending: false })
-        .order("name", { ascending: true });
+    let query = admin
+      .from("breezy_positions")
+      .select(
+        "breezy_position_id,name,state,friendly_id,org_type,company,department,job_company_id,details,overrides,updated_at"
+      )
+      .eq("company_id", primaryCompanyId)
+      .eq("state", "published")
+      .or("org_type.eq.position,org_type.is.null")
+      .order("updated_at", { ascending: false })
+      .order("name", { ascending: true });
 
-      if (!error && Array.isArray(data) && data.length > 0) {
-        type Row = {
-          breezy_position_id: string;
-          name: string | null;
-          state: string | null;
-          friendly_id: string | null;
-          org_type: string | null;
-          company: string | null;
-          department: string | null;
-          job_company_id: string | null;
-          overrides: unknown;
-          updated_at: string | null;
-        };
+    if (companyId) {
+      query = query.eq("breezy_company_id", companyId);
+    }
 
-        const mapped = (data as unknown as Row[])
-          .map((row) => {
-            const overrides =
-              row.overrides && typeof row.overrides === "object" && !Array.isArray(row.overrides)
-                ? (row.overrides as Record<string, unknown>)
-                : {};
-            const hidden = parseHiddenOverride(overrides.hidden);
-            if (hidden) return null;
-            const overrideName = typeof overrides.name === "string" ? overrides.name.trim() : "";
-            const overrideCompany =
-              typeof overrides.company === "string" ? overrides.company.trim() : "";
-            const overrideDepartment =
-              typeof overrides.department === "string" ? overrides.department.trim() : "";
-            const priorityOverride = getPositionOpeningTypeOverride(overrides);
-            const hasBenefitOverride = Object.prototype.hasOwnProperty.call(overrides, "benefit_tags");
-            const orgType = normalizeOrgType(row.org_type);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message ?? "Failed to load cached jobs");
 
-            return {
-              id: row.breezy_position_id,
-              name: overrideName || (row.name ?? "").trim() || "Position",
-              state: row.state ?? "published",
-              friendly_id: row.friendly_id ?? undefined,
-              org_type: orgType || undefined,
-              company:
-                overrideCompany ||
-                row.company ||
-                inferCompanyFromPositionName(overrideName || row.name || "") ||
-                undefined,
-              department: overrideDepartment || row.department || undefined,
-              priority:
-                typeof priorityOverride === "string" ? priorityOverride : undefined,
-              priorityOverride,
-              job_company_id: row.job_company_id ?? undefined,
-              ...(hasBenefitOverride
-                ? { benefit_tags: normalizeBenefitTags(overrides.benefit_tags) }
-                : {}),
-              updated_at: row.updated_at ?? undefined,
-            } satisfies JobListItem;
-          })
-          .filter(Boolean)
-          .map((item) => item as JobListItem)
-          .filter((pos) => pos.id)
-          .filter((pos) => (pos.org_type || "").toLowerCase() !== "pool");
+    type Row = {
+      breezy_position_id: string;
+      name: string | null;
+      state: string | null;
+      friendly_id: string | null;
+      org_type: string | null;
+      company: string | null;
+      department: string | null;
+      job_company_id: string | null;
+      details: unknown;
+      overrides: unknown;
+      updated_at: string | null;
+    };
 
-        let enriched = attachPublicApplyUrls(mapped);
-        try {
-          enriched = await expandPositionCompanyJoins(enriched, {
-            admin,
-            companyId: primaryCompanyId,
-          });
-        } catch {
-          // Ignore join overlay failures and keep legacy single-company data.
-        }
+    const mapped = (Array.isArray(data) ? (data as unknown as Row[]) : [])
+      .map((row) => {
+        const overrides = isRecord(row.overrides) ? row.overrides : {};
+        if (parseHiddenOverride(overrides.hidden)) return null;
 
-        const countryOptions = await fetchJobCountryOptions(admin, primaryCompanyId).catch(() => []);
-        try {
-          const enabledCountryCodes = new Set(countryOptions.map((option) => option.code));
-          enriched = await attachNationalityCountries(enriched, {
-            admin,
-            companyId: primaryCompanyId,
-            breezyCompanyId: companyId,
-            enabledCountryCodes,
-          });
-        } catch {
-          // ignore
-        }
-        try {
-          enriched = await attachJobCompanyBranding(enriched, {
-            admin,
-            companyId: primaryCompanyId,
-          });
-        } catch {
-          enriched = attachPublicApplyUrls(enriched);
-        }
-
-        enriched = attachPublicApplyUrls(enriched);
-        try {
-          enriched = await applyDepartmentOverridesToJobs(admin, primaryCompanyId, enriched);
-        } catch {
-          // Ignore department overlay failures so jobs remain available.
-        }
-
-        const priorityTypes = await loadPriorityTypes(admin, primaryCompanyId);
-        const benefitLabels = await fetchJobBenefitOptions(admin, primaryCompanyId)
-          .then((options) => benefitLabelMap(options))
-          .catch(() => ({}));
-        const countryLabels = Object.fromEntries(
-          countryOptions.map((option) => [option.code, option.name])
+        const rawDetails = scrubBreezyPositionDetails(
+          applyOverridesToDetails(row.details, overrides)
         );
-        const payload = {
-          jobs: sortJobsByOpeningType(enriched),
-          priorityTypes,
-          benefitLabels,
-          countryLabels,
-        };
-        setJobsResponseCache(cacheKey, {
-          expiresAt: Date.now() + 60_000,
-          payload,
-        });
-        return jsonResponse(request, payload, { status: 200 });
-      }
-    } catch {
-      // Ignore and fall back to Breezy.
-    }
+        if (!isRecord(rawDetails) || !hasPublicJobDescription(rawDetails)) return null;
 
-    const url = `https://api.breezy.hr/v3/company/${encodeURIComponent(companyId)}/positions`;
+        const overrideName = typeof overrides.name === "string" ? overrides.name.trim() : "";
+        const overrideCompany = typeof overrides.company === "string" ? overrides.company.trim() : "";
+        const overrideDepartment =
+          typeof overrides.department === "string" ? overrides.department.trim() : "";
+        const priorityOverride = getPositionOpeningTypeOverride(overrides);
+        const hasBenefitOverride = Object.prototype.hasOwnProperty.call(overrides, "benefit_tags");
+        const orgType = normalizeOrgType(row.org_type);
 
-    const res = await breezyFetch(url);
-    const contentType = res.headers.get("content-type") ?? "";
-    const isJson = contentType.includes("application/json");
-    const body = isJson ? await res.json() : await res.text();
-
-    if (!res.ok) {
-      return jsonResponse(
-        request,
-        {
-          error: "Breezy request failed",
-          status: res.status,
-          details: body,
-        },
-        { status: res.status }
-      );
-    }
-
-    const base = normalizePositions(body)
-      .map((pos) => ({
-        id: getId(pos),
-        name: asString(pos.name).trim() || "Position",
-        state: asString(pos.state).trim() || undefined,
-        friendly_id: asString(pos.friendly_id).trim() || undefined,
-        org_type: normalizeOrgType(pos.org_type) || undefined,
-        company: inferCompanyFromPositionName(pos.name ?? "") || undefined,
-        department: asString(pos.department).trim() || undefined,
-      }))
+        return {
+          id: row.breezy_position_id,
+          name:
+            overrideName ||
+            (typeof rawDetails.name === "string" ? rawDetails.name.trim() : "") ||
+            (typeof rawDetails.title === "string" ? rawDetails.title.trim() : "") ||
+            (row.name ?? "").trim() ||
+            "Position",
+          state: row.state ?? "published",
+          friendly_id:
+            row.friendly_id ??
+            (typeof rawDetails.friendly_id === "string" ? rawDetails.friendly_id : undefined),
+          org_type: orgType || undefined,
+          company:
+            overrideCompany ||
+            row.company ||
+            (typeof rawDetails.company === "string" ? rawDetails.company.trim() : "") ||
+            inferCompanyFromPositionName(overrideName || row.name || "") ||
+            undefined,
+          department:
+            overrideDepartment ||
+            row.department ||
+            (typeof rawDetails.department === "string" ? rawDetails.department.trim() : "") ||
+            undefined,
+          priority: typeof priorityOverride === "string" ? priorityOverride : undefined,
+          priorityOverride,
+          job_company_id: row.job_company_id ?? undefined,
+          ...(hasBenefitOverride ? { benefit_tags: normalizeBenefitTags(overrides.benefit_tags) } : {}),
+          updated_at: row.updated_at ?? undefined,
+          details: rawDetails,
+        } satisfies JobListItem;
+      })
+      .filter(Boolean)
+      .map((item) => item as JobListItem)
       .filter((pos) => pos.id)
-      .filter((pos) => (pos.state ? pos.state === "published" : true));
+      .filter((pos) => (pos.org_type || "").toLowerCase() !== "pool");
 
-    const finalList = base.filter((pos) => (pos.org_type || "").toLowerCase() !== "pool");
-
-    let enriched = attachPublicApplyUrls(finalList);
+    let enriched = attachPublicApplyUrls(mapped);
     try {
-      const admin = createSupabaseAdminClient();
-      const primaryCompanyId = await getPrimaryCompanyId(admin);
-      let priorityTypes = DEFAULT_BREEZY_PRIORITY_TYPES;
-      try {
-        const now = new Date().toISOString();
-        const baseRows = finalList.map((pos) => ({
-          company_id: primaryCompanyId,
-          breezy_company_id: companyId,
-          breezy_position_id: pos.id,
-          name: pos.name ?? null,
-          state: pos.state ?? null,
-          friendly_id: pos.friendly_id ?? null,
-          org_type: pos.org_type ?? null,
-          company: pos.company ?? null,
-          department: pos.department ?? null,
-          synced_at: now,
-        }));
-        if (baseRows.length > 0) {
-          await admin.from("breezy_positions").upsert(baseRows, {
-            onConflict: "company_id,breezy_position_id",
-            defaultToNull: false,
-          });
-        }
-      } catch {
-        // Ignore cache write failures.
-      }
-      try {
-        enriched = await attachJobCompanyBranding(enriched, {
-          admin,
-          companyId: primaryCompanyId,
-        });
-      } catch {
-        enriched = attachPublicApplyUrls(enriched);
-      }
+      enriched = await expandPositionCompanyJoins(enriched, {
+        admin,
+        companyId: primaryCompanyId,
+      });
+    } catch {
+      // Ignore join overlay failures and keep legacy single-company data.
+    }
 
-      const countryOptions = await fetchJobCountryOptions(admin, primaryCompanyId).catch(() => []);
+    const countryOptions = await fetchJobCountryOptions(admin, primaryCompanyId).catch(() => []);
+    if (companyId) {
       try {
         const enabledCountryCodes = new Set(countryOptions.map((option) => option.code));
         enriched = await attachNationalityCountries(enriched, {
@@ -937,41 +841,61 @@ export async function GET(request: Request) {
       } catch {
         // ignore
       }
-      try {
-        enriched = await applyDepartmentOverridesToJobs(admin, primaryCompanyId, enriched);
-      } catch {
-        // ignore
-      }
-      try {
-        priorityTypes = await loadPriorityTypes(admin, primaryCompanyId);
-      } catch {
-        priorityTypes = DEFAULT_BREEZY_PRIORITY_TYPES;
-      }
-      const benefitLabels = await fetchJobBenefitOptions(admin, primaryCompanyId)
-        .then((options) => benefitLabelMap(options))
-        .catch(() => ({}));
-      const countryLabels = Object.fromEntries(
-        countryOptions.map((option) => [option.code, option.name])
-      );
-      const payload = {
-        jobs: sortJobsByOpeningType(enriched),
-        priorityTypes,
-        benefitLabels,
-        countryLabels,
-      };
-      setJobsResponseCache(cacheKey, {
-        expiresAt: Date.now() + 60_000,
-        payload,
+    }
+    try {
+      enriched = await attachJobCompanyBranding(enriched, {
+        admin,
+        companyId: primaryCompanyId,
       });
-      return jsonResponse(request, payload, { status: 200 });
     } catch {
-      enriched = attachPublicApplyUrls(finalList);
+      enriched = attachPublicApplyUrls(enriched);
     }
 
     enriched = attachPublicApplyUrls(enriched);
+    try {
+      enriched = await applyDepartmentOverridesToJobs(admin, primaryCompanyId, enriched);
+    } catch {
+      // Ignore department overlay failures so jobs remain available.
+    }
+
+    enriched = enriched.map((item) => {
+      const details = isRecord(item.details) ? { ...item.details } : {};
+      return {
+        ...item,
+        details: attachPublicApplyUrls([
+          {
+            ...item,
+            details: {
+              ...details,
+              name: item.name,
+              title: item.name,
+              company: item.company ?? details.company,
+              department: item.department ?? details.department,
+              priority: item.priority ?? details.priority,
+              company_logo_url: item.company_logo_url ?? details.company_logo_url,
+              company_slug: item.company_slug ?? details.company_slug,
+              application_url: item.application_url ?? details.application_url,
+              ship_type: item.ship_type ?? details.ship_type,
+              ship_types: item.ship_types ?? details.ship_types,
+              benefit_tags: item.benefit_tags ?? details.benefit_tags,
+            },
+          },
+        ])[0].details,
+      };
+    });
+
+    const priorityTypes = await loadPriorityTypes(admin, primaryCompanyId).catch(
+      () => DEFAULT_BREEZY_PRIORITY_TYPES
+    );
+    const benefitLabels = await fetchJobBenefitOptions(admin, primaryCompanyId)
+      .then((options) => benefitLabelMap(options))
+      .catch(() => ({}));
+    const countryLabels = Object.fromEntries(countryOptions.map((option) => [option.code, option.name]));
     const payload = {
       jobs: sortJobsByOpeningType(enriched),
-      priorityTypes: DEFAULT_BREEZY_PRIORITY_TYPES,
+      priorityTypes,
+      benefitLabels,
+      countryLabels,
     };
     setJobsResponseCache(cacheKey, {
       expiresAt: Date.now() + 60_000,

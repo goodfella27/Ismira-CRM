@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
+import { getBreezyEnv } from "@/lib/breezy";
 import { getPrimaryCompanyId } from "@/lib/company/primary";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { canonicalizeCountry } from "@/lib/country";
 import {
   extractCompany,
-  extractDepartment,
   replacePositionTitleCompany,
 } from "@/lib/breezy-position-fields";
 import { applyPublicCacheControl } from "@/lib/http/public-api";
@@ -571,363 +570,148 @@ export async function GET(
 
     const { searchParams } = new URL(request.url);
     const companyParam = (searchParams.get("companyId") ?? "").trim();
-    const companyId = companyParam || requireBreezyCompanyId().companyId;
-    const cacheKey = `company-branding-v8:${companyId}:${positionId}`;
+    const companyId = companyParam || getBreezyEnv().companyId || "";
+    const cacheKey = companyId
+      ? `company-branding-v9:${companyId}:${positionId}`
+      : `default-branding-v9:${positionId}`;
+    const cached = responseCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return jsonResponse(request, cached.payload, { status: 200 });
+    }
 
-    // Prefer database cache (fast + supports local edits). Falls back to Breezy.
-    try {
-      const admin = createSupabaseAdminClient();
-      const primaryCompanyId = await getPrimaryCompanyId(admin);
+    const admin = createSupabaseAdminClient();
+    const primaryCompanyId = await getPrimaryCompanyId(admin);
 
-      const { data, error } = await admin
-        .from("breezy_positions")
-        .select("state,company,department,job_company_id,details,overrides,details_synced_at")
-        .eq("company_id", primaryCompanyId)
-        .eq("breezy_company_id", companyId)
-        .eq("breezy_position_id", positionId)
-        .maybeSingle();
+    let query = admin
+      .from("breezy_positions")
+      .select("state,company,department,job_company_id,details,overrides,details_synced_at")
+      .eq("company_id", primaryCompanyId)
+      .eq("breezy_position_id", positionId);
 
-      if (!error && data) {
-        const row = data as {
-          state: string | null;
-          company: string | null;
-          department: string | null;
-          job_company_id: string | null;
-          details: unknown;
-          overrides: unknown;
-          details_synced_at: string | null;
+    if (companyId) {
+      query = query.eq("breezy_company_id", companyId);
+    }
+
+    const { data, error } = await query.maybeSingle();
+    if (error) throw new Error(error.message ?? "Failed to load cached job details");
+    if (!data) return jsonResponse(request, { error: "Not found" }, { status: 404 });
+
+    const row = data as {
+      state: string | null;
+      company: string | null;
+      department: string | null;
+      job_company_id: string | null;
+      details: unknown;
+      overrides: unknown;
+      details_synced_at: string | null;
+    };
+
+    if (row.state && row.state !== "published") {
+      return jsonResponse(request, { error: "Not found" }, { status: 404 });
+    }
+
+    if (isRecord(row.overrides)) {
+      const hidden =
+        row.overrides.hidden === true ||
+        (typeof row.overrides.hidden === "string" &&
+          ["1", "true", "yes", "y", "on"].includes(row.overrides.hidden.trim().toLowerCase()));
+      if (hidden) {
+        const title =
+          row.details && isRecord(row.details)
+            ? row.details.name ?? row.details.title
+            : null;
+        const name = typeof title === "string" && title.trim() ? title.trim() : "Job opening";
+        const payload = {
+          hidden: true,
+          not_active: true,
+          message: "This ad is not active.",
+          name,
+          company: row.company ?? undefined,
+          department: row.department ?? undefined,
         };
-
-        if (row.state && row.state !== "published") {
-          return jsonResponse(request, { error: "Not found" }, { status: 404 });
-        }
-
-        if (row.overrides && typeof row.overrides === "object" && !Array.isArray(row.overrides)) {
-          const overrides = row.overrides as Record<string, unknown>;
-          const hidden =
-            overrides.hidden === true ||
-            (typeof overrides.hidden === "string" &&
-              ["1", "true", "yes", "y", "on"].includes(overrides.hidden.trim().toLowerCase()));
-          if (hidden) {
-            const title =
-              (row.details && isRecord(row.details)
-                ? (row.details as Record<string, unknown>).name ??
-                  (row.details as Record<string, unknown>).title
-                : null) ?? null;
-            const name = typeof title === "string" && title.trim() ? title.trim() : "Job opening";
-            const payload = {
-              hidden: true,
-              not_active: true,
-              message: "This ad is not active.",
-              name,
-              company: row.company ?? undefined,
-              department: row.department ?? undefined,
-            };
-            responseCache.set(cacheKey, {
-              expiresAt: Date.now() + 5 * 60_000,
-              payload,
-            });
-            return jsonResponse(request, payload, { status: 200 });
-          }
-        }
-
-        if (row.details) {
-          const orgType =
-            normalizeOrgType(
-              isRecord(row.details)
-                ? (row.details as Record<string, unknown>).org_type ??
-                    (row.details as Record<string, unknown>).orgType
-                : null
-            ) || "";
-          if (orgType.toLowerCase() === "pool") {
-            return jsonResponse(request, { error: "Not found" }, { status: 404 });
-          }
-
-          const merged = clearStaleDetailBenefitsWithoutOverride(
-            scrubBreezyPositionDetails(
-              applyOverrides(row.details, row.overrides)
-            ) as Record<string, unknown>,
-            row.overrides
-          );
-          const mergedCompany =
-            typeof merged.company === "string" ? merged.company.trim() : "";
-          const mergedDepartment =
-            typeof merged.department === "string" ? merged.department.trim() : "";
-          if (row.company && !mergedCompany) merged.company = row.company;
-          if (row.department && !mergedDepartment) merged.department = row.department;
-          let enriched = merged;
-          try {
-            enriched = await attachJobCompanyBranding(merged, {
-              admin,
-              companyId: primaryCompanyId,
-              fallbackCompany: row.company,
-              jobCompanyId: row.job_company_id,
-              overrides: row.overrides,
-            });
-		          } catch {
-		            enriched = merged;
-		          }
-		          enriched = ensureApplicationUrl(enriched);
-              const hasManualCountries = hasCountryOverride(row.overrides);
-              if (!hasManualCountries) {
-		            await storeNationalityCountries({
-		              admin,
-		              primaryCompanyId,
-		              breezyCompanyId: companyId,
-		              positionId,
-		              details: merged,
-		            });
-              }
-
-	          const countries =
-	            (await fetchNationalityCountries({
-	              admin,
-	              primaryCompanyId,
-	              breezyCompanyId: companyId,
-	              positionId,
-	            })) ?? computeNationalityCountries(merged);
-
-	          const benefitTags = resolveBenefitTags(enriched);
-	          const basePayload = {
-	            ...enriched,
-	            benefit_tags: benefitTags,
-	          };
-	          const payload = countries
-	            ? { ...basePayload, nationality_countries: countries }
-	            : basePayload;
-	          responseCache.set(cacheKey, {
-	            expiresAt: Date.now() + 5 * 60_000,
-	            payload,
-	          });
-	          return jsonResponse(request, payload, { status: 200 });
-        }
-
-        // No cached details yet; fetch from Breezy and store for next time.
-        const url = `https://api.breezy.hr/v3/company/${encodeURIComponent(
-          companyId
-        )}/position/${encodeURIComponent(positionId)}`;
-
-        const res = await breezyFetch(url);
-        const contentType = res.headers.get("content-type") ?? "";
-        const isJson = contentType.includes("application/json");
-        const body = isJson ? await res.json() : await res.text();
-
-        if (!res.ok) {
-          return jsonResponse(
-            request,
-            { error: "Breezy request failed", status: res.status, details: body },
-            { status: res.status }
-          );
-        }
-
-        if (body && typeof body === "object") {
-          const state = (body as Record<string, unknown>).state;
-          if (typeof state === "string" && state !== "published") {
-            return jsonResponse(request, { error: "Not found" }, { status: 404 });
-          }
-
-          const orgType = normalizeOrgType(
-            (body as Record<string, unknown>).org_type ??
-              (body as Record<string, unknown>).orgType
-          );
-          if (orgType.toLowerCase() === "pool") {
-            return jsonResponse(request, { error: "Not found" }, { status: 404 });
-          }
-        }
-
-        const scrubbedBody = scrubBreezyPositionDetails(body);
-        const record = isRecord(scrubbedBody) ? (scrubbedBody as Record<string, unknown>) : null;
-        await admin.from("breezy_positions").upsert(
-          [
-            {
-              company_id: primaryCompanyId,
-              breezy_company_id: companyId,
-              breezy_position_id: positionId,
-              details: scrubbedBody,
-              company: extractCompany(record) || null,
-              department: extractDepartment(record) || null,
-              details_synced_at: new Date().toISOString(),
-            },
-          ],
-          { onConflict: "company_id,breezy_position_id", defaultToNull: false }
-        );
-        const hasManualCountries = hasCountryOverride(row.overrides);
-        if (!hasManualCountries) {
-          await storeNationalityCountries({
-            admin,
-            primaryCompanyId,
-            breezyCompanyId: companyId,
-            positionId,
-            details: isRecord(body) ? (body as Record<string, unknown>) : null,
-          });
-        }
-
-        const merged = clearStaleDetailBenefitsWithoutOverride(
-          scrubBreezyPositionDetails(
-            applyOverrides(scrubbedBody, row.overrides)
-          ) as Record<string, unknown>,
-          row.overrides
-        );
-        const mergedCompany = typeof merged.company === "string" ? merged.company.trim() : "";
-        const mergedDepartment =
-          typeof merged.department === "string" ? merged.department.trim() : "";
-        const effectiveCompany =
-          mergedCompany || extractCompany(isRecord(merged) ? merged : null) || "";
-        const effectiveDepartment =
-          mergedDepartment || extractDepartment(isRecord(merged) ? merged : null) || "";
-        if (effectiveCompany && !mergedCompany) merged.company = effectiveCompany;
-        if (effectiveDepartment && !mergedDepartment) merged.department = effectiveDepartment;
-        let enriched = merged;
-	        try {
-		          enriched = await attachJobCompanyBranding(merged, {
-		            admin,
-		            companyId: primaryCompanyId,
-		            fallbackCompany: effectiveCompany,
-		            jobCompanyId: row.job_company_id,
-		            overrides: row.overrides,
-		          });
-		        } catch {
-		          enriched = merged;
-		        }
-		        enriched = ensureApplicationUrl(enriched);
-		        const countries =
-		          (await fetchNationalityCountries({
-		            admin,
-		            primaryCompanyId,
-	            breezyCompanyId: companyId,
-	            positionId,
-	          })) ?? computeNationalityCountries(merged);
-
-          const basePayload = { ...enriched, benefit_tags: resolveBenefitTags(enriched) };
-	        const payload = countries ? { ...basePayload, nationality_countries: countries } : basePayload;
-	        responseCache.set(cacheKey, {
-	          expiresAt: Date.now() + 5 * 60_000,
-	          payload,
-	        });
-	        return jsonResponse(request, payload, { status: 200 });
+        responseCache.set(cacheKey, {
+          expiresAt: Date.now() + 5 * 60_000,
+          payload,
+        });
+        return jsonResponse(request, payload, { status: 200 });
       }
+    }
+
+    if (!row.details) {
+      return jsonResponse(request, { error: "Not found" }, { status: 404 });
+    }
+
+    const orgType =
+      normalizeOrgType(
+        isRecord(row.details)
+          ? row.details.org_type ?? row.details.orgType
+          : null
+      ) || "";
+    if (orgType.toLowerCase() === "pool") {
+      return jsonResponse(request, { error: "Not found" }, { status: 404 });
+    }
+
+    const merged = clearStaleDetailBenefitsWithoutOverride(
+      scrubBreezyPositionDetails(applyOverrides(row.details, row.overrides)) as Record<
+        string,
+        unknown
+      >,
+      row.overrides
+    );
+    if (!pickPositionDescription(merged).trim()) {
+      return jsonResponse(request, { error: "Not found" }, { status: 404 });
+    }
+
+    const mergedCompany = typeof merged.company === "string" ? merged.company.trim() : "";
+    const mergedDepartment = typeof merged.department === "string" ? merged.department.trim() : "";
+    if (row.company && !mergedCompany) merged.company = row.company;
+    if (row.department && !mergedDepartment) merged.department = row.department;
+
+    let enriched = merged;
+    try {
+      enriched = await attachJobCompanyBranding(merged, {
+        admin,
+        companyId: primaryCompanyId,
+        fallbackCompany: row.company,
+        jobCompanyId: row.job_company_id,
+        overrides: row.overrides,
+      });
     } catch {
-      // Ignore and fall back to Breezy.
+      enriched = merged;
+    }
+    enriched = ensureApplicationUrl(enriched);
+
+    const hasManualCountries = hasCountryOverride(row.overrides);
+    if (companyId && !hasManualCountries) {
+      await storeNationalityCountries({
+        admin,
+        primaryCompanyId,
+        breezyCompanyId: companyId,
+        positionId,
+        details: merged,
+      });
     }
 
-    const url = `https://api.breezy.hr/v3/company/${encodeURIComponent(
-      companyId
-    )}/position/${encodeURIComponent(positionId)}`;
-
-    const res = await breezyFetch(url);
-    const contentType = res.headers.get("content-type") ?? "";
-    const isJson = contentType.includes("application/json");
-    const body = isJson ? await res.json() : await res.text();
-
-    if (!res.ok) {
-      return jsonResponse(
-        request,
-        {
-          error: "Breezy request failed",
-          status: res.status,
-          details: body,
-        },
-        { status: res.status }
-      );
-    }
-
-    if (body && typeof body === "object") {
-      const state = (body as Record<string, unknown>).state;
-      if (typeof state === "string" && state !== "published") {
-        return jsonResponse(request, { error: "Not found" }, { status: 404 });
-      }
-
-      const orgType = normalizeOrgType(
-        (body as Record<string, unknown>).org_type ??
-          (body as Record<string, unknown>).orgType
-      );
-      if (orgType.toLowerCase() === "pool") {
-        return jsonResponse(request, { error: "Not found" }, { status: 404 });
-      }
-    }
-
-	    let enriched = body;
-	    try {
-	      if (isRecord(body)) {
-	        const admin = createSupabaseAdminClient();
-	        const primaryCompanyId = await getPrimaryCompanyId(admin);
-	        const record = body as Record<string, unknown>;
-	        try {
-	          const now = new Date().toISOString();
-	          await admin.from("breezy_positions").upsert(
-	            [
-	              {
-                company_id: primaryCompanyId,
-                breezy_company_id: companyId,
-                breezy_position_id: positionId,
-                name: typeof record.name === "string" ? record.name : null,
-                state: typeof record.state === "string" ? record.state : null,
-                friendly_id: typeof record.friendly_id === "string" ? record.friendly_id : null,
-                org_type:
-                  typeof record.org_type === "string"
-                    ? record.org_type
-                    : typeof record.orgType === "string"
-                      ? record.orgType
-                      : null,
-                details: record,
-                company: extractCompany(record) || null,
-                department: extractDepartment(record) || null,
-                details_synced_at: now,
-                synced_at: now,
-              },
-            ],
-            { onConflict: "company_id,breezy_position_id", defaultToNull: false }
-          );
-          await storeNationalityCountries({
+    const countries =
+      (companyId
+        ? await fetchNationalityCountries({
             admin,
             primaryCompanyId,
             breezyCompanyId: companyId,
             positionId,
-            details: record,
-          });
-        } catch {
-          // Ignore cache write failures.
-        }
-	        try {
-	          enriched = await attachJobCompanyBranding(body as Record<string, unknown>, {
-	            admin,
-	            companyId: primaryCompanyId,
-	          });
-	        } catch {
-	          enriched = body;
-	        }
-	        if (isRecord(enriched)) {
-	          enriched = ensureApplicationUrl(enriched);
-	        }
-	
-		        const countries =
-			          (await fetchNationalityCountries({
-		            admin,
-		            primaryCompanyId,
-		            breezyCompanyId: companyId,
-		            positionId,
-		          })) ?? computeNationalityCountries(record);
+          })
+        : null) ?? computeNationalityCountries(merged);
 
-	        if (countries && isRecord(enriched)) {
-	          enriched = {
-	            ...(enriched as Record<string, unknown>),
-	            nationality_countries: countries,
-	          };
-	        }
-	      }
-		  } catch {
-		    enriched = body;
-		  }
-
-    if (isRecord(enriched)) {
-      enriched = { ...(enriched as Record<string, unknown>), benefit_tags: resolveBenefitTags(enriched) };
-    }
-
+    const basePayload = {
+      ...enriched,
+      benefit_tags: resolveBenefitTags(enriched),
+    };
+    const payload = countries ? { ...basePayload, nationality_countries: countries } : basePayload;
     responseCache.set(cacheKey, {
       expiresAt: Date.now() + 5 * 60_000,
-      payload: enriched,
+      payload,
     });
-    return jsonResponse(request, enriched, { status: 200 });
+    return jsonResponse(request, payload, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return jsonResponse(request, { error: message }, { status: 500 });

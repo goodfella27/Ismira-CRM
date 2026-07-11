@@ -27,6 +27,7 @@ import {
   Flame,
   AlertTriangle,
   ClipboardList,
+  RotateCcw,
   House,
   UtensilsCrossed,
   Plane,
@@ -158,6 +159,7 @@ type JobListItem = {
   processable_countries?: string[];
   blocked_countries?: string[];
   mentioned_countries?: string[];
+  details?: Record<string, unknown>;
 };
 
 type JobListItemIndexed = JobListItem & {
@@ -188,7 +190,7 @@ function compareJobsByOpeningType(a: JobListItemIndexed, b: JobListItemIndexed) 
 }
 
 type JobsBoardCache = {
-  v: 8;
+  v: 9;
   savedAt: number;
   etag?: string;
   items: JobListItem[];
@@ -1311,7 +1313,7 @@ function extractHeroImageFromSafeHtml(html: string): { heroSrc: string; bodyHtml
   }
 }
 
-const JOBS_CACHE_KEY = "jobsboard:list:v8";
+const JOBS_CACHE_KEY = "jobsboard:list:v9";
 const JOBS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_JOBS_DISPLAY_LIMIT = 20;
 type JobsDisplayLimit = 20 | 50 | 100 | "all";
@@ -1336,9 +1338,9 @@ function readJobsCache(): JobsBoardCache | null {
       | null;
     if (!parsed || typeof parsed.savedAt !== "number" || !Array.isArray(parsed.items)) return null;
     if (parsed.savedAt < getJobCompanyLogosChangedAt()) return null;
-    if (parsed.v === 8) {
+    if (parsed.v === 9) {
       return {
-        v: 8,
+        v: 9,
         savedAt: parsed.savedAt,
         etag: typeof parsed.etag === "string" ? parsed.etag : undefined,
         items: parsed.items as JobListItem[],
@@ -1359,6 +1361,16 @@ function readJobsCache(): JobsBoardCache | null {
   } catch {
     return null;
   }
+}
+
+function extractDetailsMap(list: JobListItem[]) {
+  const next: Record<string, Record<string, unknown>> = {};
+  for (const job of list) {
+    const id = asString(job.id).trim();
+    if (!id || !isRecord(job.details)) continue;
+    next[id] = job.details;
+  }
+  return next;
 }
 
 function writeJobsCache(cache: JobsBoardCache) {
@@ -2025,6 +2037,7 @@ export default function JobsBoard() {
     const indexed = indexJobs(cache.items);
     jobsRef.current = indexed;
     setJobs(indexed);
+    setDetailsById((prev) => ({ ...extractDetailsMap(cache.items), ...prev }));
     setPriorityTypes(cache.priorityTypes);
     setBenefitLabels(cache.benefitLabels ?? DEFAULT_BENEFIT_TAG_LABELS);
     setCountryLabels(cache.countryLabels ?? {});
@@ -2492,6 +2505,7 @@ export default function JobsBoard() {
           : {};
       const indexed = indexJobs(list);
       setJobs(indexed);
+      setDetailsById((prev) => ({ ...extractDetailsMap(list), ...prev }));
       setPriorityTypes(nextPriorityTypes);
       setBenefitLabels(nextBenefitLabels);
       setCountryLabels(nextCountryLabels);
@@ -2501,7 +2515,7 @@ export default function JobsBoard() {
       // Persist the raw list (smaller) and let the UI rebuild indices quickly on refresh.
       setTimeout(() => {
         writeJobsCache({
-          v: 8,
+          v: 9,
           savedAt: Date.now(),
           etag: etagRef.current ?? undefined,
           items: list,
@@ -3719,6 +3733,14 @@ export default function JobsBoard() {
                   </button>
                 </div>
               ))}
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-xs font-bold text-sky-800 shadow-sm transition hover:border-sky-300 hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                onClick={clearAllFilters}
+              >
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                Clear all filters
+              </button>
             </div>
           ) : null}
 
@@ -3903,6 +3925,16 @@ export default function JobsBoard() {
                     {filtered.length === 1 ? "job" : "jobs"}
                   </div>
                 </div>
+                {hasAnyFilter ? (
+                  <button
+                    type="button"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-800 shadow-sm transition hover:border-sky-300 hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    onClick={clearAllFilters}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                    Clear all
+                  </button>
+                ) : null}
               </div>
 
               <div className="mt-5 grid gap-4">
