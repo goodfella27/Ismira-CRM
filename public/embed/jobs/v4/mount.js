@@ -154,12 +154,9 @@
 
   const css = `
     .ijf-root{--ijf-ink:#172033;--ijf-muted:#63728e;--ijf-line:#dfe6ef;--ijf-orange:#ff9f2f;--ijf-cyan:#25c7dc;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ijf-ink);width:100%}
-    .ijf-toolbar{display:flex;align-items-center;justify-content:space-between;gap:14px;margin:0 0 18px}
-    .ijf-search{position:relative;flex:1;max-width:440px}.ijf-search svg{position:absolute;left:15px;top:50%;width:18px;height:18px;transform:translateY(-50%);color:#7b8aa5}.ijf-search input{box-sizing:border-box;width:100%;height:46px;border:1px solid var(--ijf-line);border-radius:999px;background:#fff;padding:0 18px 0 43px;color:var(--ijf-ink);font:inherit;font-size:14px;outline:none;transition:.18s ease}.ijf-search input:focus{border-color:#60cfe2;box-shadow:0 0 0 4px rgba(37,199,220,.13)}
-    .ijf-count{font-size:12px;font-weight:700;color:var(--ijf-muted);white-space:nowrap}
     .ijf-list{display:grid;gap:16px}
     .ijf-section{display:grid;gap:16px}.ijf-section+.ijf-section{margin-top:48px}.ijf-section-title{position:relative;margin:0 0 16px!important;padding:0 0 0 22px;background:linear-gradient(110deg,#0aa8ed,#5b67f6 52%,#c843ed);-webkit-background-clip:text;background-clip:text;color:transparent!important;font-family:inherit!important;font-size:32px!important;font-weight:900!important;line-height:1.08!important;letter-spacing:0!important;text-align:left!important;text-transform:uppercase!important}.ijf-section-title:before{content:"";position:absolute;left:0;top:.06em;width:7px;height:1.08em;border-radius:999px;background:linear-gradient(180deg,#25c7dc,#3ea4e6)}
-    .ijf-portal-wrap{display:flex;justify-content:center;margin:34px 0 6px}.ijf-root a.ijf-portal-link{display:inline-flex;min-height:64px;align-items:center;justify-content:center;gap:13px;border-radius:999px;background:linear-gradient(110deg,#0aa8ed,#5b67f6 52%,#c843ed);padding:0 36px;color:#fff!important;font-family:inherit!important;font-size:16px!important;font-weight:900!important;line-height:1.15!important;letter-spacing:.06em!important;text-align:center!important;text-decoration:none!important;text-transform:uppercase!important;box-shadow:0 18px 34px -18px rgba(79,70,229,.82);transition:transform .18s ease,box-shadow .18s ease}.ijf-root a.ijf-portal-link:hover{color:#fff!important;transform:translateY(-2px);box-shadow:0 22px 38px -18px rgba(79,70,229,.95)}.ijf-portal-link svg{width:20px;height:20px;transition:transform .18s ease}.ijf-portal-link:hover svg{transform:translateX(3px)}
+    .ijf-portal-wrap{display:flex;width:100%;justify-content:center;margin:40px 0 6px;padding-top:28px;border-top:1px solid var(--ijf-line)}.ijf-root a.ijf-portal-link{display:inline-flex;width:100%;min-height:64px;box-sizing:border-box;align-items:center;justify-content:center;gap:13px;border-radius:999px;background:linear-gradient(110deg,#0aa8ed,#5b67f6 52%,#c843ed);padding:0 36px;color:#fff!important;font-family:inherit!important;font-size:16px!important;font-weight:900!important;line-height:1.15!important;letter-spacing:.06em!important;text-align:center!important;text-decoration:none!important;text-transform:uppercase!important;box-shadow:0 18px 34px -18px rgba(79,70,229,.82);transition:transform .18s ease,box-shadow .18s ease}.ijf-root a.ijf-portal-link:hover{color:#fff!important;transform:translateY(-2px);box-shadow:0 22px 38px -18px rgba(79,70,229,.95)}.ijf-portal-link svg{width:20px;height:20px;transition:transform .18s ease}.ijf-portal-link:hover svg{transform:translateX(3px)}
     .ijf-card{position:relative;display:grid;grid-template-columns:86px minmax(0,1fr) 42px;gap:20px;align-items:start;border:1px solid var(--ijf-line);border-radius:24px;background:#fff;padding:21px 22px;box-shadow:0 2px 3px rgba(15,23,42,.08);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;animation:ijf-in .35s ease both}
     .ijf-card:hover{transform:translateY(-2px);border-color:#cbd7e6;box-shadow:0 15px 34px -24px rgba(15,23,42,.55)}
     .ijf-logo{display:grid;width:82px;height:82px;place-items:center;overflow:hidden;border:1px solid var(--ijf-line);border-radius:50%;background:#fff;color:#60708a;font-size:15px;font-weight:800}.ijf-logo img{width:100%;height:100%;object-fit:contain;padding:10px;box-sizing:border-box}
@@ -176,7 +173,7 @@
     .ijf-root h3.ijf-detail-heading{margin:0 0 13px!important;color:#5d7192!important;font-family:inherit!important;font-size:11px!important;font-weight:750!important;line-height:1.3!important;letter-spacing:.08em!important;text-align:left!important;text-transform:uppercase!important}
     .ijf-root .ijf-dialog-company{color:#fff!important;text-align:left!important}
     @keyframes ijf-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes ijf-shimmer{0%{background-position:100% 0}100%{background-position:0 0}}@keyframes ijf-fade{from{opacity:0}to{opacity:1}}@keyframes ijf-modal-in{from{opacity:0;transform:translateY(18px) scale(.975)}to{opacity:1;transform:translateY(0) scale(1)}}
-    @media(max-width:760px){.ijf-card{grid-template-columns:64px minmax(0,1fr);gap:14px;padding:17px;border-radius:20px}.ijf-logo{width:62px;height:62px}.ijf-head{align-items:flex-start;flex-direction:column;gap:7px}.ijf-root h3.ijf-title{font-size:17px!important}.ijf-benefits{grid-template-columns:1fr;margin-top:14px;gap:9px}.ijf-benefit:nth-child(n+5){display:none}.ijf-meta{margin-top:14px}.ijf-go{display:none}.ijf-link{border-radius:20px}.ijf-toolbar{align-items:stretch;flex-direction:column}.ijf-search{max-width:none}.ijf-count{padding-left:5px}.ijf-section+.ijf-section{margin-top:38px}.ijf-section-title{margin-bottom:14px!important;padding-left:18px;font-size:24px!important;line-height:1.12!important}.ijf-section-title:before{width:6px}.ijf-portal-wrap{margin-top:26px}.ijf-root a.ijf-portal-link{width:100%;min-height:58px;box-sizing:border-box;padding:0 20px;font-size:13px!important}.ijf-portal-link svg{width:18px;height:18px}.ijf-modal{align-items:end;padding:0}.ijf-dialog{width:100%;max-height:92vh;border-radius:24px 24px 0 0}.ijf-dialog-head{padding:25px 64px 23px 22px}.ijf-root h2.ijf-dialog-title{font-size:23px!important}.ijf-close{top:15px;right:15px}.ijf-dialog-scroll{padding:23px 22px 28px}.ijf-feature-grid{display:flex;flex-wrap:wrap;gap:8px}.ijf-feature{gap:8px;border-radius:999px;background:#f8fafc;padding:7px 11px}.ijf-feature-icon{width:28px;height:28px;border-color:#dbe4ef;background:#fff;color:#172033}.ijf-feature-icon svg{width:14px;height:14px}.ijf-feature-kicker{display:none}.ijf-feature-label{margin:0;font-size:12px;white-space:normal}.ijf-dialog-actions{bottom:-28px;margin:26px -22px -28px;padding:16px 22px}.ijf-apply{width:100%}}
+    @media(max-width:760px){.ijf-card{grid-template-columns:64px minmax(0,1fr);gap:14px;padding:17px;border-radius:20px}.ijf-logo{width:62px;height:62px}.ijf-head{align-items:flex-start;flex-direction:column;gap:7px}.ijf-root h3.ijf-title{font-size:17px!important}.ijf-benefits{grid-template-columns:1fr;margin-top:14px;gap:9px}.ijf-benefit:nth-child(n+5){display:none}.ijf-meta{margin-top:14px}.ijf-go{display:none}.ijf-link{border-radius:20px}.ijf-section+.ijf-section{margin-top:38px}.ijf-section-title{margin-bottom:14px!important;padding-left:18px;font-size:24px!important;line-height:1.12!important}.ijf-section-title:before{width:6px}.ijf-portal-wrap{margin-top:28px;padding-top:22px}.ijf-root a.ijf-portal-link{min-height:58px;padding:0 20px;font-size:13px!important}.ijf-portal-link svg{width:18px;height:18px}.ijf-modal{align-items:end;padding:0}.ijf-dialog{width:100%;max-height:92vh;border-radius:24px 24px 0 0}.ijf-dialog-head{padding:25px 64px 23px 22px}.ijf-root h2.ijf-dialog-title{font-size:23px!important}.ijf-close{top:15px;right:15px}.ijf-dialog-scroll{padding:23px 22px 28px}.ijf-feature-grid{display:flex;flex-wrap:wrap;gap:8px}.ijf-feature{gap:8px;border-radius:999px;background:#f8fafc;padding:7px 11px}.ijf-feature-icon{width:28px;height:28px;border-color:#dbe4ef;background:#fff;color:#172033}.ijf-feature-icon svg{width:14px;height:14px}.ijf-feature-kicker{display:none}.ijf-feature-label{margin:0;font-size:12px;white-space:normal}.ijf-dialog-actions{bottom:-28px;margin:26px -22px -28px;padding:16px 22px}.ijf-apply{width:100%}}
     @media(prefers-reduced-motion:reduce){.ijf-card,.ijf-modal-backdrop,.ijf-dialog{animation:none}.ijf-card,.ijf-go,.ijf-apply{transition:none}}
   `;
 
@@ -314,21 +311,17 @@
   function mount(target) {
     if (!(target instanceof HTMLElement) || target.dataset.ismiraJobsMounted === "1") return;
     target.dataset.ismiraJobsMounted = "1";
-    target.innerHTML = `<div class="ijf-root"><style>${css}</style><div class="ijf-toolbar"><label class="ijf-search">${iconSvg("search")}<input type="search" placeholder="Search jobs" aria-label="Search jobs"></label><div class="ijf-count" data-role="count"></div></div><div class="ijf-list" data-role="list"><div class="ijf-skeleton"></div><div class="ijf-skeleton"></div></div><div class="ijf-portal-wrap"><a class="ijf-portal-link" href="${escapeHtml(portalUrl)}" target="_blank" rel="noopener noreferrer">See all jobs on our HR portal ${iconSvg("arrow")}</a></div><div class="ijf-modal" data-role="modal" hidden><div class="ijf-modal-backdrop" data-modal-close></div><section class="ijf-dialog" role="dialog" aria-modal="true" aria-labelledby="ijf-modal-title" tabindex="-1"><header class="ijf-dialog-head"><div class="ijf-dialog-kicker">${iconSvg("briefcase")} Job details</div><h2 class="ijf-dialog-title" id="ijf-modal-title" data-role="modal-title">Job opening</h2><p class="ijf-dialog-company" data-role="modal-company"></p><button class="ijf-close" type="button" data-modal-close aria-label="Close job details">${iconSvg("close")}</button></header><div class="ijf-dialog-scroll" data-role="modal-body"><div class="ijf-detail-status">Loading job details…</div></div></section></div></div>`;
+    target.innerHTML = `<div class="ijf-root"><style>${css}</style><div class="ijf-list" data-role="list"><div class="ijf-skeleton"></div><div class="ijf-skeleton"></div></div><div class="ijf-portal-wrap"><a class="ijf-portal-link" href="${escapeHtml(portalUrl)}" target="_blank" rel="noopener noreferrer">See all jobs on our HR portal ${iconSvg("arrow")}</a></div><div class="ijf-modal" data-role="modal" hidden><div class="ijf-modal-backdrop" data-modal-close></div><section class="ijf-dialog" role="dialog" aria-modal="true" aria-labelledby="ijf-modal-title" tabindex="-1"><header class="ijf-dialog-head"><div class="ijf-dialog-kicker">${iconSvg("briefcase")} Job details</div><h2 class="ijf-dialog-title" id="ijf-modal-title" data-role="modal-title">Job opening</h2><p class="ijf-dialog-company" data-role="modal-company"></p><button class="ijf-close" type="button" data-modal-close aria-label="Close job details">${iconSvg("close")}</button></header><div class="ijf-dialog-scroll" data-role="modal-body"><div class="ijf-detail-status">Loading job details…</div></div></section></div></div>`;
 
     const state = {
       jobs: [],
       interviewJobs: [],
-      filteredJobs: [],
-      filteredInterviewJobs: [],
       labels: {},
       interviewsTitle: "UPCOMING INTERVIEWS WITH CRUISE EMPLOYERS",
       loading: true,
       error: "",
     };
     const listElement = target.querySelector('[data-role="list"]');
-    const countElement = target.querySelector('[data-role="count"]');
-    const searchElement = target.querySelector('input[type="search"]');
     const modalElement = target.querySelector('[data-role="modal"]');
     const modalDialog = target.querySelector('.ijf-dialog');
     const modalTitle = target.querySelector('[data-role="modal-title"]');
@@ -347,36 +340,18 @@
         listElement.innerHTML = `<div class="ijf-status ijf-status--error">${escapeHtml(state.error)}</div>`;
         return;
       }
-      const total = state.filteredJobs.length + state.filteredInterviewJobs.length;
+      const total = state.jobs.length + state.interviewJobs.length;
       if (total === 0) {
         listElement.innerHTML = '<div class="ijf-status">No matching jobs are available right now.</div>';
       } else {
-        const urgentHtml = state.filteredJobs.length
-          ? `<section class="ijf-section">${state.filteredJobs.map((job, index) => renderJob(job, state.labels, index)).join("")}</section>`
+        const urgentHtml = state.jobs.length
+          ? `<section class="ijf-section">${state.jobs.map((job, index) => renderJob(job, state.labels, index)).join("")}</section>`
           : "";
-        const interviewHtml = state.filteredInterviewJobs.length
-          ? `<section class="ijf-section"><h2 class="ijf-section-title">${escapeHtml(state.interviewsTitle)}</h2>${state.filteredInterviewJobs.map((job, index) => renderJob(job, state.labels, index + state.filteredJobs.length)).join("")}</section>`
+        const interviewHtml = state.interviewJobs.length
+          ? `<section class="ijf-section"><h2 class="ijf-section-title">${escapeHtml(state.interviewsTitle)}</h2>${state.interviewJobs.map((job, index) => renderJob(job, state.labels, index + state.jobs.length)).join("")}</section>`
           : "";
         listElement.innerHTML = `${urgentHtml}${interviewHtml}`;
       }
-      if (countElement) {
-        countElement.textContent = `${total} ${total === 1 ? "job" : "jobs"}`;
-      }
-    }
-
-    function applyFilter() {
-      const query = asString(searchElement && searchElement.value).toLowerCase();
-      const matches = (job) =>
-        [job.name, job.company, job.department, job.priority_label]
-          .map(asString)
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
-      state.filteredJobs = !query ? state.jobs : state.jobs.filter(matches);
-      state.filteredInterviewJobs = !query
-        ? state.interviewJobs
-        : state.interviewJobs.filter(matches);
-      render();
     }
 
     function closeModal() {
@@ -440,7 +415,6 @@
         state.labels = payload && payload.benefitLabels && typeof payload.benefitLabels === "object"
           ? payload.benefitLabels
           : {};
-        applyFilter();
       } catch (error) {
         state.error = error instanceof Error ? error.message : "Unable to load jobs.";
       } finally {
@@ -449,7 +423,6 @@
       }
     }
 
-    if (searchElement) searchElement.addEventListener("input", applyFilter);
     if (listElement) {
       listElement.addEventListener("click", (event) => {
         const trigger = event.target instanceof Element ? event.target.closest("[data-job-id]") : null;
