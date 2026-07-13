@@ -23,6 +23,8 @@ export type PublicFrontpageJob = {
 export type PublicFrontpageJobsPayload = {
   version: 1;
   jobs: PublicFrontpageJob[];
+  interviewJobs: PublicFrontpageJob[];
+  interviewsTitle: string;
   benefitLabels: Record<string, string>;
 };
 
@@ -63,6 +65,12 @@ function asStringMap(value: unknown) {
   );
 }
 
+function asBoolean(value: unknown) {
+  if (value === true) return true;
+  if (typeof value !== "string") return false;
+  return ["1", "true", "yes", "y", "on"].includes(value.trim().toLowerCase());
+}
+
 function asCountryRows(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value
@@ -78,6 +86,58 @@ function isUrgentOpeningType(type: UnknownRecord) {
   const key = normalizePriorityKey(asString(type.key));
   const label = normalizePriorityKey(asString(type.label));
   return key === "urgent-opening" || label === "urgent-opening";
+}
+
+const DEFAULT_INTERVIEWS_TITLE = "UPCOMING INTERVIEWS WITH CRUISE EMPLOYERS";
+
+function toPublicJob(
+  job: UnknownRecord,
+  origin: string,
+  priorityDisplay?: { label: string; style: PublicFrontpageJob["priority_style"] }
+): PublicFrontpageJob | null {
+  const id = asString(job.id);
+  const name = asString(job.name);
+  const state = asString(job.state).toLowerCase();
+  const orgType = asString(job.org_type).toLowerCase();
+  if (!id || !name) return null;
+  if (state && state !== "published") return null;
+  if (orgType === "pool") return null;
+
+  const shipTypes = asStringArray(job.ship_types);
+  const fallbackShipType = asString(job.ship_type);
+  if (shipTypes.length === 0 && fallbackShipType) shipTypes.push(fallbackShipType);
+
+  const normalizedOrigin = origin.replace(/\/+$/, "");
+  const priority = normalizePriorityKey(asString(job.priority));
+
+  return {
+    id,
+    ...(asString(job.view_id) ? { view_id: asString(job.view_id) } : {}),
+    name,
+    ...(asString(job.company) ? { company: asString(job.company) } : {}),
+    ...(asString(job.department) ? { department: asString(job.department) } : {}),
+    priority,
+    priority_label: priorityDisplay?.label ?? (asString(job.priority_label) || "Interview"),
+    priority_style: priorityDisplay?.style ?? "sky",
+    ...(asString(job.company_logo_url)
+      ? { company_logo_url: asString(job.company_logo_url) }
+      : {}),
+    ...(asString(job.application_url)
+      ? { application_url: asString(job.application_url) }
+      : {}),
+    details_url: `${normalizedOrigin}/jobs?job=${encodeURIComponent(id)}`,
+    ...(asString(job.updated_at) ? { updated_at: asString(job.updated_at) } : {}),
+    ship_types: shipTypes,
+    benefit_tags: asStringArray(job.benefit_tags),
+  };
+}
+
+function sortPublicJobs(jobs: PublicFrontpageJob[]) {
+  return [...jobs].sort((a, b) => {
+    const timeDifference = Date.parse(b.updated_at ?? "") - Date.parse(a.updated_at ?? "");
+    if (Number.isFinite(timeDifference) && timeDifference !== 0) return timeDifference;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  });
 }
 
 export function buildPublicFrontpageJobDetails(
@@ -145,55 +205,33 @@ export function buildPublicFrontpageJobsPayload(
     }
   }
 
-  const normalizedOrigin = origin.replace(/\/+$/, "");
-  const publicJobs = jobs
+  const publicJobs = sortPublicJobs(
+    jobs
     .map((job): PublicFrontpageJob | null => {
-      const id = asString(job.id);
-      const name = asString(job.name);
       const priority = normalizePriorityKey(asString(job.priority));
       const priorityDisplay = visiblePriorityLabels.get(priority);
-      const priorityLabel = priorityDisplay?.label ?? "";
-      const state = asString(job.state).toLowerCase();
-      const orgType = asString(job.org_type).toLowerCase();
-      if (!id || !name || !priorityLabel) return null;
-      if (state && state !== "published") return null;
-      if (orgType === "pool") return null;
-
-      const shipTypes = asStringArray(job.ship_types);
-      const fallbackShipType = asString(job.ship_type);
-      if (shipTypes.length === 0 && fallbackShipType) shipTypes.push(fallbackShipType);
-
-      return {
-        id,
-        ...(asString(job.view_id) ? { view_id: asString(job.view_id) } : {}),
-        name,
-        ...(asString(job.company) ? { company: asString(job.company) } : {}),
-        ...(asString(job.department) ? { department: asString(job.department) } : {}),
-        priority,
-        priority_label: priorityLabel,
-        priority_style: priorityDisplay?.style ?? "orange",
-        ...(asString(job.company_logo_url)
-          ? { company_logo_url: asString(job.company_logo_url) }
-          : {}),
-        ...(asString(job.application_url)
-          ? { application_url: asString(job.application_url) }
-          : {}),
-        details_url: `${normalizedOrigin}/jobs?job=${encodeURIComponent(id)}`,
-        ...(asString(job.updated_at) ? { updated_at: asString(job.updated_at) } : {}),
-        ship_types: shipTypes,
-        benefit_tags: asStringArray(job.benefit_tags),
-      };
+      if (!priorityDisplay?.label) return null;
+      return toPublicJob(job, origin, priorityDisplay);
     })
     .filter((job): job is PublicFrontpageJob => job !== null)
-    .sort((a, b) => {
-      const timeDifference = Date.parse(b.updated_at ?? "") - Date.parse(a.updated_at ?? "");
-      if (Number.isFinite(timeDifference) && timeDifference !== 0) return timeDifference;
-      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-    });
+  );
+
+  const interviewJobs = sortPublicJobs(
+    jobs
+      .filter((job) => asBoolean(job.show_on_ismira_web))
+      .map((job) => toPublicJob(job, origin))
+      .filter((job): job is PublicFrontpageJob => job !== null)
+  );
+  const interviewsTitle =
+    jobs
+      .map((job) => (asBoolean(job.show_on_ismira_web) ? asString(job.ismira_web_title) : ""))
+      .find(Boolean) || DEFAULT_INTERVIEWS_TITLE;
 
   return {
     version: 1,
     jobs: publicJobs,
+    interviewJobs,
+    interviewsTitle,
     benefitLabels: asStringMap(payload.benefitLabels),
   };
 }

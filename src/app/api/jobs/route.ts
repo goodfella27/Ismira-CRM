@@ -66,6 +66,8 @@ type JobListItem = {
   ship_type?: string;
   ship_types?: string[];
   benefit_tags?: string[];
+  show_on_ismira_web?: boolean;
+  ismira_web_title?: string;
   processable_countries?: string[];
   blocked_countries?: string[];
   mentioned_countries?: string[];
@@ -143,6 +145,11 @@ function applyOverridesToDetails(details: unknown, overrides: unknown) {
     }
     if (key === "benefit_tags") {
       base.benefit_tags = normalizeBenefitTags(value);
+      continue;
+    }
+    if (key === "show_on_ismira_web") {
+      if (value === true) base.show_on_ismira_web = true;
+      else delete base.show_on_ismira_web;
       continue;
     }
     if (typeof value !== "string") continue;
@@ -779,6 +786,9 @@ export async function GET(request: Request) {
           typeof overrides.department === "string" ? overrides.department.trim() : "";
         const priorityOverride = getPositionOpeningTypeOverride(overrides);
         const hasBenefitOverride = Object.prototype.hasOwnProperty.call(overrides, "benefit_tags");
+        const showOnIsmiraWeb = overrides.show_on_ismira_web === true;
+        const ismiraWebTitle =
+          typeof overrides.ismira_web_title === "string" ? overrides.ismira_web_title.trim() : "";
         const orgType = normalizeOrgType(row.org_type);
 
         return {
@@ -808,6 +818,8 @@ export async function GET(request: Request) {
           priority: typeof priorityOverride === "string" ? priorityOverride : undefined,
           priorityOverride,
           job_company_id: row.job_company_id ?? undefined,
+          show_on_ismira_web: showOnIsmiraWeb,
+          ...(ismiraWebTitle ? { ismira_web_title: ismiraWebTitle } : {}),
           ...(hasBenefitOverride ? { benefit_tags: normalizeBenefitTags(overrides.benefit_tags) } : {}),
           updated_at: row.updated_at ?? undefined,
           details: rawDetails,
@@ -878,6 +890,8 @@ export async function GET(request: Request) {
               ship_type: item.ship_type ?? details.ship_type,
               ship_types: item.ship_types ?? details.ship_types,
               benefit_tags: item.benefit_tags ?? details.benefit_tags,
+              show_on_ismira_web: item.show_on_ismira_web ?? details.show_on_ismira_web,
+              ismira_web_title: item.ismira_web_title ?? details.ismira_web_title,
             },
           },
         ])[0].details,

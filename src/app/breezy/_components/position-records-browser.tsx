@@ -22,6 +22,7 @@ import {
   FileText,
   Gift,
   GraduationCap,
+  Globe2,
   HeartPulse,
   House,
   HandCoins,
@@ -88,6 +89,8 @@ const PRIORITY_BADGE_STYLES = [
   "bg-gradient-to-r from-[#8b5cf6] to-[#c084fc] text-white shadow-violet-200/40",
   "bg-gradient-to-r from-[#22c55e] to-[#14b8a6] text-white shadow-emerald-200/40",
 ];
+
+const DEFAULT_ISMIRA_WEB_TITLE = "UPCOMING INTERVIEWS WITH CRUISE EMPLOYERS";
 
 function getPriorityBadgeClass(key: string, types: BreezyPriorityType[]) {
   const normalized = normalizePriorityKey(key);
@@ -1118,6 +1121,7 @@ export default function BreezyPositionRecordsBrowser({
   const [priorityTypesModalOpen, setPriorityTypesModalOpen] = useState(false);
   const [statusPickerOpen, setStatusPickerOpen] = useState(false);
   const [openingTypePickerOpen, setOpeningTypePickerOpen] = useState(false);
+  const [ismiraWebPickerOpen, setIsmiraWebPickerOpen] = useState(false);
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [departmentPickerOpen, setDepartmentPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
@@ -1141,6 +1145,8 @@ export default function BreezyPositionRecordsBrowser({
     description: "",
     responsibilities: "",
     requirements: "",
+    show_on_ismira_web: false,
+    ismira_web_title: DEFAULT_ISMIRA_WEB_TITLE,
   });
   const processableCountryCodes = useMemo(
     () => processableCountries.map((country) => country.code),
@@ -1185,6 +1191,9 @@ export default function BreezyPositionRecordsBrowser({
       "responsibilities_html",
       "responsibilities_text",
     ]);
+    const showOnIsmiraWeb = merged.show_on_ismira_web === true;
+    const ismiraWebTitle =
+      getFirstStringField(merged, ["ismira_web_title"]) || DEFAULT_ISMIRA_WEB_TITLE;
 
     setEditForm({
       name: name || selectedPositionLabel || selectedPositionId || "",
@@ -1199,6 +1208,8 @@ export default function BreezyPositionRecordsBrowser({
       description: description || "",
       responsibilities: responsibilities || "",
       requirements: requirements || "",
+      show_on_ismira_web: showOnIsmiraWeb,
+      ismira_web_title: ismiraWebTitle,
     });
 
     setInlineEditField(null);
@@ -1463,6 +1474,7 @@ export default function BreezyPositionRecordsBrowser({
     setPriorityTypesModalOpen(false);
     setStatusPickerOpen(false);
     setOpeningTypePickerOpen(false);
+    setIsmiraWebPickerOpen(false);
     setCompanyPickerOpen(false);
     setDepartmentPickerOpen(false);
 	    setPickerQuery("");
@@ -2028,6 +2040,12 @@ export default function BreezyPositionRecordsBrowser({
               "requirements_html",
               "requirements_text",
             ]),
+          show_on_ismira_web:
+            overrides.show_on_ismira_web === true || derived.show_on_ismira_web === true,
+          ismira_web_title:
+            pick("ismira_web_title") ||
+            getFirstStringField(derived, ["ismira_web_title"]) ||
+            DEFAULT_ISMIRA_WEB_TITLE,
         });
       }
     } catch (err) {
@@ -2568,6 +2586,11 @@ export default function BreezyPositionRecordsBrowser({
             else delete next.priority;
             continue;
           }
+          if (key === "show_on_ismira_web") {
+            if (value === true) next.show_on_ismira_web = true;
+            else delete next.show_on_ismira_web;
+            continue;
+          }
           if (typeof value !== "string") continue;
           const trimmed = value.trim();
           if (!trimmed) delete next[key];
@@ -2590,6 +2613,11 @@ export default function BreezyPositionRecordsBrowser({
             else if (typeof value === "string" && value.trim()) next.priority = value.trim();
             else if (detailsCompanyOpeningType) next.priority = detailsCompanyOpeningType;
             else delete next.priority;
+            continue;
+          }
+          if (key === "show_on_ismira_web") {
+            if (value === true) next.show_on_ismira_web = true;
+            else delete next.show_on_ismira_web;
             continue;
           }
           applyStringOverride(next, key, value);
@@ -3804,6 +3832,81 @@ export default function BreezyPositionRecordsBrowser({
                       {recordType !== "pool" ? (
                         <>
                           {(() => {
+                            const overrideRecord = detailsOverrides as Record<string, unknown>;
+                            const showOnIsmiraWeb =
+                              editing
+                                ? editForm.show_on_ismira_web
+                                : overrideRecord.show_on_ismira_web === true ||
+                                  (details as Record<string, unknown> | null)?.show_on_ismira_web === true;
+                            const title =
+                              (editing ? editForm.ismira_web_title.trim() : "") ||
+                              asString(overrideRecord.ismira_web_title) ||
+                              asString(
+                                (details as Record<string, unknown> | null)?.ismira_web_title
+                              ) ||
+                              DEFAULT_ISMIRA_WEB_TITLE;
+                            return canEdit && editing ? (
+                              <button
+                                type="button"
+                                className={[
+                                  "relative inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-semibold shadow-sm transition hover:brightness-[0.98] disabled:opacity-60",
+                                  showOnIsmiraWeb
+                                    ? "border-fuchsia-300 bg-gradient-to-r from-fuchsia-500 via-rose-500 to-amber-400 text-white shadow-fuchsia-300/50"
+                                    : "border-fuchsia-200 bg-gradient-to-r from-violet-50 via-fuchsia-50 to-rose-50 text-fuchsia-900 shadow-fuchsia-100/60",
+                                ].join(" ")}
+                                title={title}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setIsmiraWebPickerOpen(true);
+                                }}
+                                disabled={detailsLoading || savingEdits}
+                              >
+                                {showOnIsmiraWeb ? (
+                                  <span className="absolute -left-1 -top-1 grid h-4 w-4 place-items-center rounded-full border border-white bg-emerald-500 text-white shadow-sm">
+                                    <Check className="h-2.5 w-2.5" />
+                                  </span>
+                                ) : null}
+                                <Globe2
+                                  className={[
+                                    "h-3.5 w-3.5",
+                                    showOnIsmiraWeb ? "text-white" : "text-fuchsia-600",
+                                  ].join(" ")}
+                                />
+                                <span className="whitespace-nowrap">Ismira Web</span>
+                                <PencilLine
+                                  className={[
+                                    "h-3.5 w-3.5",
+                                    showOnIsmiraWeb ? "text-white" : "text-fuchsia-700",
+                                  ].join(" ")}
+                                />
+                              </button>
+                            ) : (
+                              <span
+                                className={[
+                                  "relative inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-semibold shadow-sm",
+                                  showOnIsmiraWeb
+                                    ? "border-fuchsia-300 bg-gradient-to-r from-fuchsia-500 via-rose-500 to-amber-400 text-white shadow-fuchsia-300/50"
+                                    : "border-fuchsia-200 bg-gradient-to-r from-violet-50 via-fuchsia-50 to-rose-50 text-fuchsia-900 shadow-fuchsia-100/60",
+                                ].join(" ")}
+                                title={title}
+                              >
+                                {showOnIsmiraWeb ? (
+                                  <span className="absolute -left-1 -top-1 grid h-4 w-4 place-items-center rounded-full border border-white bg-emerald-500 text-white shadow-sm">
+                                    <Check className="h-2.5 w-2.5" />
+                                  </span>
+                                ) : null}
+                                <Globe2
+                                  className={[
+                                    "h-3.5 w-3.5",
+                                    showOnIsmiraWeb ? "text-white" : "text-fuchsia-600",
+                                  ].join(" ")}
+                                />
+                                <span className="whitespace-nowrap">Ismira Web</span>
+                              </span>
+                            );
+                          })()}
+
+                          {(() => {
                             const overridePriority =
                               typeof (detailsOverrides as Record<string, unknown>)?.priority ===
                               "string"
@@ -3935,6 +4038,7 @@ export default function BreezyPositionRecordsBrowser({
                           setInlineEditField(null);
                           setStatusPickerOpen(false);
                           setOpeningTypePickerOpen(false);
+                          setIsmiraWebPickerOpen(false);
                           setCompanyPickerOpen(false);
                           setDepartmentPickerOpen(false);
                           setPickerQuery("");
@@ -4331,6 +4435,101 @@ export default function BreezyPositionRecordsBrowser({
                         </span>
                         {isHidden ? <span className="text-rose-700">Selected</span> : null}
                       </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {ismiraWebPickerOpen ? (
+                <div
+                  className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
+                  onClick={() => setIsmiraWebPickerOpen(false)}
+                >
+                  <div
+                    className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-900">Ismira Web</div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          Manually choose if this opening appears in the Ismira website interviews section.
+                        </div>
+                      </div>
+                      <ModalCloseButton onClick={() => setIsmiraWebPickerOpen(false)} />
+                    </div>
+
+                    <div className="mt-4 grid gap-4">
+                      <button
+                        type="button"
+                        className={[
+                          "flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition hover:bg-slate-50 disabled:opacity-60",
+                          editForm.show_on_ismira_web
+                            ? "border-cyan-200 bg-cyan-50/70"
+                            : "border-slate-200 bg-white",
+                        ].join(" ")}
+                        onClick={() => {
+                          const next = !editForm.show_on_ismira_web;
+                          setEditForm((prev) => ({
+                            ...prev,
+                            show_on_ismira_web: next,
+                            ismira_web_title: prev.ismira_web_title.trim() || DEFAULT_ISMIRA_WEB_TITLE,
+                          }));
+                          void saveQuickOverride({
+                            show_on_ismira_web: next,
+                            ismira_web_title:
+                              editForm.ismira_web_title.trim() || DEFAULT_ISMIRA_WEB_TITLE,
+                          });
+                        }}
+                        disabled={savingEdits || detailsLoading}
+                      >
+                        <span>
+                          <span className="block text-sm font-semibold text-slate-900">
+                            Show on Ismira website
+                          </span>
+                          <span className="mt-1 block text-xs text-slate-500">
+                            Adds this JD below urgent jobs.
+                          </span>
+                        </span>
+                        <span
+                          className={[
+                            "relative h-7 w-12 rounded-full transition",
+                            editForm.show_on_ismira_web ? "bg-cyan-500" : "bg-slate-200",
+                          ].join(" ")}
+                          aria-hidden="true"
+                        >
+                          <span
+                            className={[
+                              "absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition",
+                              editForm.show_on_ismira_web ? "left-6" : "left-1",
+                            ].join(" ")}
+                          />
+                        </span>
+                      </button>
+
+                      <label className="grid gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Public section title
+                        </span>
+                        <input
+                          className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 disabled:opacity-60"
+                          value={editForm.ismira_web_title}
+                          disabled={savingEdits || detailsLoading}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setEditForm((prev) => ({ ...prev, ismira_web_title: value }));
+                          }}
+                          onBlur={() => {
+                            const title =
+                              editForm.ismira_web_title.trim() || DEFAULT_ISMIRA_WEB_TITLE;
+                            setEditForm((prev) => ({ ...prev, ismira_web_title: title }));
+                            void saveQuickOverride({
+                              show_on_ismira_web: editForm.show_on_ismira_web,
+                              ismira_web_title: title,
+                            });
+                          }}
+                        />
+                      </label>
                     </div>
                   </div>
                 </div>

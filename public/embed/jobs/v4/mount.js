@@ -158,6 +158,7 @@
     .ijf-search{position:relative;flex:1;max-width:440px}.ijf-search svg{position:absolute;left:15px;top:50%;width:18px;height:18px;transform:translateY(-50%);color:#7b8aa5}.ijf-search input{box-sizing:border-box;width:100%;height:46px;border:1px solid var(--ijf-line);border-radius:999px;background:#fff;padding:0 18px 0 43px;color:var(--ijf-ink);font:inherit;font-size:14px;outline:none;transition:.18s ease}.ijf-search input:focus{border-color:#60cfe2;box-shadow:0 0 0 4px rgba(37,199,220,.13)}
     .ijf-count{font-size:12px;font-weight:700;color:var(--ijf-muted);white-space:nowrap}
     .ijf-list{display:grid;gap:16px}
+    .ijf-section{display:grid;gap:16px}.ijf-section+.ijf-section{margin-top:28px}.ijf-section-title{margin:0;color:#172033!important;font-family:inherit!important;font-size:18px!important;font-weight:850!important;line-height:1.2!important;letter-spacing:0!important;text-align:left!important;text-transform:uppercase!important}
     .ijf-portal-wrap{display:flex;justify-content:center;margin:30px 0 6px}.ijf-root a.ijf-portal-link{display:inline-flex;min-height:52px;align-items:center;justify-content:center;gap:11px;border-radius:999px;background:linear-gradient(110deg,#0aa8ed,#5b67f6 52%,#c843ed);padding:0 26px;color:#fff!important;font-family:inherit!important;font-size:12px!important;font-weight:850!important;line-height:1.2!important;letter-spacing:.08em!important;text-align:center!important;text-decoration:none!important;text-transform:uppercase!important;box-shadow:0 16px 30px -18px rgba(79,70,229,.75);transition:transform .18s ease,box-shadow .18s ease}.ijf-root a.ijf-portal-link:hover{color:#fff!important;transform:translateY(-2px);box-shadow:0 20px 34px -18px rgba(79,70,229,.9)}.ijf-portal-link svg{width:17px;height:17px;transition:transform .18s ease}.ijf-portal-link:hover svg{transform:translateX(3px)}
     .ijf-card{position:relative;display:grid;grid-template-columns:86px minmax(0,1fr) 42px;gap:20px;align-items:start;border:1px solid var(--ijf-line);border-radius:24px;background:#fff;padding:21px 22px;box-shadow:0 2px 3px rgba(15,23,42,.08);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;animation:ijf-in .35s ease both}
     .ijf-card:hover{transform:translateY(-2px);border-color:#cbd7e6;box-shadow:0 15px 34px -24px rgba(15,23,42,.55)}
@@ -315,7 +316,16 @@
     target.dataset.ismiraJobsMounted = "1";
     target.innerHTML = `<div class="ijf-root"><style>${css}</style><div class="ijf-toolbar"><label class="ijf-search">${iconSvg("search")}<input type="search" placeholder="Search jobs" aria-label="Search jobs"></label><div class="ijf-count" data-role="count"></div></div><div class="ijf-list" data-role="list"><div class="ijf-skeleton"></div><div class="ijf-skeleton"></div></div><div class="ijf-portal-wrap"><a class="ijf-portal-link" href="${escapeHtml(portalUrl)}" target="_blank" rel="noopener noreferrer">See all jobs on our HR portal ${iconSvg("arrow")}</a></div><div class="ijf-modal" data-role="modal" hidden><div class="ijf-modal-backdrop" data-modal-close></div><section class="ijf-dialog" role="dialog" aria-modal="true" aria-labelledby="ijf-modal-title" tabindex="-1"><header class="ijf-dialog-head"><div class="ijf-dialog-kicker">${iconSvg("briefcase")} Job details</div><h2 class="ijf-dialog-title" id="ijf-modal-title" data-role="modal-title">Job opening</h2><p class="ijf-dialog-company" data-role="modal-company"></p><button class="ijf-close" type="button" data-modal-close aria-label="Close job details">${iconSvg("close")}</button></header><div class="ijf-dialog-scroll" data-role="modal-body"><div class="ijf-detail-status">Loading job details…</div></div></section></div></div>`;
 
-    const state = { jobs: [], filtered: [], labels: {}, loading: true, error: "" };
+    const state = {
+      jobs: [],
+      interviewJobs: [],
+      filteredJobs: [],
+      filteredInterviewJobs: [],
+      labels: {},
+      interviewsTitle: "UPCOMING INTERVIEWS WITH CRUISE EMPLOYERS",
+      loading: true,
+      error: "",
+    };
     const listElement = target.querySelector('[data-role="list"]');
     const countElement = target.querySelector('[data-role="count"]');
     const searchElement = target.querySelector('input[type="search"]');
@@ -337,29 +347,35 @@
         listElement.innerHTML = `<div class="ijf-status ijf-status--error">${escapeHtml(state.error)}</div>`;
         return;
       }
-      if (state.filtered.length === 0) {
+      const total = state.filteredJobs.length + state.filteredInterviewJobs.length;
+      if (total === 0) {
         listElement.innerHTML = '<div class="ijf-status">No matching jobs are available right now.</div>';
       } else {
-        listElement.innerHTML = state.filtered
-          .map((job, index) => renderJob(job, state.labels, index))
-          .join("");
+        const urgentHtml = state.filteredJobs.length
+          ? `<section class="ijf-section">${state.filteredJobs.map((job, index) => renderJob(job, state.labels, index)).join("")}</section>`
+          : "";
+        const interviewHtml = state.filteredInterviewJobs.length
+          ? `<section class="ijf-section"><h2 class="ijf-section-title">${escapeHtml(state.interviewsTitle)}</h2>${state.filteredInterviewJobs.map((job, index) => renderJob(job, state.labels, index + state.filteredJobs.length)).join("")}</section>`
+          : "";
+        listElement.innerHTML = `${urgentHtml}${interviewHtml}`;
       }
       if (countElement) {
-        countElement.textContent = `${state.filtered.length} ${state.filtered.length === 1 ? "job" : "jobs"}`;
+        countElement.textContent = `${total} ${total === 1 ? "job" : "jobs"}`;
       }
     }
 
     function applyFilter() {
       const query = asString(searchElement && searchElement.value).toLowerCase();
-      state.filtered = !query
-        ? state.jobs
-        : state.jobs.filter((job) =>
-            [job.name, job.company, job.department, job.priority_label]
-              .map(asString)
-              .join(" ")
-              .toLowerCase()
-              .includes(query)
-          );
+      const matches = (job) =>
+        [job.name, job.company, job.department, job.priority_label]
+          .map(asString)
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+      state.filteredJobs = !query ? state.jobs : state.jobs.filter(matches);
+      state.filteredInterviewJobs = !query
+        ? state.interviewJobs
+        : state.interviewJobs.filter(matches);
       render();
     }
 
@@ -410,12 +426,17 @@
     }
 
     async function load() {
-      state.loading = state.jobs.length === 0;
+      state.loading = state.jobs.length === 0 && state.interviewJobs.length === 0;
       state.error = "";
       render();
       try {
         const payload = await requestFeed();
         state.jobs = payload && Array.isArray(payload.jobs) ? payload.jobs : [];
+        state.interviewJobs =
+          payload && Array.isArray(payload.interviewJobs) ? payload.interviewJobs : [];
+        state.interviewsTitle =
+          asString(payload && payload.interviewsTitle) ||
+          "UPCOMING INTERVIEWS WITH CRUISE EMPLOYERS";
         state.labels = payload && payload.benefitLabels && typeof payload.benefitLabels === "object"
           ? payload.benefitLabels
           : {};
@@ -433,7 +454,9 @@
       listElement.addEventListener("click", (event) => {
         const trigger = event.target instanceof Element ? event.target.closest("[data-job-id]") : null;
         if (!(trigger instanceof HTMLElement)) return;
-        const job = state.jobs.find((item) => asString(item.id) === asString(trigger.dataset.jobId));
+        const job = [...state.jobs, ...state.interviewJobs].find(
+          (item) => asString(item.id) === asString(trigger.dataset.jobId)
+        );
         if (job) void openModal(job, trigger);
       });
     }

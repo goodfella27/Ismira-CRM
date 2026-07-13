@@ -42,6 +42,8 @@ const allowedOverrideKeys = new Set([
   "hidden",
   "benefit_tags",
   "processable_country_codes",
+  "show_on_ismira_web",
+  "ismira_web_title",
 ]);
 
 const isMissingPositionsTableError = (message: string) =>
@@ -107,6 +109,11 @@ function applyOverrides(details: unknown, overrides: unknown) {
     if (key === "benefit_tags") {
       const tags = normalizeBenefitTags(value);
       base.benefit_tags = tags;
+      continue;
+    }
+    if (key === "show_on_ismira_web") {
+      if (value === true) base.show_on_ismira_web = true;
+      else delete base.show_on_ismira_web;
       continue;
     }
     if (key === "processable_country_codes") {
@@ -906,6 +913,11 @@ export async function PATCH(
         }
         if (key === "benefit_tags") {
           nextOverrides.benefit_tags = normalizeBenefitTags(value);
+          continue;
+        }
+        if (key === "show_on_ismira_web") {
+          if (value === true) nextOverrides.show_on_ismira_web = true;
+          else delete nextOverrides.show_on_ismira_web;
           continue;
         }
         if (key === "processable_country_codes") {
