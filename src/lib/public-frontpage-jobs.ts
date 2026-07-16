@@ -190,19 +190,18 @@ export function buildPublicFrontpageJobsPayload(
     ? payload.priorityTypes.filter(isRecord)
     : [];
 
-  const priorityStyles = ["orange", "sky", "violet", "emerald"] as const;
-  const visiblePriorityLabels = new Map<string, { label: string; style: (typeof priorityStyles)[number] }>();
+  const visiblePriorityLabels = new Map<string, { label: string; style: PublicFrontpageJob["priority_style"] }>();
   const visiblePriorityTypes = priorityTypes
     .filter((type) => type.showOnFrontpage === true)
     .sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0));
-  for (const [index, type] of visiblePriorityTypes.entries()) {
+  for (const type of visiblePriorityTypes) {
     if (!isUrgentOpeningType(type)) continue;
     const key = normalizePriorityKey(asString(type.key));
     const label = asString(type.label);
     if (key && label) {
       visiblePriorityLabels.set(key, {
         label,
-        style: priorityStyles[index % priorityStyles.length],
+        style: "orange",
       });
     }
   }

@@ -74,13 +74,6 @@ type JobListItem = {
   details?: Record<string, unknown>;
 };
 
-type PriorityTypePayload = {
-  key: string;
-  label: string;
-  sortOrder: number;
-  showOnFrontpage: boolean;
-};
-
 function asString(value: unknown) {
   return typeof value === "string" ? value : "";
 }
@@ -778,7 +771,9 @@ export async function GET(request: Request) {
         const rawDetails = scrubBreezyPositionDetails(
           applyOverridesToDetails(row.details, overrides)
         );
-        if (!isRecord(rawDetails) || !hasPublicJobDescription(rawDetails)) return null;
+        const showOnIsmiraWeb = overrides.show_on_ismira_web === true;
+        if (!isRecord(rawDetails)) return null;
+        if (!showOnIsmiraWeb && !hasPublicJobDescription(rawDetails)) return null;
 
         const overrideName = typeof overrides.name === "string" ? overrides.name.trim() : "";
         const overrideCompany = typeof overrides.company === "string" ? overrides.company.trim() : "";
@@ -786,7 +781,6 @@ export async function GET(request: Request) {
           typeof overrides.department === "string" ? overrides.department.trim() : "";
         const priorityOverride = getPositionOpeningTypeOverride(overrides);
         const hasBenefitOverride = Object.prototype.hasOwnProperty.call(overrides, "benefit_tags");
-        const showOnIsmiraWeb = overrides.show_on_ismira_web === true;
         const ismiraWebTitle =
           typeof overrides.ismira_web_title === "string" ? overrides.ismira_web_title.trim() : "";
         const orgType = normalizeOrgType(row.org_type);
