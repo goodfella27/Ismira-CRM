@@ -51,6 +51,7 @@ type PositionListItem = {
   department?: string;
   priority?: string;
   job_company_id?: string;
+  show_on_ismira_web?: boolean;
   edited?: boolean;
   hidden?: boolean;
   synced_at?: string | null;
@@ -147,33 +148,6 @@ async function mapWithConcurrency<T, R>(
   const workerCount = Math.max(1, Math.min(limit, items.length));
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
   return results;
-}
-
-async function fetchBreezyPositionsList(breezyCompanyId: string): Promise<PositionListItem[]> {
-  const url = `https://api.breezy.hr/v3/company/${encodeURIComponent(breezyCompanyId)}/positions`;
-  const res = await breezyFetch(url);
-  const contentType = res.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
-
-  if (!res.ok) {
-    throw new Error(
-      typeof body === "string"
-        ? body
-        : (body as { message?: string })?.message ?? "Failed to load positions from Breezy"
-    );
-  }
-
-  return normalizePositions(body)
-    .map((pos) => ({
-      id: getId(pos),
-      name: asString(pos.name).trim() || "Position",
-      state: asString(pos.state).trim() || undefined,
-      friendly_id: asString(pos.friendly_id).trim() || undefined,
-      org_type: asString(pos.org_type).trim() || undefined,
-      edited: false,
-    }))
-    .filter((pos) => pos.id);
 }
 
 async function expandPositionCompanyJoins(
@@ -354,29 +328,13 @@ export async function GET(request: Request) {
       }
 
       if (isMissingPositionsTableError(error.message ?? "")) {
-        if (jobCompanyFilter || priorityFilter) {
-          return NextResponse.json(
-            {
-              positions: [],
-              total: 0,
-              nextOffset: null,
-              warning:
-                "Company filtering requires cached positions. Apply `supabase/breezy_positions.sql` and run Sync to enable filtering.",
-            },
-            { status: 200 }
-          );
-        }
-        const fallback = await fetchBreezyPositionsList(breezyCompanyId);
-        const total = fallback.length;
-        const slice = fallback.slice(offset, offset + limit);
-        const nextOffset = offset + slice.length < total ? offset + slice.length : null;
         return NextResponse.json(
           {
-            positions: slice,
-            total,
-            nextOffset,
+            positions: [],
+            total: 0,
+            nextOffset: null,
             warning:
-              "Database table `breezy_positions` is not set up. Apply `supabase/breezy_positions.sql` in your Supabase project to enable caching and editing.",
+              "Database table `breezy_positions` is not set up. Apply `supabase/breezy_positions.sql` and run Sync to enable cached positions.",
           },
           { status: 200 }
         );
@@ -426,6 +384,7 @@ export async function GET(request: Request) {
         const overrideDepartment =
           typeof overrides.department === "string" ? overrides.department.trim() : "";
         const priorityOverride = getPositionOpeningTypeOverride(overrides);
+        const showOnIsmiraWeb = overrides.show_on_ismira_web === true;
         const hidden = parseHiddenOverride(overrides.hidden);
         const edited = Object.keys(overrides).length > 0;
         const rawCompany = overrideCompany || row.company || "";
@@ -444,6 +403,7 @@ export async function GET(request: Request) {
           company: displayCompany || undefined,
           department: overrideDepartment || row.department || undefined,
           job_company_id: row.job_company_id ?? undefined,
+          show_on_ismira_web: showOnIsmiraWeb,
           priorityOverride,
           edited,
           hidden,
@@ -481,16 +441,12 @@ export async function GET(request: Request) {
           { status: 200 }
         );
       }
-      const fallback = await fetchBreezyPositionsList(breezyCompanyId);
-      const total = fallback.length;
-      const slice = fallback.slice(offset, offset + limit);
-      const nextOffset = offset + slice.length < total ? offset + slice.length : null;
       return NextResponse.json(
         {
-          positions: slice,
-          total,
-          nextOffset,
-          warning: "No cached positions yet. Click Sync to store them in the database.",
+          positions: [],
+          total: 0,
+          nextOffset: null,
+          warning: "No cached positions yet. Run Sync to load jobs from Breezy.",
         },
         { status: 200 }
       );

@@ -135,6 +135,7 @@ type BreezyPosition = {
   company?: string;
   department?: string;
   priority?: string;
+  show_on_ismira_web?: boolean;
   edited?: boolean;
   hidden?: boolean;
   synced_at?: string | null;
@@ -2085,6 +2086,7 @@ export default function BreezyPositionRecordsBrowser({
       const statusLabel = hidden
         ? "Hidden"
         : asString(pos.state).trim() || "Draft";
+      const showOnIsmiraWeb = pos.show_on_ismira_web === true;
       const avatarSeed = (company || name).trim() || "P";
       const avatar = avatarSeed.slice(0, 1).toUpperCase();
       const priorityKey = normalizePriorityKey(asString(pos.priority).trim());
@@ -2149,19 +2151,39 @@ export default function BreezyPositionRecordsBrowser({
           </td>
 
           <td className="whitespace-nowrap px-4 py-3 text-right">
-            <div className="flex items-center justify-end gap-2">
-              {department ? (
-                <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-800 ring-1 ring-sky-100">
-                  <Layers className="h-3.5 w-3.5 text-sky-600" />
-                  <span className="max-w-[220px] truncate whitespace-nowrap">{department}</span>
-                </span>
-              ) : null}
+            {showOnIsmiraWeb ? (
               <span
-                className={`rounded-full px-3 py-1 text-[11px] font-semibold capitalize ${statusTone}`}
+                className="relative inline-flex items-center gap-1.5 rounded-full border border-fuchsia-200 bg-gradient-to-r from-fuchsia-500 via-rose-500 to-amber-400 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm shadow-fuchsia-200/60"
+                title="Shown externally on Ismira Web"
               >
-                {statusLabel}
+                <span className="absolute -left-1 -top-1 grid h-3.5 w-3.5 place-items-center rounded-full border border-white bg-emerald-500">
+                  <Check className="h-2.5 w-2.5 text-white" aria-hidden="true" />
+                </span>
+                <Globe2 className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="whitespace-nowrap">Ismira Web</span>
               </span>
-            </div>
+            ) : (
+              <span className="text-xs font-medium text-slate-300">-</span>
+            )}
+          </td>
+
+          <td className="whitespace-nowrap px-4 py-3 text-right">
+            {department ? (
+              <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-800 ring-1 ring-sky-100">
+                <Layers className="h-3.5 w-3.5 text-sky-600" />
+                <span className="max-w-[220px] truncate whitespace-nowrap">{department}</span>
+              </span>
+            ) : (
+              <span className="text-xs font-medium text-slate-300">-</span>
+            )}
+          </td>
+
+          <td className="whitespace-nowrap px-4 py-3 text-right">
+            <span
+              className={`rounded-full px-3 py-1 text-[11px] font-semibold capitalize ${statusTone}`}
+            >
+              {statusLabel}
+            </span>
           </td>
 
           <td className="whitespace-nowrap px-4 py-3 text-right">
@@ -2661,6 +2683,10 @@ export default function BreezyPositionRecordsBrowser({
           if (Object.prototype.hasOwnProperty.call(sanitizedOverrides, "hidden")) {
             next.hidden = sanitizedOverrides.hidden === true;
             if (next.hidden) next.edited = true;
+          }
+          if (Object.prototype.hasOwnProperty.call(sanitizedOverrides, "show_on_ismira_web")) {
+            next.show_on_ismira_web = sanitizedOverrides.show_on_ismira_web === true;
+            next.edited = true;
           }
           return next;
         })
@@ -3451,6 +3477,12 @@ export default function BreezyPositionRecordsBrowser({
                       Position
                     </th>
                     <th scope="col" className="px-4 py-3 text-right">
+                      External
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-right">
+                      Department
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-right">
                       Status
                     </th>
                     <th scope="col" className="px-4 py-3 text-right">
@@ -3462,7 +3494,7 @@ export default function BreezyPositionRecordsBrowser({
                   {loadingPositions ? (
                     <tr>
                       <td
-                        colSpan={4}
+                        colSpan={6}
                         className="bg-white px-4 py-10 text-center text-sm text-slate-500"
                       >
                         Loading positions…
@@ -3471,7 +3503,7 @@ export default function BreezyPositionRecordsBrowser({
                   ) : filteredPositions.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={4}
+                        colSpan={6}
                         className="bg-white px-4 py-10 text-center text-sm text-slate-500"
                       >
                         No {recordType === "pool" ? "pools" : "positions"} found.

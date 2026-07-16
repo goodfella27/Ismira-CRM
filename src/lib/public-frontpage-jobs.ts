@@ -23,6 +23,7 @@ export type PublicFrontpageJob = {
 export type PublicFrontpageJobsPayload = {
   version: 1;
   jobs: PublicFrontpageJob[];
+  urgentTitle: string;
   interviewJobs: PublicFrontpageJob[];
   interviewsTitle: string;
   benefitLabels: Record<string, string>;
@@ -89,6 +90,7 @@ function isUrgentOpeningType(type: UnknownRecord) {
 }
 
 const DEFAULT_INTERVIEWS_TITLE = "UPCOMING INTERVIEWS WITH CRUISE EMPLOYERS";
+const DEFAULT_URGENT_TITLE = "Hot Jobs";
 
 function toPublicJob(
   job: UnknownRecord,
@@ -230,6 +232,7 @@ export function buildPublicFrontpageJobsPayload(
   return {
     version: 1,
     jobs: publicJobs,
+    urgentTitle: DEFAULT_URGENT_TITLE,
     interviewJobs,
     interviewsTitle,
     benefitLabels: asStringMap(payload.benefitLabels),

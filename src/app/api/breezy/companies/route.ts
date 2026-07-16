@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { breezyFetch } from "@/lib/breezy";
+import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
 
 async function fetchJson(url: string) {
   const res = await breezyFetch(url);
@@ -9,11 +9,45 @@ async function fetchJson(url: string) {
   return { res, body };
 }
 
+function configuredCompanyPayload() {
+  try {
+    const { companyId } = requireBreezyCompanyId();
+    return {
+      companies: [
+        {
+          id: companyId,
+          _id: companyId,
+          name: "Configured Breezy company",
+        },
+      ],
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function GET() {
   try {
+    const configuredCompany = configuredCompanyPayload();
+    if (configuredCompany) return NextResponse.json(configuredCompany, { status: 200 });
+
     const primary = await fetchJson("https://api.breezy.hr/v3/companies");
     if (primary.res.ok) {
       return NextResponse.json(primary.body, { status: primary.res.status });
+    }
+
+    if (primary.res.status === 403) {
+      const fallbackCompany = configuredCompanyPayload();
+      if (fallbackCompany) {
+        return NextResponse.json(
+          {
+            ...fallbackCompany,
+            warning:
+              "Breezy denied company listing, so the configured company id was used.",
+          },
+          { status: 200 }
+        );
+      }
     }
 
     // Fallback: some accounts return companies under /company

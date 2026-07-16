@@ -317,6 +317,7 @@
       jobs: [],
       interviewJobs: [],
       labels: {},
+      urgentTitle: "Hot Jobs",
       interviewsTitle: "UPCOMING INTERVIEWS WITH CRUISE EMPLOYERS",
       loading: true,
       error: "",
@@ -345,7 +346,7 @@
         listElement.innerHTML = '<div class="ijf-status">No matching jobs are available right now.</div>';
       } else {
         const urgentHtml = state.jobs.length
-          ? `<section class="ijf-section">${state.jobs.map((job, index) => renderJob(job, state.labels, index)).join("")}</section>`
+          ? `<section class="ijf-section"><h2 class="ijf-section-title">${escapeHtml(state.urgentTitle)}</h2>${state.jobs.map((job, index) => renderJob(job, state.labels, index)).join("")}</section>`
           : "";
         const interviewHtml = state.interviewJobs.length
           ? `<section class="ijf-section"><h2 class="ijf-section-title">${escapeHtml(state.interviewsTitle)}</h2>${state.interviewJobs.map((job, index) => renderJob(job, state.labels, index + state.jobs.length)).join("")}</section>`
@@ -409,6 +410,9 @@
         state.jobs = payload && Array.isArray(payload.jobs) ? payload.jobs : [];
         state.interviewJobs =
           payload && Array.isArray(payload.interviewJobs) ? payload.interviewJobs : [];
+        state.urgentTitle =
+          asString(payload && payload.urgentTitle) ||
+          "Hot Jobs";
         state.interviewsTitle =
           asString(payload && payload.interviewsTitle) ||
           "UPCOMING INTERVIEWS WITH CRUISE EMPLOYERS";
