@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 
-import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import { canonicalizeCountry } from "@/lib/country";
 import { normalizeBenefitTags } from "@/lib/job-company-benefits";
@@ -26,32 +25,42 @@ async function requireUser() {
 
 export async function GET(request: Request) {
   try {
+    const user = await requireUser();
     const { searchParams } = new URL(request.url);
     const companyParam = (searchParams.get("companyId") ?? "").trim();
-    const companyId = companyParam || requireBreezyCompanyId().companyId;
+    const admin = createSupabaseAdminClient();
+    const membership = await ensureCompanyMembership(admin, user.id);
 
-    const url = `https://api.breezy.hr/v3/company/${encodeURIComponent(companyId)}/positions`;
+    let query = admin
+      .from("breezy_positions")
+      .select("breezy_position_id,name,state,friendly_id,org_type,details")
+      .eq("company_id", membership.companyId)
+      .order("name", { ascending: true });
 
-    const res = await breezyFetch(url);
-    const contentType = res.headers.get("content-type") ?? "";
-    const isJson = contentType.includes("application/json");
-    const body = isJson ? await res.json() : await res.text();
+    if (companyParam) query = query.eq("breezy_company_id", companyParam);
 
-    if (!res.ok) {
-      return NextResponse.json(
-        {
-          error: "Breezy request failed",
-          status: res.status,
-          details: body,
-        },
-        { status: res.status }
-      );
-    }
+    const { data, error } = await query;
+    if (error) throw new Error(error.message ?? "Failed to load positions.");
 
-    return NextResponse.json(body, { status: res.status });
+    const positions = Array.isArray(data)
+      ? data.map((row) => ({
+          id: row.breezy_position_id,
+          _id: row.breezy_position_id,
+          name: row.name,
+          state: row.state,
+          friendly_id: row.friendly_id,
+          org_type: row.org_type,
+          ...(typeof row.details === "object" && row.details !== null && !Array.isArray(row.details)
+            ? row.details
+            : {}),
+        }))
+      : [];
+
+    return NextResponse.json({ positions, source: "supabase" }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = /not authenticated/i.test(message) ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
 
@@ -74,8 +83,7 @@ export async function POST(request: Request) {
         }
       | null;
 
-    const companyParam = (payload?.companyId ?? "").trim();
-    const companyId = companyParam || requireBreezyCompanyId().companyId;
+    const companyId = (payload?.companyId ?? "").trim();
     const name = (payload?.name ?? "").trim();
     const description = (payload?.description ?? "").trim();
     const type = (payload?.type ?? "").trim() || "contract";
@@ -105,236 +113,147 @@ export async function POST(request: Request) {
     if (!name) {
       return NextResponse.json({ error: "Missing position name" }, { status: 400 });
     }
+    if (!companyId) {
+      return NextResponse.json({ error: "Missing companyId" }, { status: 400 });
+    }
     if (!description) {
       return NextResponse.json({ error: "Missing position description" }, { status: 400 });
     }
 
-    const url = `https://api.breezy.hr/v3/company/${encodeURIComponent(companyId)}/positions`;
-    const body: Record<string, unknown> = { name, description, type };
-    if (department) {
-      body.department = department;
-    }
+    const user = await requireUser();
+    const admin = createSupabaseAdminClient();
+    const membership = await ensureCompanyMembership(admin, user.id);
+    const now = new Date().toISOString();
+    const localId = `local_${randomUUID().slice(0, 8)}`;
+    const state = orgType === "position" && !hidden ? "published" : "draft";
+    const jobCompanies = jobCompanyNames.length > 0
+      ? await ensureJobCompaniesByName(admin, membership.companyId, jobCompanyNames, {
+          breezyCompanyId: companyId,
+        })
+      : [];
+    const jobCompanyRow = jobCompanies[0] ?? null;
+    const jobCompanyId = jobCompanyRow?.id ?? null;
+    const nationalityCountries = processableCountryCodes.map((code) => ({
+      code,
+      name: canonicalizeCountry(code) ?? code,
+    }));
+    const details = {
+      id: localId,
+      _id: localId,
+      name,
+      title: name,
+      description,
+      type,
+      state,
+      org_type: orgType,
+      company: (jobCompanyNames[0] ?? jobCompany) || "",
+      companies: jobCompanyNames,
+      department,
+      location_name: locationName,
+      locationName,
+      location_label: locationName,
+      benefit_tags: benefitTags,
+      processable_country_codes: processableCountryCodes,
+      nationality_countries: {
+        processable: nationalityCountries,
+        blocked: [],
+        mentioned: [],
+        all: nationalityCountries,
+      },
+    };
 
-    const res = await breezyFetch(url, { method: "POST", body: JSON.stringify(body) });
-    const contentType = res.headers.get("content-type") ?? "";
-    const isJson = contentType.includes("application/json");
-    const resBody = isJson ? await res.json() : await res.text();
+    const { error: insertError } = await admin.from("breezy_positions").insert([
+      {
+        company_id: membership.companyId,
+        breezy_company_id: companyId,
+        breezy_position_id: localId,
+        name,
+        state,
+        org_type: orgType,
+        company: (jobCompanyNames[0] ?? jobCompany) || null,
+        department: department || null,
+        job_company_id: jobCompanyId,
+        details,
+        synced_at: now,
+        details_synced_at: now,
+      },
+    ]);
 
-    if (!res.ok) {
-      if (res.status === 403) {
-        const user = await requireUser();
-        const admin = createSupabaseAdminClient();
-        const membership = await ensureCompanyMembership(admin, user.id);
-
-        const now = new Date().toISOString();
-        const localId = `local_${randomUUID().slice(0, 8)}`;
-        const state = orgType === "position" && !hidden ? "published" : "draft";
-        const jobCompanies = jobCompanyNames.length > 0
-          ? await ensureJobCompaniesByName(admin, membership.companyId, jobCompanyNames, {
-              breezyCompanyId: companyId,
-            })
-          : [];
-        const jobCompanyRow = jobCompanies[0] ?? null;
-        const jobCompanyId = jobCompanyRow?.id ?? null;
-        const nationalityCountries = processableCountryCodes.map((code) => ({
-          code,
-          name: canonicalizeCountry(code) ?? code,
-        }));
-        const details = {
-          id: localId,
-          name,
-          description,
-          type,
-          state,
-          org_type: orgType,
-          company: jobCompany,
-          department,
-          location_name: locationName,
-          benefit_tags: benefitTags,
-          nationality_countries: {
-            processable: nationalityCountries,
-            blocked: [],
-            mentioned: [],
-            all: nationalityCountries,
-          },
-        };
-
-        const { error: insertError } = await admin.from("breezy_positions").insert([
-          {
-            company_id: membership.companyId,
-            breezy_company_id: companyId,
-            breezy_position_id: localId,
-            name,
-            state,
-            org_type: orgType,
-            company: (jobCompanyNames[0] ?? jobCompany) || null,
-            department: department || null,
-            job_company_id: jobCompanyId,
-            details,
-            synced_at: now,
-            details_synced_at: now,
-          },
-        ]);
-
-        if (insertError) {
-          return NextResponse.json(
-            { error: insertError.message ?? "Failed to create local opening" },
-            { status: 500 }
-          );
-        }
-
-        if (jobCompanies.length > 0) {
-          await setPositionJobCompanies(admin, {
-            companyId: membership.companyId,
-            breezyPositionId: localId,
-            jobCompanyIds: jobCompanies.map((company) => company.id),
-            primaryJobCompanyId: jobCompanyId,
-          });
-        }
-
-        if (jobCompanyId && benefitTags.length > 0) {
-          const metadata =
-            jobCompanyRow?.metadata &&
-            typeof jobCompanyRow.metadata === "object" &&
-            !Array.isArray(jobCompanyRow.metadata)
-              ? (jobCompanyRow.metadata as Record<string, unknown>)
-              : {};
-
-          await admin
-            .from("job_company_benefits")
-            .delete()
-            .eq("company_id", membership.companyId)
-            .eq("job_company_id", jobCompanyId);
-          await admin.from("job_company_benefits").insert(
-            benefitTags.map((tag, index) => ({
-              company_id: membership.companyId,
-              job_company_id: jobCompanyId,
-              tag,
-              sort_order: index,
-              enabled: true,
-            }))
-          );
-          await admin
-            .from("job_companies")
-            .update({
-              metadata: { ...metadata, job_company_benefits_manual_override: true },
-            })
-            .eq("company_id", membership.companyId)
-            .eq("id", jobCompanyId);
-        }
-
-        if (processableCountryCodes.length > 0) {
-          await admin
-            .from("breezy_position_countries")
-            .delete()
-            .eq("company_id", membership.companyId)
-            .eq("breezy_company_id", companyId)
-            .eq("breezy_position_id", localId);
-          await admin.from("breezy_position_countries").insert(
-            processableCountryCodes.map((code) => ({
-              company_id: membership.companyId,
-              breezy_company_id: companyId,
-              breezy_position_id: localId,
-              country_code: code,
-              country_name: canonicalizeCountry(code) ?? code,
-              group: "processable",
-            }))
-          );
-        }
-
-        clearJobsResponseCache();
-
-        return NextResponse.json(
-          {
-            id: localId,
-            local: true,
-            warning:
-              "Breezy rejected position creation with 403, so the opening was created locally.",
-            breezy: {
-              status: res.status,
-              details: resBody,
-            },
-          },
-          { status: 200 }
-        );
-      }
-
+    if (insertError) {
       return NextResponse.json(
-        {
-          error: "Breezy request failed",
-          status: res.status,
-          details: resBody,
-        },
-        { status: res.status }
+        { error: insertError.message ?? "Failed to create opening in Supabase" },
+        { status: 500 }
       );
     }
 
-    try {
-      const user = await requireUser();
-      const admin = createSupabaseAdminClient();
-      const membership = await ensureCompanyMembership(admin, user.id);
-      const record = typeof resBody === "object" && resBody !== null
-        ? (resBody as Record<string, unknown>)
-        : {};
-      const createdId =
-        (typeof record.id === "string" && record.id.trim()) ||
-        (typeof record._id === "string" && record._id.trim()) ||
-        "";
-      if (createdId) {
-        const jobCompanies = jobCompanyNames.length > 0
-          ? await ensureJobCompaniesByName(admin, membership.companyId, jobCompanyNames, {
-              breezyCompanyId: companyId,
-            })
-          : [];
-        const primaryJobCompany = jobCompanies[0] ?? null;
-        const now = new Date().toISOString();
-        const details = {
-          ...record,
-          company: (jobCompanyNames[0] ?? jobCompany) || record.company,
-          department: department || record.department,
-          location_name: locationName || record.location_name,
-          org_type: orgType,
-          benefit_tags: benefitTags,
-        };
+    if (jobCompanies.length > 0) {
+      await setPositionJobCompanies(admin, {
+        companyId: membership.companyId,
+        breezyPositionId: localId,
+        jobCompanyIds: jobCompanies.map((company) => company.id),
+        primaryJobCompanyId: jobCompanyId,
+      });
+    }
 
-        await admin.from("breezy_positions").upsert(
-          [
-            {
-              company_id: membership.companyId,
-              breezy_company_id: companyId,
-              breezy_position_id: createdId,
-              name,
-              state: typeof record.state === "string" ? record.state : "published",
-              org_type: orgType,
-              company: (jobCompanyNames[0] ?? jobCompany) || null,
-              department: department || null,
-              job_company_id: primaryJobCompany?.id ?? null,
-              details,
-              synced_at: now,
-              details_synced_at: now,
-            },
-          ],
-          { onConflict: "company_id,breezy_position_id", defaultToNull: false }
-        );
+    if (jobCompanyId && benefitTags.length > 0) {
+      const metadata =
+        jobCompanyRow?.metadata &&
+        typeof jobCompanyRow.metadata === "object" &&
+        !Array.isArray(jobCompanyRow.metadata)
+          ? (jobCompanyRow.metadata as Record<string, unknown>)
+          : {};
 
-        if (jobCompanies.length > 0) {
-          await setPositionJobCompanies(admin, {
-            companyId: membership.companyId,
-            breezyPositionId: createdId,
-            jobCompanyIds: jobCompanies.map((company) => company.id),
-            primaryJobCompanyId: primaryJobCompany?.id ?? null,
-          });
-        }
-      }
-    } catch {
-      // Best effort: Breezy creation succeeded, so do not fail the request if local cache linking fails.
+      await admin
+        .from("job_company_benefits")
+        .delete()
+        .eq("company_id", membership.companyId)
+        .eq("job_company_id", jobCompanyId);
+      await admin.from("job_company_benefits").insert(
+        benefitTags.map((tag, index) => ({
+          company_id: membership.companyId,
+          job_company_id: jobCompanyId,
+          tag,
+          sort_order: index,
+          enabled: true,
+        }))
+      );
+      await admin
+        .from("job_companies")
+        .update({
+          metadata: { ...metadata, job_company_benefits_manual_override: true },
+        })
+        .eq("company_id", membership.companyId)
+        .eq("id", jobCompanyId);
+    }
+
+    if (processableCountryCodes.length > 0) {
+      await admin
+        .from("breezy_position_countries")
+        .delete()
+        .eq("company_id", membership.companyId)
+        .eq("breezy_company_id", companyId)
+        .eq("breezy_position_id", localId);
+      await admin.from("breezy_position_countries").insert(
+        processableCountryCodes.map((code) => ({
+          company_id: membership.companyId,
+          breezy_company_id: companyId,
+          breezy_position_id: localId,
+          country_code: code,
+          country_name: canonicalizeCountry(code) ?? code,
+          group: "processable",
+        }))
+      );
     }
 
     clearJobsResponseCache();
 
-    return NextResponse.json(resBody, { status: res.status });
+    return NextResponse.json(
+      { id: localId, _id: localId, local: true, source: "supabase" },
+      { status: 200 }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = /not authenticated/i.test(message) ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

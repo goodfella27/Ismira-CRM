@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
+import { requireBreezyCompanyId } from "@/lib/breezy";
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import { getPrimaryCompanyId } from "@/lib/company/primary";
 import { canonicalizeCountry } from "@/lib/country";
@@ -11,8 +11,7 @@ import {
 } from "@/lib/job-company-benefits";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { asTrimmedString, extractCompany, extractDepartment, extractOrgType } from "@/lib/breezy-position-fields";
-import { scrubBreezyPositionDetails } from "@/lib/breezy-position-description";
+import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
 import {
   ensureJobCompaniesByName,
   fetchPositionJobCompanyNames,
@@ -26,6 +25,7 @@ import {
   getPositionOpeningTypeOverride,
 } from "@/lib/job-company-opening-types";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
+import { buildSupabasePositionDetails } from "@/lib/position-cache-details.mjs";
 
 export const runtime = "nodejs";
 
@@ -86,64 +86,6 @@ function parseHiddenOverride(value: unknown): boolean | null {
   if (["1", "true", "yes", "y", "on"].includes(normalized)) return true;
   if (["0", "false", "no", "n", "off"].includes(normalized)) return false;
   return null;
-}
-
-function applyOverrides(details: unknown, overrides: unknown) {
-  const base = isRecord(details) ? { ...details } : {};
-  const overrideObj = isRecord(overrides) ? overrides : {};
-
-  for (const [key, value] of Object.entries(overrideObj)) {
-    if (!allowedOverrideKeys.has(key)) continue;
-    if (key === "hidden") {
-      const parsed = parseHiddenOverride(value);
-      if (parsed === true) base.hidden = true;
-      else if (parsed === false) delete (base as Record<string, unknown>).hidden;
-      continue;
-    }
-    if (key === "priority") {
-      const priorityOverride = getPositionOpeningTypeOverride({ priority: value });
-      if (priorityOverride === null) delete base.priority;
-      else if (typeof priorityOverride === "string") base.priority = priorityOverride;
-      continue;
-    }
-    if (key === "benefit_tags") {
-      const tags = normalizeBenefitTags(value);
-      base.benefit_tags = tags;
-      continue;
-    }
-    if (key === "show_on_ismira_web") {
-      if (value === true) base.show_on_ismira_web = true;
-      else delete base.show_on_ismira_web;
-      continue;
-    }
-    if (key === "processable_country_codes") {
-      const codes = normalizeCountryCodes(value);
-      if (codes.length === 0) continue;
-      const countries = codes.map((code) => ({
-        code,
-        name: canonicalizeCountry(code) ?? code,
-      }));
-      base.processable_country_codes = codes;
-      base.nationality_countries = {
-        ...(isRecord(base.nationality_countries) ? base.nationality_countries : {}),
-        processable: countries,
-        all: countries,
-      };
-      continue;
-    }
-    if (typeof value !== "string") continue;
-    const trimmed = value.trim();
-    if (!trimmed) continue;
-    base[key] = trimmed;
-  }
-
-  // Make it easier for existing UI helpers that look for these fields.
-  if (typeof overrideObj.location_name === "string" && overrideObj.location_name.trim()) {
-    base.locationName = overrideObj.location_name.trim();
-    base.location_label = overrideObj.location_name.trim();
-  }
-
-  return base;
 }
 
 async function fetchSavedPositionCountries(init: {
@@ -487,17 +429,6 @@ function getBreezyCompanyIdFromRequest(request: Request) {
   }
 }
 
-async function fetchBreezyDetails(breezyCompanyId: string, positionId: string) {
-  const url = `https://api.breezy.hr/v3/company/${encodeURIComponent(
-    breezyCompanyId
-  )}/position/${encodeURIComponent(positionId)}`;
-  const res = await breezyFetch(url);
-  const type = res.headers.get("content-type") ?? "";
-  const isJson = type.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
-  return { res, body };
-}
-
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ positionId: string }> }
@@ -533,23 +464,12 @@ export async function GET(
 
     if (error) {
       if (isMissingPositionsTableError(error.message ?? "")) {
-        const breezy = await fetchBreezyDetails(breezyCompanyId, posId);
-        if (!breezy.res.ok) {
-          return NextResponse.json(
-            { error: "Breezy request failed", status: breezy.res.status, details: breezy.body },
-            { status: breezy.res.status }
-          );
-        }
         return NextResponse.json(
           {
-            details: isRecord(breezy.body) ? breezy.body : { data: breezy.body },
-            base: breezy.body,
-            overrides: {},
-            meta: { id: posId },
-            warning:
-              "Database table `breezy_positions` is not set up. Apply `supabase/breezy_positions.sql` in your Supabase project to enable caching and editing.",
+            error:
+              "Database table `breezy_positions` is not set up. Apply `supabase/breezy_positions.sql` in your Supabase project.",
           },
-          { status: 200 }
+          { status: 500 }
         );
       }
       throw new Error(error.message ?? "Failed to load cached position");
@@ -573,127 +493,13 @@ export async function GET(
         }
       | null;
 
-    if (row?.details) {
-      let merged = applyOverrides(row.details, row.overrides);
-      if (row.company && !asTrimmedString((merged as Record<string, unknown>)?.company)) {
-        (merged as Record<string, unknown>).company = row.company;
-      }
-      if (row.department && !asTrimmedString((merged as Record<string, unknown>)?.department)) {
-        (merged as Record<string, unknown>).department = row.department;
-      }
-      const linkedCompanies = await fetchPositionJobCompanyNames(admin, {
-        companyId,
-        breezyPositionId: posId,
-      }).catch(() => []);
-      const companies =
-        linkedCompanies.length > 0
-          ? linkedCompanies
-          : row.company && row.company.trim()
-            ? [row.company.trim()]
-            : [];
-      if (companies.length > 0) {
-        (merged as Record<string, unknown>).companies = companies;
-      }
-      const jobCompanyIdsForMeta = await fetchPositionJobCompanyIds({
-        admin,
-        companyId,
-        positionId: posId,
-        fallbackJobCompanyId: row.job_company_id,
-      }).catch(() => [] as string[]);
-      const companyOpeningType = await fetchJobCompanyOpeningType({
-        admin,
-        companyId,
-        jobCompanyIds: jobCompanyIdsForMeta,
-      }).catch(() => "");
-      merged = await hydrateSavedSelections(merged as Record<string, unknown>, {
-        admin,
-        companyId,
-        breezyCompanyId,
-        positionId: posId,
-        fallbackCompany: companies[0] ?? row.company,
-        jobCompanyId: row.job_company_id,
-        overrides: row.overrides,
-      });
+    if (!row) {
       return NextResponse.json(
-        {
-          details: merged,
-          base: row.details,
-          overrides: isRecord(row.overrides) ? row.overrides : {},
-          meta: {
-            id: row.breezy_position_id,
-            synced_at: row.synced_at,
-            details_synced_at: row.details_synced_at,
-            updated_at: row.updated_at,
-            canEdit,
-            companies,
-            companyOpeningType,
-          },
-        },
-        { status: 200 }
+        { error: "Position not found in Supabase." },
+        { status: 404 }
       );
     }
 
-    // No cached details yet; fetch from Breezy and store.
-    const breezy = await fetchBreezyDetails(breezyCompanyId, posId);
-    if (!breezy.res.ok) {
-      return NextResponse.json(
-        { error: "Breezy request failed", status: breezy.res.status, details: breezy.body },
-        { status: breezy.res.status }
-      );
-    }
-
-    const now = new Date().toISOString();
-    const payload = scrubBreezyPositionDetails(breezy.body);
-    const name = isRecord(payload) && typeof payload.name === "string" ? payload.name.trim() : null;
-    const state =
-      isRecord(payload) && typeof payload.state === "string" ? payload.state.trim() : null;
-    const friendlyId =
-      isRecord(payload) && typeof payload.friendly_id === "string"
-        ? payload.friendly_id.trim()
-        : null;
-    const record = isRecord(payload) ? (payload as Record<string, unknown>) : null;
-    const baseCompany = extractCompany(record) || null;
-    const baseDepartment = extractDepartment(record) || null;
-    const baseOrgType = extractOrgType(record) || null;
-    const overridesRecord = isRecord(row?.overrides) ? (row?.overrides as Record<string, unknown>) : {};
-    const overrideCompany =
-      typeof overridesRecord.company === "string" && overridesRecord.company.trim()
-        ? overridesRecord.company.trim()
-        : null;
-    const overrideDepartment =
-      typeof overridesRecord.department === "string" && overridesRecord.department.trim()
-        ? overridesRecord.department.trim()
-        : null;
-
-    const { error: upsertError } = await admin.from("breezy_positions").upsert(
-      [
-        {
-          company_id: companyId,
-          breezy_company_id: breezyCompanyId,
-          breezy_position_id: posId,
-          name,
-          state,
-          friendly_id: friendlyId,
-          org_type: baseOrgType,
-          details: payload,
-          company: overrideCompany ?? baseCompany,
-          department: overrideDepartment ?? baseDepartment,
-          details_synced_at: now,
-          synced_at: row?.synced_at ?? now,
-        },
-      ],
-      { onConflict: "company_id,breezy_position_id", defaultToNull: false }
-    );
-    if (upsertError) throw new Error(upsertError.message ?? "Failed to store details");
-
-    const overrides = row?.overrides ?? {};
-    let merged = applyOverrides(payload, overrides) as Record<string, unknown>;
-    const effectiveCompany = overrideCompany ?? baseCompany;
-    const effectiveDepartment = overrideDepartment ?? baseDepartment;
-    if (effectiveCompany && !asTrimmedString(merged.company)) merged.company = effectiveCompany;
-    if (effectiveDepartment && !asTrimmedString(merged.department)) {
-      merged.department = effectiveDepartment;
-    }
     const linkedCompanies = await fetchPositionJobCompanyNames(admin, {
       companyId,
       breezyPositionId: posId,
@@ -701,45 +507,48 @@ export async function GET(
     const companies =
       linkedCompanies.length > 0
         ? linkedCompanies
-        : effectiveCompany
-          ? [effectiveCompany]
-          : [];
-    if (companies.length > 0) merged.companies = companies;
+      : row.company && row.company.trim()
+        ? [row.company.trim()]
+        : [];
     const jobCompanyIdsForMeta = await fetchPositionJobCompanyIds({
       admin,
       companyId,
       positionId: posId,
-      fallbackJobCompanyId: row?.job_company_id,
+      fallbackJobCompanyId: row.job_company_id,
     }).catch(() => [] as string[]);
     const companyOpeningType = await fetchJobCompanyOpeningType({
       admin,
       companyId,
       jobCompanyIds: jobCompanyIdsForMeta,
     }).catch(() => "");
+    let merged = buildSupabasePositionDetails({
+      row,
+      companies,
+    }) as Record<string, unknown>;
     merged = await hydrateSavedSelections(merged, {
       admin,
       companyId,
       breezyCompanyId,
       positionId: posId,
-      fallbackCompany: companies[0] ?? effectiveCompany,
-      jobCompanyId: null,
-      overrides,
+      fallbackCompany: companies[0] ?? row.company,
+      jobCompanyId: row.job_company_id,
+      overrides: row.overrides,
     });
 
-    clearJobsResponseCache();
     return NextResponse.json(
       {
         details: merged,
-        base: payload,
-        overrides: isRecord(overrides) ? overrides : {},
+        base: isRecord(row.details) ? row.details : {},
+        overrides: isRecord(row.overrides) ? row.overrides : {},
         meta: {
-          id: posId,
-          synced_at: row?.synced_at ?? now,
-          details_synced_at: now,
-          updated_at: null,
+          id: row.breezy_position_id,
+          synced_at: row.synced_at,
+          details_synced_at: row.details_synced_at,
+          updated_at: row.updated_at,
           canEdit,
           companies,
           companyOpeningType,
+          source: "supabase",
         },
       },
       { status: 200 }
@@ -779,44 +588,13 @@ export async function POST(
     await ensureCompanyMembership(admin, user.id);
     const companyId = await getPrimaryCompanyId(admin);
 
-    const breezy = await fetchBreezyDetails(breezyCompanyId, posId);
-    if (!breezy.res.ok) {
-      return NextResponse.json(
-        { error: "Breezy request failed", status: breezy.res.status, details: breezy.body },
-        { status: breezy.res.status }
-      );
-    }
-
-    const now = new Date().toISOString();
-    const payload = scrubBreezyPositionDetails(breezy.body);
-    const name = isRecord(payload) && typeof payload.name === "string" ? payload.name.trim() : null;
-    const state =
-      isRecord(payload) && typeof payload.state === "string" ? payload.state.trim() : null;
-    const friendlyId =
-      isRecord(payload) && typeof payload.friendly_id === "string"
-        ? payload.friendly_id.trim()
-        : null;
-    const record = isRecord(payload) ? (payload as Record<string, unknown>) : null;
-
-    const { error: upsertError } = await admin.from("breezy_positions").upsert(
-      [
-        {
-          company_id: companyId,
-          breezy_company_id: breezyCompanyId,
-          breezy_position_id: posId,
-          name,
-          state,
-          friendly_id: friendlyId,
-          org_type: extractOrgType(record) || null,
-          details: payload,
-          company: extractCompany(record) || null,
-          department: extractDepartment(record) || null,
-          details_synced_at: now,
-        },
-      ],
-      { onConflict: "company_id,breezy_position_id", defaultToNull: false }
-    );
-    if (upsertError) throw new Error(upsertError.message ?? "Failed to store details");
+    const { count, error: countError } = await admin
+      .from("breezy_positions")
+      .select("breezy_position_id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("breezy_company_id", breezyCompanyId)
+      .eq("breezy_position_id", posId);
+    if (countError) throw new Error(countError.message ?? "Failed to refresh position");
 
     try {
       await syncJobCompaniesFromPositions(admin, {
@@ -827,7 +605,16 @@ export async function POST(
       // Best effort: details refresh should still succeed without company sync.
     }
 
-    return NextResponse.json({ ok: true, details_synced_at: now }, { status: 200 });
+    clearJobsResponseCache();
+
+    return NextResponse.json(
+      {
+        ok: true,
+        positions: typeof count === "number" ? count : 0,
+        source: "supabase",
+      },
+      { status: 200 }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     const status = /not authenticated/i.test(message) ? 401 : 500;

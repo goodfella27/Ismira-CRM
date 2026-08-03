@@ -2,12 +2,26 @@ export function pickPositionDescription(
   details: Record<string, unknown> | null | undefined
 ): string {
   if (!details) return "";
-  const keys = ["description", "job_description", "jobDescription", "content", "html"];
+  const keys = ["description", "job_description", "jobDescription", "html", "content"];
   for (const key of keys) {
     const value = details[key];
-    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "string" && hasVisibleDescriptionText(value)) return value.trim();
   }
   return "";
+}
+
+function hasVisibleDescriptionText(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  const text = trimmed
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#160;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return Boolean(text);
 }
 
 function scrubKnownBreezyFooterBlocks(html: string) {

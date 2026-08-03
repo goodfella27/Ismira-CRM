@@ -1,82 +1,70 @@
 import { NextResponse } from "next/server";
-import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
 
-async function fetchJson(url: string) {
-  const res = await breezyFetch(url);
-  const contentType = res.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
-  return { res, body };
+import { ensureCompanyMembership } from "@/lib/company/membership";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export const runtime = "nodejs";
+
+async function requireUser() {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw new Error(error.message ?? "Not authenticated.");
+  const user = data.user ?? null;
+  if (!user) throw new Error("Not authenticated.");
+  return user;
 }
 
-function configuredCompanyPayload() {
-  try {
-    const { companyId } = requireBreezyCompanyId();
-    return {
-      companies: [
-        {
-          id: companyId,
-          _id: companyId,
-          name: "Configured Breezy company",
-        },
-      ],
-    };
-  } catch {
-    return null;
-  }
+function uniqueStrings(rows: Array<{ breezy_company_id: string | null }>) {
+  return Array.from(
+    new Set(
+      rows
+        .map((row) => (row.breezy_company_id ?? "").trim())
+        .filter(Boolean)
+    )
+  );
 }
 
 export async function GET() {
   try {
-    const configuredCompany = configuredCompanyPayload();
-    if (configuredCompany) return NextResponse.json(configuredCompany, { status: 200 });
+    const user = await requireUser();
+    const admin = createSupabaseAdminClient();
+    const membership = await ensureCompanyMembership(admin, user.id);
 
-    const primary = await fetchJson("https://api.breezy.hr/v3/companies");
-    if (primary.res.ok) {
-      return NextResponse.json(primary.body, { status: primary.res.status });
-    }
+    const { data: positionRows, error: positionError } = await admin
+      .from("breezy_positions")
+      .select("breezy_company_id")
+      .eq("company_id", membership.companyId);
+    if (positionError) throw new Error(positionError.message ?? "Failed to load position groups.");
 
-    if (primary.res.status === 403) {
-      const fallbackCompany = configuredCompanyPayload();
-      if (fallbackCompany) {
-        return NextResponse.json(
-          {
-            ...fallbackCompany,
-            warning:
-              "Breezy denied company listing, so the configured company id was used.",
-          },
-          { status: 200 }
-        );
-      }
-    }
+    let ids = uniqueStrings(
+      Array.isArray(positionRows)
+        ? (positionRows as Array<{ breezy_company_id: string | null }>)
+        : []
+    );
 
-    // Fallback: some accounts return companies under /company
-    if ([400, 404, 405].includes(primary.res.status)) {
-      const fallback = await fetchJson("https://api.breezy.hr/v3/company");
-      if (fallback.res.ok) {
-        return NextResponse.json(fallback.body, { status: fallback.res.status });
-      }
-
-      return NextResponse.json(
-        {
-          error: "Breezy request failed",
-          status: fallback.res.status,
-          details: fallback.body,
-        },
-        { status: fallback.res.status }
+    if (ids.length === 0) {
+      const { data: companyRows } = await admin
+        .from("job_companies")
+        .select("breezy_company_id")
+        .eq("company_id", membership.companyId);
+      ids = uniqueStrings(
+        Array.isArray(companyRows)
+          ? (companyRows as Array<{ breezy_company_id: string | null }>)
+          : []
       );
     }
 
-    return NextResponse.json(
-      {
-        error: "Breezy request failed",
-        status: primary.res.status,
-        details: primary.body,
-      },
-      { status: primary.res.status }
-    );
+    const companies = ids.map((id, index) => ({
+      id,
+      _id: id,
+      name: index === 0 ? "Supabase jobs" : `Supabase jobs ${index + 1}`,
+    }));
+
+    return NextResponse.json({ companies, source: "supabase" }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = /not authenticated/i.test(message) ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

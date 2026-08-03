@@ -611,11 +611,12 @@ export async function GET(
     }
 
     if (isRecord(row.overrides)) {
+      const showOnIsmiraWeb = row.overrides.show_on_ismira_web === true;
       const hidden =
         row.overrides.hidden === true ||
         (typeof row.overrides.hidden === "string" &&
           ["1", "true", "yes", "y", "on"].includes(row.overrides.hidden.trim().toLowerCase()));
-      if (hidden) {
+      if (hidden && !showOnIsmiraWeb) {
         const title =
           row.details && isRecord(row.details)
             ? row.details.name ?? row.details.title

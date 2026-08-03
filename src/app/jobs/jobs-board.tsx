@@ -1373,6 +1373,10 @@ function extractDetailsMap(list: JobListItem[]) {
   return next;
 }
 
+function hasRenderableDescription(details: unknown) {
+  return isRecord(details) && Boolean(pickPositionDescription(details).trim());
+}
+
 function writeJobsCache(cache: JobsBoardCache) {
   if (typeof window === "undefined") return;
   try {
@@ -2037,7 +2041,7 @@ export default function JobsBoard() {
     const indexed = indexJobs(cache.items);
     jobsRef.current = indexed;
     setJobs(indexed);
-    setDetailsById((prev) => ({ ...extractDetailsMap(cache.items), ...prev }));
+    setDetailsById((prev) => ({ ...prev, ...extractDetailsMap(cache.items) }));
     setPriorityTypes(cache.priorityTypes);
     setBenefitLabels(cache.benefitLabels ?? DEFAULT_BENEFIT_TAG_LABELS);
     setCountryLabels(cache.countryLabels ?? {});
@@ -2505,7 +2509,7 @@ export default function JobsBoard() {
           : {};
       const indexed = indexJobs(list);
       setJobs(indexed);
-      setDetailsById((prev) => ({ ...extractDetailsMap(list), ...prev }));
+      setDetailsById((prev) => ({ ...prev, ...extractDetailsMap(list) }));
       setPriorityTypes(nextPriorityTypes);
       setBenefitLabels(nextBenefitLabels);
       setCountryLabels(nextCountryLabels);
@@ -2779,12 +2783,7 @@ export default function JobsBoard() {
       return;
     }
     const cachedDetails = detailsById[selectedId];
-    if (
-      cachedDetails &&
-      typeof cachedDetails === "object" &&
-      !Array.isArray(cachedDetails) &&
-      "benefit_tags" in cachedDetails
-    ) {
+    if (hasRenderableDescription(cachedDetails)) {
       return;
     }
     detailsAbortRef.current?.abort();

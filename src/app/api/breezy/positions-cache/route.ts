@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
+import { requireBreezyCompanyId } from "@/lib/breezy";
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import { getPrimaryCompanyId } from "@/lib/company/primary";
-import {
-  extractCompany,
-  extractDepartment,
-  extractOrgType,
-  isRecord,
-  replacePositionTitleCompany,
-} from "@/lib/breezy-position-fields";
-import { pickPositionDescription, scrubBreezyPositionDetails } from "@/lib/breezy-position-description";
-import { buildCountryRows, extractNationalityCountryGroups } from "@/lib/nationality-countries";
+import { replacePositionTitleCompany } from "@/lib/breezy-position-fields";
 import {
   normalizeJobCompanyName,
   resolveActiveJobCompanies,
@@ -30,15 +22,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizePriorityKey } from "@/lib/breezy-priority-types";
 
 export const runtime = "nodejs";
-
-type BreezyPosition = {
-  _id?: string;
-  id?: string;
-  name?: string;
-  state?: string;
-  friendly_id?: string;
-  org_type?: string;
-};
 
 type PositionListItem = {
   id: string;
@@ -62,25 +45,6 @@ type InternalPositionListItem = PositionListItem & {
   priorityOverride?: OpeningTypeOverride;
 };
 
-function asString(value: unknown) {
-  return typeof value === "string" ? value : "";
-}
-
-function getId(value: { _id?: string; id?: string } | null | undefined) {
-  return asString(value?._id).trim() || asString(value?.id).trim();
-}
-
-function normalizePositions(payload: unknown): BreezyPosition[] {
-  if (Array.isArray(payload)) return payload as BreezyPosition[];
-  if (payload && typeof payload === "object") {
-    const obj = payload as Record<string, unknown>;
-    if (Array.isArray(obj.data)) return obj.data as BreezyPosition[];
-    if (Array.isArray(obj.results)) return obj.results as BreezyPosition[];
-    if (Array.isArray(obj.positions)) return obj.positions as BreezyPosition[];
-  }
-  return [];
-}
-
 function parseHiddenOverride(value: unknown): boolean {
   if (value === true) return true;
   if (typeof value !== "string") return false;
@@ -90,9 +54,6 @@ function parseHiddenOverride(value: unknown): boolean {
 
 const isMissingPositionsTableError = (message: string) =>
   /could not find the table/i.test(message) && /breezy_positions/i.test(message);
-
-const isMissingCountriesTableError = (message: string) =>
-  /could not find the table/i.test(message) && /breezy_position_countries/i.test(message);
 
 async function requireUser() {
   const supabase = await createSupabaseServerClient();
@@ -128,26 +89,6 @@ function getPaginationFromRequest(request: Request) {
   const limit = Math.max(1, Math.min(100, parsePositiveInt(limitRaw, 20)));
   const offset = parsePositiveInt(offsetRaw, 0);
   return { limit, offset };
-}
-
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T, index: number) => Promise<R>
-) {
-  const results = new Array<R>(items.length);
-  let cursor = 0;
-
-  async function worker() {
-    while (cursor < items.length) {
-      const index = cursor++;
-      results[index] = await fn(items[index], index);
-    }
-  }
-
-  const workerCount = Math.max(1, Math.min(limit, items.length));
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
-  return results;
 }
 
 async function expandPositionCompanyJoins(
@@ -446,7 +387,7 @@ export async function GET(request: Request) {
           positions: [],
           total: 0,
           nextOffset: null,
-          warning: "No cached positions yet. Run Sync to load jobs from Breezy.",
+          warning: "No Supabase positions found yet. Create or import jobs in Supabase.",
         },
         { status: 200 }
       );
@@ -477,143 +418,12 @@ export async function POST(request: Request) {
     await ensureCompanyMembership(admin, user.id);
     const companyId = await getPrimaryCompanyId(admin);
 
-    const listUrl = `https://api.breezy.hr/v3/company/${encodeURIComponent(
-      breezyCompanyId
-    )}/positions`;
-
-    const listRes = await breezyFetch(listUrl);
-    const listType = listRes.headers.get("content-type") ?? "";
-    const listIsJson = listType.includes("application/json");
-    const listBody = listIsJson ? await listRes.json() : await listRes.text();
-
-    if (!listRes.ok) {
-      return NextResponse.json(
-        {
-          error: "Breezy request failed",
-          status: listRes.status,
-          details: listBody,
-        },
-        { status: listRes.status }
-      );
-    }
-
-    const breezyList = normalizePositions(listBody)
-      .map((pos) => ({
-        id: getId(pos),
-        name: asString(pos.name).trim() || null,
-        state: asString(pos.state).trim() || null,
-        friendly_id: asString(pos.friendly_id).trim() || null,
-        org_type: asString(pos.org_type).trim() || null,
-      }))
-      .filter((pos) => pos.id);
-
-    const now = new Date().toISOString();
-
-    const baseRows = breezyList.map((pos) => ({
-      company_id: companyId,
-      breezy_company_id: breezyCompanyId,
-      breezy_position_id: pos.id,
-      name: pos.name,
-      state: pos.state,
-      friendly_id: pos.friendly_id,
-      org_type: pos.org_type,
-      synced_at: now,
-    }));
-
-    if (baseRows.length > 0) {
-      const { error: upsertError } = await admin.from("breezy_positions").upsert(baseRows, {
-        onConflict: "company_id,breezy_position_id",
-        defaultToNull: false,
-      });
-      if (upsertError) throw new Error(upsertError.message ?? "Failed to upsert positions");
-    }
-
-    const detailResults = await mapWithConcurrency(
-      breezyList,
-      5,
-      async (pos): Promise<{ ok: boolean; id: string; details?: unknown; error?: unknown }> => {
-        const url = `https://api.breezy.hr/v3/company/${encodeURIComponent(
-          breezyCompanyId
-        )}/position/${encodeURIComponent(pos.id)}`;
-        const res = await breezyFetch(url);
-        const type = res.headers.get("content-type") ?? "";
-        const isJson = type.includes("application/json");
-        const body = isJson ? await res.json() : await res.text();
-        if (!res.ok) return { ok: false, id: pos.id, error: body };
-        return { ok: true, id: pos.id, details: body };
-      }
-    );
-
-    const detailRows = detailResults
-      .filter((r) => r.ok)
-      .map((r) => {
-        const details = scrubBreezyPositionDetails(r.details ?? null);
-        const record = isRecord(details) ? (details as Record<string, unknown>) : null;
-        return {
-          company_id: companyId,
-          breezy_company_id: breezyCompanyId,
-          breezy_position_id: r.id,
-          details,
-          company: extractCompany(record),
-          department: extractDepartment(record),
-          org_type: extractOrgType(record) || null,
-          details_synced_at: now,
-        };
-      });
-
-    if (detailRows.length > 0) {
-      const { error: upsertError } = await admin.from("breezy_positions").upsert(detailRows, {
-        onConflict: "company_id,breezy_position_id",
-        defaultToNull: false,
-      });
-      if (upsertError) {
-        throw new Error(upsertError.message ?? "Failed to store position details");
-      }
-    }
-
-    // Extract nationality flags into a separate table for country filtering.
-    try {
-      const countryRows = detailResults
-        .filter((r) => r.ok && isRecord(r.details))
-        .flatMap((r) => {
-          const record = r.details as Record<string, unknown>;
-          const desc = pickPositionDescription(record);
-          if (!desc) return [];
-          const groups = extractNationalityCountryGroups(desc);
-          if (groups.all.length === 0) return [];
-          const rows = buildCountryRows(groups);
-          return rows.map((row) => ({
-            company_id: companyId,
-            breezy_company_id: breezyCompanyId,
-            breezy_position_id: r.id,
-            country_code: row.country_code,
-            country_name: row.country_name,
-            group: row.group,
-          }));
-        });
-
-      const ids = detailRows.map((row) => row.breezy_position_id).filter(Boolean);
-      if (ids.length > 0) {
-        await admin
-          .from("breezy_position_countries")
-          .delete()
-          .eq("company_id", companyId)
-          .eq("breezy_company_id", breezyCompanyId)
-          .in("breezy_position_id", ids);
-      }
-
-      if (countryRows.length > 0) {
-        const { error: insertError } = await admin
-          .from("breezy_position_countries")
-          .insert(countryRows);
-        if (insertError) throw new Error(insertError.message ?? "Failed to store countries");
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "";
-      if (!isMissingCountriesTableError(message)) {
-        // Ignore other errors to avoid failing the sync.
-      }
-    }
+    const { count, error: countError } = await admin
+      .from("breezy_positions")
+      .select("breezy_position_id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("breezy_company_id", breezyCompanyId);
+    if (countError) throw new Error(countError.message ?? "Failed to refresh cached positions");
 
     let companySync:
       | {
@@ -630,15 +440,13 @@ export async function POST(request: Request) {
       companySync = null;
     }
 
-    const failed = detailResults.filter((r) => !r.ok);
-
     clearJobsResponseCache();
     return NextResponse.json(
       {
-        positions: breezyList.length,
-        detailsStored: detailRows.length,
-        detailsFailed: failed.length,
+        ok: true,
+        positions: typeof count === "number" ? count : 0,
         companySync,
+        source: "supabase",
       },
       { status: 200 }
     );

@@ -52,6 +52,7 @@ import { JobPremiumDetailsPanel } from "@/components/job-premium-details-panel";
 import WysiwygEditor from "@/components/wysiwyg-editor";
 import { loadBreezyCompanyId, saveBreezyCompanyId } from "@/lib/breezy-storage";
 import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
+import { pickPositionDescription } from "@/lib/breezy-position-description";
 import {
   BENEFIT_TAG_LABELS,
   REQUIRED_BENEFIT_TAGS,
@@ -730,7 +731,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function extractApiErrorMessage(payload: unknown, fallback: string) {
   if (!isRecord(payload)) return fallback;
   const direct = asString(payload.error).trim() || asString(payload.message).trim();
-  if (direct && direct !== "Breezy request failed") return direct;
+  if (direct) return direct;
   const details = payload.details;
   if (typeof details === "string" && details.trim()) return details.trim();
   if (isRecord(details)) {
@@ -893,19 +894,23 @@ function RichText({ content }: { content: string }) {
     return (
       <div
         className={[
-          "text-sm text-slate-800",
-          "[&_p]:mt-2 [&_p]:leading-6",
-          "[&_h1]:mt-4 [&_h1]:text-lg [&_h1]:font-semibold",
-          "[&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold",
-          "[&_h3]:mt-4 [&_h3]:text-base [&_h3]:font-semibold",
-          "[&_h4]:mt-3 [&_h4]:text-sm [&_h4]:font-semibold",
-          "[&_ul]:mt-2 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5",
-          "[&_ol]:mt-2 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5",
-          "[&_li]:leading-6",
-          "[&_strong]:font-semibold",
+          "text-[15px] leading-7 text-slate-800",
+          "[&>*:first-child]:mt-0",
+          "[&_p]:mt-3",
+          "[&_h1]:mb-2 [&_h1]:mt-6 [&_h1]:border-l-4 [&_h1]:border-sky-300 [&_h1]:pl-4 [&_h1]:text-lg [&_h1]:font-extrabold [&_h1]:uppercase [&_h1]:tracking-normal [&_h1]:text-slate-900",
+          "xl:[&_h1]:mb-3 xl:[&_h1]:mt-8 xl:[&_h1]:text-[1.1rem]",
+          "[&_h2]:mb-2 [&_h2]:mt-6 [&_h2]:border-l-4 [&_h2]:border-sky-300 [&_h2]:pl-4 [&_h2]:text-base [&_h2]:font-extrabold [&_h2]:uppercase [&_h2]:tracking-normal [&_h2]:text-slate-900",
+          "xl:[&_h2]:mb-3 xl:[&_h2]:mt-8 xl:[&_h2]:text-[1.05rem]",
+          "[&_h3]:mb-2 [&_h3]:mt-5 [&_h3]:border-l-4 [&_h3]:border-sky-200 [&_h3]:pl-4 [&_h3]:text-base [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-normal [&_h3]:text-slate-800",
+          "[&_h4]:mb-1 [&_h4]:mt-4 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:uppercase [&_h4]:tracking-normal [&_h4]:text-slate-600",
+          "[&_ul]:mt-3 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5 xl:[&_ul]:mt-4 xl:[&_ul]:space-y-3 xl:[&_ul]:pl-7",
+          "[&_ol]:mt-3 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-5 xl:[&_ol]:mt-4 xl:[&_ol]:space-y-3 xl:[&_ol]:pl-7",
+          "[&_li]:leading-7 [&_li]:marker:text-sky-500",
+          "[&_strong]:font-extrabold [&_strong]:text-slate-900",
           "[&_a]:font-semibold [&_a]:text-emerald-700 [&_a:hover]:underline",
-          "[&_img]:my-3 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-2xl [&_img]:border [&_img]:border-slate-200",
-          "[&_figure]:my-3",
+          "[&_img]:my-4 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-2xl [&_img]:border [&_img]:border-slate-200 [&_img]:shadow-[0_20px_50px_-30px_rgba(15,23,42,0.45)]",
+          "[&_figure]:my-4",
+          "[&_hr]:my-6 [&_hr]:border-slate-200",
           "[&_br]:leading-6",
         ].join(" ")}
         dangerouslySetInnerHTML={{ __html: safeHtml || "" }}
@@ -1175,13 +1180,7 @@ export default function BreezyPositionRecordsBrowser({
       "short_description",
       "description_summary",
     ]);
-    const description = getFirstStringField(merged, [
-      "description",
-      "description_html",
-      "description_text",
-      "job_description",
-      "content",
-    ]);
+    const description = pickPositionDescription(merged);
     const requirements = getFirstStringField(merged, [
       "requirements",
       "requirements_html",
@@ -1487,13 +1486,7 @@ export default function BreezyPositionRecordsBrowser({
 	  }, []);
 
   const modalDescription = useMemo(() => {
-    const raw = getFirstStringField(details, [
-      "description",
-      "description_html",
-      "description_text",
-      "job_description",
-      "content",
-    ]);
+    const raw = pickPositionDescription(details);
     if (!raw.trim()) return { heroSrc: "", bodyHtml: "", bodyText: "" };
     if (!containsHtml(raw)) return { heroSrc: "", bodyHtml: "", bodyText: raw.trim() };
     const safeHtml = sanitizeHtml(raw);
@@ -1612,7 +1605,7 @@ export default function BreezyPositionRecordsBrowser({
       if (!res.ok) {
         throw new Error(
           (data && typeof data?.error === "string" && data.error) ||
-            "Failed to load Breezy companies."
+            "Failed to load Supabase position groups."
         );
       }
       const list = normalizeCompanies(data);
@@ -1664,7 +1657,7 @@ export default function BreezyPositionRecordsBrowser({
       if (!res.ok) {
         throw new Error(
           (data && typeof data?.error === "string" && data.error) ||
-            "Failed to load Breezy positions."
+            "Failed to load positions from Supabase."
         );
       }
       const parsed = isRecord(data) ? (data as CachedPositionsResponse) : null;
@@ -1957,7 +1950,7 @@ export default function BreezyPositionRecordsBrowser({
       if (!res.ok) {
         throw new Error(
           (data && typeof data?.error === "string" && data.error) ||
-            "Failed to load Breezy position details."
+            "Failed to load position details from Supabase."
         );
       }
       const parsed = isRecord(data) ? (data as CachedPositionDetailsResponse) : null;
@@ -3596,7 +3589,7 @@ export default function BreezyPositionRecordsBrowser({
                         {isHidden ? "Unhide" : "Hide"}
                       </button>
                       <div className="px-4 pb-3 text-[11px] leading-4 text-slate-500">
-                        Hidden jobs are removed from the public jobs page.
+                        Hidden jobs stay off the HR portal unless Ismira Web is enabled.
                       </div>
                       <div className="border-t border-slate-200" />
                       <button
@@ -4698,13 +4691,7 @@ export default function BreezyPositionRecordsBrowser({
                       "short_description",
                       "description_summary",
                     ]);
-                    const description = getFirstStringField(details, [
-                      "description",
-                      "description_html",
-                      "description_text",
-                      "job_description",
-                      "content",
-                    ]);
+                    const description = pickPositionDescription(details);
                     const requirements = getFirstStringField(details, [
                       "requirements",
                       "requirements_html",
@@ -4987,15 +4974,15 @@ export default function BreezyPositionRecordsBrowser({
                         })()}
 
                         {description ? (
-                          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 xl:p-8">
                             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                               Description
                             </div>
-                            <div className="mt-2">
+                            <div className="mt-4">
                               {modalDescription.bodyHtml ? (
                                 <RichText content={modalDescription.bodyHtml} />
                               ) : (
-                                <div className="whitespace-pre-wrap text-sm leading-6 text-slate-800">
+                                <div className="whitespace-pre-wrap text-[15px] leading-7 text-slate-800">
                                   {modalDescription.bodyText || description}
                                 </div>
                               )}
@@ -5022,6 +5009,12 @@ export default function BreezyPositionRecordsBrowser({
                             <div className="mt-2">
                               <RichText content={requirements} />
                             </div>
+                          </div>
+                        ) : null}
+
+                        {!description && !responsibilities && !requirements && details.jd_content_missing === true ? (
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                            JD content is not saved in Supabase for this opening.
                           </div>
                         ) : null}
                       </>
@@ -5055,7 +5048,7 @@ export default function BreezyPositionRecordsBrowser({
               <div>
                 <div className="text-sm font-semibold text-slate-900">Create job opening</div>
                 <div className="mt-1 text-xs text-slate-500">
-                  This creates a new position in Breezy for the selected company.
+                  This creates a new position in Supabase for the selected company.
                 </div>
               </div>
               <ModalCloseButton

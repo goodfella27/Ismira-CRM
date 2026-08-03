@@ -766,12 +766,12 @@ export async function GET(request: Request) {
     const mapped = (Array.isArray(data) ? (data as unknown as Row[]) : [])
       .map((row) => {
         const overrides = isRecord(row.overrides) ? row.overrides : {};
-        if (parseHiddenOverride(overrides.hidden)) return null;
+        const showOnIsmiraWeb = overrides.show_on_ismira_web === true;
+        if (parseHiddenOverride(overrides.hidden) && !showOnIsmiraWeb) return null;
 
         const rawDetails = scrubBreezyPositionDetails(
           applyOverridesToDetails(row.details, overrides)
         );
-        const showOnIsmiraWeb = overrides.show_on_ismira_web === true;
         if (!isRecord(rawDetails)) return null;
         if (!showOnIsmiraWeb && !hasPublicJobDescription(rawDetails)) return null;
 
