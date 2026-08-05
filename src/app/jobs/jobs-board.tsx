@@ -513,6 +513,38 @@ function JobDetailsSkeleton() {
   );
 }
 
+function JobsListSkeleton() {
+  return (
+    <div className="space-y-4" aria-label="Loading positions">
+      {[0, 1, 2].map((item) => (
+        <div
+          key={item}
+          className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm xl:rounded-3xl xl:p-5"
+        >
+          <div className="animate-pulse xl:flex xl:items-start xl:gap-4">
+            <div className="h-16 w-16 shrink-0 rounded-2xl bg-slate-100 ring-1 ring-slate-200 xl:h-20 xl:w-20 xl:rounded-full" />
+            <div className="mt-4 min-w-0 flex-1 xl:mt-0">
+              <div className="h-4 w-24 rounded-full bg-slate-100" />
+              <div className="mt-3 h-5 w-[78%] rounded bg-slate-200" />
+              <div className="mt-2 h-4 w-[52%] rounded bg-slate-100" />
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                <div className="h-9 rounded-full bg-slate-100 xl:rounded-2xl" />
+                <div className="h-9 rounded-full bg-slate-100 xl:rounded-2xl" />
+                <div className="h-9 rounded-full bg-slate-100 xl:rounded-2xl" />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <div className="h-7 w-28 rounded-full bg-slate-100" />
+                <div className="h-7 w-36 rounded-full bg-slate-100" />
+                <div className="h-7 w-24 rounded-full bg-slate-100" />
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 type DropdownOption = {
   value: string;
   label: string;
@@ -4148,9 +4180,7 @@ export default function JobsBoard() {
 
               <div className="mt-5 space-y-4">
                 {loading ? (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                    Loading positions…
-                  </div>
+                  <JobsListSkeleton />
                 ) : filtered.length === 0 ? (
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
                     No positions found.

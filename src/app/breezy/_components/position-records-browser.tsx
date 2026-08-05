@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Select } from "radix-ui";
 import {
@@ -42,6 +42,7 @@ import {
   TrendingUp,
   Trash2,
   UtensilsCrossed,
+  Upload,
   UsersRound,
   X,
   type LucideIcon,
@@ -82,10 +83,16 @@ import {
   normalizeJobPremiumDetails,
   type JobPremiumDetails,
 } from "@/lib/job-premium-details";
+import { composeDescriptionWithHeroImage } from "@/lib/job-description-hero-image";
 import { subscribeJobCompanyLogosChanged } from "@/lib/job-company-logo-events";
 
-function HeroCoverImage({ src }: { src: string }) {
+function HeroCoverImage({ src, bottomActions }: { src: string; bottomActions?: ReactNode }) {
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  const actions = bottomActions ? (
+    <div className="absolute bottom-3 right-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center justify-end gap-2">
+      {bottomActions}
+    </div>
+  ) : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -100,13 +107,15 @@ function HeroCoverImage({ src }: { src: string }) {
 
   if (!src) {
     return (
-      <div className="w-full bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6] sm:aspect-[16/7]" />
+      <div className="relative aspect-[16/7] w-full bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6]">
+        {actions}
+      </div>
     );
   }
 
   return (
     <div
-      className="w-full overflow-hidden bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6]"
+      className="relative w-full overflow-hidden bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6]"
       style={aspectRatio ? { aspectRatio: String(aspectRatio) } : { aspectRatio: "16 / 7" }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -125,6 +134,7 @@ function HeroCoverImage({ src }: { src: string }) {
           setAspectRatio(next);
         }}
       />
+      {actions}
     </div>
   );
 }
@@ -1124,6 +1134,7 @@ export default function BreezyPositionRecordsBrowser({
   const [createOpeningSaving, setCreateOpeningSaving] = useState(false);
   const [createOpeningError, setCreateOpeningError] = useState<string | null>(null);
   const [createOpeningUploadingHero, setCreateOpeningUploadingHero] = useState(false);
+  const [editUploadingHero, setEditUploadingHero] = useState(false);
   const [createCompanyPickerOpen, setCreateCompanyPickerOpen] = useState(false);
   const [createCompanyQuery, setCreateCompanyQuery] = useState("");
   const [createDepartmentPickerOpen, setCreateDepartmentPickerOpen] = useState(false);
@@ -1196,6 +1207,7 @@ export default function BreezyPositionRecordsBrowser({
     description: "",
     responsibilities: "",
     requirements: "",
+    hero_image_url: "",
     show_on_ismira_web: false,
     ismira_web_title: DEFAULT_ISMIRA_WEB_TITLE,
   });
@@ -1226,6 +1238,9 @@ export default function BreezyPositionRecordsBrowser({
       "description_summary",
     ]);
     const description = pickPositionDescription(merged);
+    const editDescription = containsHtml(description)
+      ? extractHeroImageFromSafeHtml(sanitizeHtml(description))
+      : { heroSrc: "", bodyHtml: description };
     const requirements = getFirstStringField(merged, [
       "requirements",
       "requirements_html",
@@ -1250,9 +1265,10 @@ export default function BreezyPositionRecordsBrowser({
       benefit_tags: extractBenefitTagsFromDetails(merged),
       processable_country_codes: extractProcessableCountryCodesFromDetails(merged),
       summary: summary || "",
-      description: description || "",
+      description: editDescription.bodyHtml || "",
       responsibilities: responsibilities || "",
       requirements: requirements || "",
+      hero_image_url: editDescription.heroSrc || "",
       show_on_ismira_web: showOnIsmiraWeb,
       ismira_web_title: ismiraWebTitle,
     });
@@ -1965,6 +1981,32 @@ export default function BreezyPositionRecordsBrowser({
     }
   };
 
+  const uploadEditHeroImage = async (file: File) => {
+    setEditUploadingHero(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/job-assets/upload", { method: "POST", body: form });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          (data && typeof data?.error === "string" && data.error) || "Image upload failed."
+        );
+      }
+      const url =
+        data && typeof (data as { url?: unknown }).url === "string"
+          ? (data as { url: string }).url
+          : "";
+      if (!url.trim()) throw new Error("Upload succeeded but no URL was returned.");
+      setEditForm((prev) => ({ ...prev, hero_image_url: url.trim() }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Image upload failed.");
+    } finally {
+      setEditUploadingHero(false);
+    }
+  };
+
   const loadPositionDetails = useCallback(async (positionId: string, label?: string) => {
     const posId = positionId.trim();
     if (!posId) return;
@@ -2041,6 +2083,18 @@ export default function BreezyPositionRecordsBrowser({
 
         const pick = (key: string) =>
           typeof overrides[key] === "string" ? (overrides[key] as string) : "";
+        const rawDescription =
+          pick("description") ||
+          getFirstStringField(derived, [
+            "description",
+            "description_html",
+            "description_text",
+            "job_description",
+            "content",
+          ]);
+        const editDescription = containsHtml(rawDescription)
+          ? extractHeroImageFromSafeHtml(sanitizeHtml(rawDescription))
+          : { heroSrc: "", bodyHtml: rawDescription };
 
         setEditForm({
           name: pick("name") || getFirstStringField(derived, ["name", "title"]),
@@ -2056,15 +2110,7 @@ export default function BreezyPositionRecordsBrowser({
           summary:
             pick("summary") ||
             getFirstStringField(derived, ["summary", "short_description", "description_summary"]),
-          description:
-            pick("description") ||
-            getFirstStringField(derived, [
-              "description",
-              "description_html",
-              "description_text",
-              "job_description",
-              "content",
-            ]),
+          description: editDescription.bodyHtml,
           responsibilities:
             pick("responsibilities") ||
             getFirstStringField(derived, [
@@ -2079,6 +2125,7 @@ export default function BreezyPositionRecordsBrowser({
               "requirements_html",
               "requirements_text",
             ]),
+          hero_image_url: editDescription.heroSrc,
           show_on_ismira_web:
             overrides.show_on_ismira_web === true || derived.show_on_ismira_web === true,
           ismira_web_title:
@@ -2796,7 +2843,15 @@ export default function BreezyPositionRecordsBrowser({
       const url = `/api/breezy/positions-cache/${encodeURIComponent(
         posId
       )}?companyId=${encodeURIComponent(targetCompanyId)}`;
-      const overrides = sanitizeOverrides(editForm as unknown as Record<string, unknown>);
+      const rawOverrides = {
+        ...editForm,
+        description: composeDescriptionWithHeroImage({
+          heroImageUrl: editForm.hero_image_url,
+          bodyHtml: editForm.description,
+        }),
+      } as Record<string, unknown>;
+      delete rawOverrides.hero_image_url;
+      const overrides = sanitizeOverrides(rawOverrides);
       const hasPriorityOverride = Object.prototype.hasOwnProperty.call(
         detailsOverrides,
         "priority"
@@ -3580,7 +3635,51 @@ export default function BreezyPositionRecordsBrowser({
           onClose={closePositionModal}
           stickyHeroActions
           hero={
-            <HeroCoverImage src={modalDescription.heroSrc} />
+            <HeroCoverImage
+              src={editing ? editForm.hero_image_url : modalDescription.heroSrc}
+              bottomActions={
+                editing && canEdit ? (
+                  <>
+                    <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-white/40 bg-slate-950/80 px-4 text-xs font-semibold text-white shadow-lg backdrop-blur transition hover:bg-slate-900 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
+                      {editUploadingHero ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                      {editUploadingHero
+                        ? "Uploading..."
+                        : editForm.hero_image_url
+                          ? "Replace banner"
+                          : "Upload banner"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        disabled={savingEdits || editUploadingHero}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (!file) return;
+                          void uploadEditHeroImage(file);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+                    {editForm.hero_image_url ? (
+                      <button
+                        type="button"
+                        aria-label="Remove banner image"
+                        title="Remove banner image"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/40 bg-white/90 text-rose-700 shadow-lg backdrop-blur transition hover:bg-rose-50 disabled:opacity-60"
+                        disabled={savingEdits || editUploadingHero}
+                        onClick={() => setEditForm((prev) => ({ ...prev, hero_image_url: "" }))}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                  </>
+                ) : null
+              }
+            />
           }
           heroActions={
             <>
@@ -4904,7 +5003,7 @@ export default function BreezyPositionRecordsBrowser({
                                 Description
                               </div>
                               <WysiwygEditor
-                                value={editForm.description || description || ""}
+                                value={editForm.description}
                                 disabled={savingEdits}
                                 placeholder="Write the full description…"
                                 minHeightClassName="min-h-[220px]"
