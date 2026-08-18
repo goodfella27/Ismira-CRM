@@ -3,6 +3,10 @@ import crypto from "crypto";
 
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import { getPrimaryCompanyId } from "@/lib/company/primary";
+import {
+  buildDuplicatePositionInsert,
+  buildDuplicatePositionListItem,
+} from "@/lib/duplicate-position-cache-record.mjs";
 import { clearJobsResponseCache } from "@/lib/jobs-api-cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -23,17 +27,6 @@ type PositionListItem = {
   synced_at?: string | null;
   details_synced_at?: string | null;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parseHiddenOverride(value: unknown): boolean {
-  if (value === true) return true;
-  if (typeof value !== "string") return false;
-  const normalized = value.trim().toLowerCase();
-  return ["1", "true", "yes", "y", "on"].includes(normalized);
-}
 
 async function requireUser() {
   const supabase = await createSupabaseServerClient();
@@ -99,63 +92,19 @@ export async function POST(
       details_synced_at: string | null;
     };
 
-    const rawOverrides = isRecord(row.overrides) ? row.overrides : {};
-    const displayName =
-      (typeof rawOverrides.name === "string" ? rawOverrides.name.trim() : "") ||
-      (row.name ?? "").trim() ||
-      row.breezy_position_id;
-    const nextName = `${displayName} (Copy)`;
     const nextId = `local_${posId}_${crypto.randomUUID().slice(0, 8)}`;
+    const insert = buildDuplicatePositionInsert({
+      row,
+      companyId,
+      breezyCompanyId,
+      duplicateId: nextId,
+    });
 
-    const overrides: Record<string, unknown> = {
-      ...rawOverrides,
-      name: nextName,
-      hidden: true,
-    };
-
-    const { error: insertError } = await admin.from("breezy_positions").insert([
-      {
-        company_id: companyId,
-        breezy_company_id: breezyCompanyId,
-        breezy_position_id: nextId,
-        name: row.name,
-        state: row.state,
-        friendly_id: row.friendly_id,
-        org_type: row.org_type,
-        company: row.company,
-        department: row.department,
-        details: row.details,
-        overrides,
-        synced_at: row.synced_at,
-        details_synced_at: row.details_synced_at,
-      },
-    ]);
+    const { error: insertError } = await admin.from("breezy_positions").insert([insert]);
     if (insertError) throw new Error(insertError.message ?? "Failed to duplicate record.");
 
     clearJobsResponseCache();
-    const overrideCompany =
-      typeof overrides.company === "string" ? overrides.company.trim() : "";
-    const overrideDepartment =
-      typeof overrides.department === "string" ? overrides.department.trim() : "";
-    const overridePriority =
-      typeof overrides.priority === "string" ? overrides.priority.trim() : "";
-    const hidden = parseHiddenOverride(overrides.hidden);
-    const edited = Object.keys(overrides).length > 0;
-
-    const position: PositionListItem = {
-      id: nextId,
-      name: nextName,
-      state: row.state ?? undefined,
-      friendly_id: row.friendly_id ?? undefined,
-      org_type: row.org_type ?? undefined,
-      company: overrideCompany || row.company || undefined,
-      department: overrideDepartment || row.department || undefined,
-      priority: overridePriority || undefined,
-      edited,
-      hidden,
-      synced_at: row.synced_at,
-      details_synced_at: row.details_synced_at,
-    };
+    const position: PositionListItem = buildDuplicatePositionListItem(insert);
 
     return NextResponse.json({ position }, { status: 200 });
   } catch (error) {

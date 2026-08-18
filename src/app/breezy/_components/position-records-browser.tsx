@@ -10,6 +10,7 @@ import {
   BedDouble,
   Building2,
   CalendarDays,
+  Copy,
   RefreshCw,
   Search,
   ChevronDown,
@@ -2344,6 +2345,16 @@ export default function BreezyPositionRecordsBrowser({
                             type="button"
                             role="menuitem"
                             className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                            onClick={() => void duplicatePositionRecord(id)}
+                            disabled={cardActionSavingId === id}
+                          >
+                            <Copy className="h-4 w-4" />
+                            {cardActionSavingId === id ? "Duplicating..." : "Duplicate"}
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
                             onClick={() => void patchPositionHidden(id, !hidden)}
                             disabled={cardActionSavingId === id}
                           >
@@ -2380,6 +2391,7 @@ export default function BreezyPositionRecordsBrowser({
 		    companyLogoByName,
 		    filteredPositions,
 		    loadPositionDetails,
+		    duplicatePositionRecord,
 		    openPositionEditor,
 		    patchPositionHidden,
 		    requestDeletePosition,
@@ -2600,6 +2612,49 @@ export default function BreezyPositionRecordsBrowser({
     } finally {
       setCardActionSavingId(null);
       setCardMenuOpenId(null);
+    }
+  }
+
+  async function duplicatePositionRecord(posId: string) {
+    const target = posId.trim();
+    if (!target) return;
+    const targetCompanyId = companyId.trim();
+    if (!targetCompanyId) return;
+
+    setCardActionSavingId(target);
+    setError(null);
+    try {
+      const url = `/api/breezy/positions-cache/${encodeURIComponent(
+        target
+      )}/duplicate?companyId=${encodeURIComponent(targetCompanyId)}`;
+      const res = await fetch(url, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          (data && typeof data?.error === "string" && data.error) ||
+            "Failed to duplicate opening."
+        );
+      }
+
+      const position = isRecord(data?.position) ? (data.position as BreezyPosition) : null;
+      if (!position?.id) throw new Error("Duplicate response did not include an opening.");
+
+      setPositions((prev) => {
+        let inserted = false;
+        const next = prev.flatMap((item) => {
+          if (item.id !== target) return [item];
+          inserted = true;
+          return [item, position];
+        });
+        return inserted ? next : [position, ...prev];
+      });
+      setPriorityCountsRefreshKey((value) => value + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to duplicate opening.");
+    } finally {
+      setCardActionSavingId(null);
+      setCardMenuOpenId(null);
+      setVisibilityMenuOpen(false);
     }
   }
 
@@ -3712,6 +3767,22 @@ export default function BreezyPositionRecordsBrowser({
 
                   {visibilityMenuOpen ? (
                     <div className="absolute right-0 top-12 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                        onClick={() =>
+                          selectedPositionId && void duplicatePositionRecord(selectedPositionId)
+                        }
+                        disabled={
+                          visibilitySaving ||
+                          cardActionSavingId === (selectedPositionId ?? "").trim()
+                        }
+                      >
+                        <Copy className="h-4 w-4" />
+                        {cardActionSavingId === (selectedPositionId ?? "").trim()
+                          ? "Duplicating..."
+                          : "Duplicate"}
+                      </button>
                       <button
                         type="button"
                         className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
