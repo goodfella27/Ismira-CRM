@@ -84,6 +84,12 @@ import {
   getJobCompanyLogosChangedAt,
   subscribeJobCompanyLogosChanged,
 } from "@/lib/job-company-logo-events";
+import {
+  getPublicJobSharePath,
+  getPublicJobShareSlug,
+  getRequestedPublicJobValue,
+  resolvePublicJobId,
+} from "@/lib/public-job-links";
 
 type PremiumAccessResponse = {
   available: boolean;
@@ -1793,9 +1799,11 @@ export default function JobsBoard() {
   }, [searchParams]);
 
   const urlSelectedId = useMemo(() => {
-    const value = (searchParams?.get("job") ?? "").trim();
-    return value ? value : null;
-  }, [searchParams]);
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    const value = getRequestedPublicJobValue(params);
+    if (!value) return null;
+    return resolvePublicJobId(value, jobs) ?? null;
+  }, [jobs, searchParams]);
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     const value = (searchParams?.get("job") ?? "").trim();
     return value ? value : null;
@@ -1852,9 +1860,10 @@ export default function JobsBoard() {
       else params.delete("country");
 
       const qs = params.toString();
+      if (qs === (searchParams?.toString() ?? "")) return;
       if (qs === urlSyncRef.current) return;
       urlSyncRef.current = qs;
-      router.replace(qs ? `/jobs?${qs}` : "/jobs", { scroll: false });
+      router.replace(qs ? `/?${qs}` : "/", { scroll: false });
     }, 250);
 
     return () => window.clearTimeout(timer);
@@ -2611,10 +2620,15 @@ export default function JobsBoard() {
   const replaceSelectedIdInUrl = useCallback(
     (nextId: string | null) => {
       const params = new URLSearchParams(searchParams?.toString() ?? "");
-      if (nextId) params.set("job", nextId);
-      else params.delete("job");
+      params.delete("job");
+      params.delete("jd");
+      if (nextId) {
+        const job = jobsRef.current.find((item) => item.id === nextId);
+        if (job) params.set("jd", getPublicJobShareSlug(job));
+        else params.set("job", nextId);
+      }
       const qs = params.toString();
-      router.replace(qs ? `/jobs?${qs}` : "/jobs", { scroll: false });
+      router.replace(qs ? `/?${qs}` : "/", { scroll: false });
     },
     [router, searchParams]
   );
@@ -2624,9 +2638,13 @@ export default function JobsBoard() {
       const trimmed = nextId.trim();
       if (!trimmed) return;
       const params = new URLSearchParams(searchParams?.toString() ?? "");
-      params.set("job", trimmed);
+      params.delete("job");
+      params.delete("jd");
+      const job = jobsRef.current.find((item) => item.id === trimmed);
+      if (job) params.set("jd", getPublicJobShareSlug(job));
+      else params.set("job", trimmed);
       const qs = params.toString();
-      router.push(qs ? `/jobs?${qs}` : "/jobs", { scroll: false });
+      router.push(qs ? `/?${qs}` : "/", { scroll: false });
     },
     [router, searchParams]
   );
@@ -3525,7 +3543,17 @@ export default function JobsBoard() {
     const href = window.location.href;
     if (!href) return;
     const url = new URL(href);
-    if (selectedId) url.searchParams.set("job", selectedId);
+    url.pathname = "/";
+    url.searchParams.delete("job");
+    url.searchParams.delete("jd");
+    const selectedJob = selectedId ? jobsRef.current.find((job) => job.id === selectedId) : null;
+    if (selectedJob) {
+      const path = getPublicJobSharePath(selectedJob);
+      const slug = new URL(path, window.location.origin).searchParams.get("jd");
+      if (slug) url.searchParams.set("jd", slug);
+    } else if (selectedId) {
+      url.searchParams.set("job", selectedId);
+    }
     void navigator.clipboard
       .writeText(url.toString())
       .then(() => {
@@ -4590,9 +4618,13 @@ export default function JobsBoard() {
                 loading={premiumLoading}
                 onLogin={() => {
                   const next = selectedId
-                    ? `/jobs?job=${encodeURIComponent(selectedId)}`
-                    : "/jobs";
-                  router.push(`/login?next=${encodeURIComponent(next)}`);
+                    ? getPublicJobSharePath(
+                        jobsRef.current.find((job) => job.id === selectedId) ?? {
+                          id: selectedId,
+                        }
+                      )
+                    : "/";
+                  router.push(`/admin?next=${encodeURIComponent(next)}`);
                 }}
               />
 

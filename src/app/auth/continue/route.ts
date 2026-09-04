@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const access = await getCurrentUserAccess();
   if (!access) {
-    return NextResponse.redirect(new URL("/login", url.origin));
+    return NextResponse.redirect(new URL("/admin", url.origin));
   }
 
   const requested = safeNext(url.searchParams.get("next"));

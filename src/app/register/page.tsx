@@ -26,7 +26,7 @@ export default function RegisterPage() {
     setMessage(null);
 
     const origin = window.location.origin;
-    const nextPath = "/login?confirmed=1";
+    const nextPath = "/admin?confirmed=1";
     const emailRedirectTo = `${origin}/auth/callback?next=${encodeURIComponent(
       nextPath
     )}`;
@@ -143,7 +143,7 @@ export default function RegisterPage() {
 
       <div className="text-center text-sm text-slate-500">
         Already have an account?{" "}
-        <Link className="font-semibold text-emerald-600" href="/login">
+        <Link className="font-semibold text-emerald-600" href="/admin">
           Log in
         </Link>
       </div>

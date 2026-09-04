@@ -27,7 +27,7 @@ export default function ProfilePage() {
       try {
         const { data, error: authError } = await supabase.auth.getUser();
         if (authError || !data?.user) {
-          router.push("/login");
+          router.push("/admin");
           return;
         }
         if (ignore) return;

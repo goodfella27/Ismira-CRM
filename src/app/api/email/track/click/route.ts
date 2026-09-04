@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   }
 
   if (!target || !/^https?:\/\//i.test(target)) {
-    return NextResponse.redirect(new URL("/", url.origin).toString());
+    return NextResponse.redirect(new URL("/jobs", url.origin).toString());
   }
 
   let allowRedirect = false;
@@ -59,6 +59,6 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.redirect(
-    allowRedirect ? target : new URL("/", url.origin).toString()
+    allowRedirect ? target : new URL("/jobs", url.origin).toString()
   );
 }

@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const PUBLIC_ROUTES = [
-  "/login",
-  "/register",
-  "/auth",
-  "/form",
-  "/cv",
-  "/job",
-  "/jobs",
-  "/embed",
-];
-const ADMIN_ONLY_ROUTES = ["/company"];
+import {
+  getAuthEntryRedirectDestination,
+  isAdminOnlyRoute,
+  isProtectedRoute,
+  isPublicRoute,
+} from "@/lib/auth/route-policy";
 
 function redirectWithCookies(request: NextRequest, response: NextResponse, pathname: string) {
   const redirect = NextResponse.redirect(new URL(pathname, request.url));
@@ -30,9 +25,12 @@ export async function proxy(request: NextRequest) {
   }
 
   const pathname = request.nextUrl.pathname;
-  const isPublic = PUBLIC_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`)
-  );
+  const isPublic = isPublicRoute(pathname);
+  const isProtected = isProtectedRoute(pathname);
+
+  if (!isPublic && !isProtected) {
+    return response;
+  }
 
   let user: { id: string } | null = null;
   let isAdmin = false;
@@ -78,28 +76,36 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  if (!user && !isPublic) {
+  if (!user && isProtected) {
     const next = `${pathname}${request.nextUrl.search}`;
     return redirectWithCookies(
       request,
       response,
-      `/login?next=${encodeURIComponent(next)}`
+      `/admin?next=${encodeURIComponent(next)}`
     );
   }
 
-  if (user && (pathname === "/login" || pathname === "/register")) {
+  if (!user && pathname === "/login") {
+    const redirectUrl = new URL("/admin", request.url);
+    const next = request.nextUrl.searchParams.get("next");
+    if (next) redirectUrl.searchParams.set("next", next);
+    const redirect = NextResponse.redirect(redirectUrl);
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
+  }
+
+  if (user) {
+    const authEntryRedirect = getAuthEntryRedirectDestination(pathname, canAccessHrPortal);
+    if (authEntryRedirect) {
+      return redirectWithCookies(request, response, authEntryRedirect);
+    }
+  }
+
+  if (user && isAdminOnlyRoute(pathname) && !isAdmin) {
     return redirectWithCookies(request, response, canAccessHrPortal ? "/pipeline" : "/jobs");
   }
 
-  const isAdminOnly = ADMIN_ONLY_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`)
-  );
-
-  if (user && isAdminOnly && !isAdmin) {
-    return redirectWithCookies(request, response, canAccessHrPortal ? "/pipeline" : "/jobs");
-  }
-
-  if (user && !canAccessHrPortal && !isPublic) {
+  if (user && !canAccessHrPortal && isProtected) {
     return redirectWithCookies(request, response, "/jobs");
   }
 

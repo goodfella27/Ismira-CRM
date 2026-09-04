@@ -1,5 +1,6 @@
 import { normalizePriorityKey } from "./breezy-priority-types";
 import { pickPositionDescription } from "./breezy-position-description";
+import { getPublicJobShareUrl } from "./public-job-links";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -109,10 +110,9 @@ function toPublicJob(
   const fallbackShipType = asString(job.ship_type);
   if (shipTypes.length === 0 && fallbackShipType) shipTypes.push(fallbackShipType);
 
-  const normalizedOrigin = origin.replace(/\/+$/, "");
   const priority = normalizePriorityKey(asString(job.priority));
 
-  return {
+  const publicJob = {
     id,
     ...(asString(job.view_id) ? { view_id: asString(job.view_id) } : {}),
     name,
@@ -127,10 +127,14 @@ function toPublicJob(
     ...(asString(job.application_url)
       ? { application_url: asString(job.application_url) }
       : {}),
-    details_url: `${normalizedOrigin}/jobs?job=${encodeURIComponent(id)}`,
     ...(asString(job.updated_at) ? { updated_at: asString(job.updated_at) } : {}),
     ship_types: shipTypes,
     benefit_tags: asStringArray(job.benefit_tags),
+  };
+
+  return {
+    ...publicJob,
+    details_url: getPublicJobShareUrl(publicJob, origin),
   };
 }
 

@@ -153,7 +153,7 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push("/login");
+    router.push("/admin");
   };
 
   return (

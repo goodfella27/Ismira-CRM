@@ -82,7 +82,7 @@ export default function StickyJobsHeader() {
         ].join(" ")}
       >
         <div className="flex items-center justify-between gap-2 px-3 py-2 sm:gap-4 sm:px-6 sm:py-3">
-          <Link href="/jobs" className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
             <Image src={ismiraLogo} alt="Logo" className="h-7 w-auto sm:h-9" priority={false} />
           </Link>
 
@@ -94,7 +94,7 @@ export default function StickyJobsHeader() {
               />
             ) : !access.authenticated ? (
               <Link
-                href="/login?next=%2Fjobs"
+                href="/admin?next=%2F"
                 className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 text-xs font-semibold text-slate-800 transition hover:bg-white sm:h-10 sm:px-4"
               >
                 <LogIn className="h-4 w-4" aria-hidden="true" />

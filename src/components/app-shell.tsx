@@ -9,8 +9,8 @@ import { TaskNotificationBell } from "@/components/task-notification-bell";
 import { BrandingTitleSync } from "@/components/branding-title-sync";
 import { AppDialogsProvider } from "@/components/app-dialogs";
 import { hasSupabaseBrowserEnv } from "@/lib/supabase/client";
+import { isPublicShellRoute } from "@/lib/public-shell-routes";
 
-const PUBLIC_SHELL_ROUTES = ["/login", "/register", "/auth", "/form", "/cv", "/jobs", "/_not-found"];
 const CHAT_DISABLED_ROUTES = ["/breezy"];
 
 function SupabaseConfigNotice() {
@@ -45,29 +45,27 @@ function SupabaseConfigNotice() {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
-  const isPublicShellRoute = PUBLIC_SHELL_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`)
-  );
+  const publicShellRoute = isPublicShellRoute(pathname);
   const isChatDisabledRoute = CHAT_DISABLED_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
   const hasSupabaseEnv = hasSupabaseBrowserEnv();
 
   useEffect(() => {
-    if (isPublicShellRoute) return;
+    if (publicShellRoute) return;
     const controller = new AbortController();
     void fetch("/api/auth/access", { cache: "no-store", signal: controller.signal })
       .then((response) => response.json())
       .then((data) => setIsAdmin(data?.isAdmin === true))
       .catch(() => undefined);
     return () => controller.abort();
-  }, [isPublicShellRoute]);
+  }, [publicShellRoute]);
 
   if (!hasSupabaseEnv) {
     return <SupabaseConfigNotice />;
   }
 
-  if (isPublicShellRoute) {
+  if (publicShellRoute) {
     return (
       <AppDialogsProvider>
         <main className="min-h-screen bg-transparent">
