@@ -333,12 +333,14 @@ async function hydrateSavedSelections(
     fallbackCompany?: string | null;
     jobCompanyId?: string | null;
     overrides?: unknown;
+    resolvedJobCompanyIds?: string[];
+    resolvedOpeningType?: string;
   }
 ) {
   const next = { ...details };
   const overrides = isRecord(init.overrides) ? init.overrides : {};
 
-  const jobCompanyIds: string[] = await fetchPositionJobCompanyIds({
+  const jobCompanyIds: string[] = init.resolvedJobCompanyIds ?? await fetchPositionJobCompanyIds({
     admin: init.admin,
     companyId: init.companyId,
     positionId: init.positionId,
@@ -370,7 +372,7 @@ async function hydrateSavedSelections(
   } else if (typeof priorityOverride === "string") {
     next.priority = priorityOverride;
   } else {
-    const openingType = await fetchJobCompanyOpeningType({
+    const openingType = init.resolvedOpeningType ?? await fetchJobCompanyOpeningType({
       admin: init.admin,
       companyId: init.companyId,
       jobCompanyIds,
@@ -500,22 +502,21 @@ export async function GET(
       );
     }
 
-    const linkedCompanies = await fetchPositionJobCompanyNames(admin, {
-      companyId,
-      breezyPositionId: posId,
-    }).catch(() => []);
-    const companies =
-      linkedCompanies.length > 0
-        ? linkedCompanies
-      : row.company && row.company.trim()
-        ? [row.company.trim()]
-        : [];
-    const jobCompanyIdsForMeta = await fetchPositionJobCompanyIds({
-      admin,
-      companyId,
-      positionId: posId,
-      fallbackJobCompanyId: row.job_company_id,
-    }).catch(() => [] as string[]);
+    const [linkedCompanies, jobCompanyIdsForMeta] = await Promise.all([
+      fetchPositionJobCompanyNames(admin, {
+        companyId,
+        breezyPositionId: posId,
+      }).catch(() => []),
+      fetchPositionJobCompanyIds({
+        admin,
+        companyId,
+        positionId: posId,
+        fallbackJobCompanyId: row.job_company_id,
+      }).catch(() => [] as string[]),
+    ]);
+    const companies = linkedCompanies.length > 0
+      ? linkedCompanies
+      : row.company?.trim() ? [row.company.trim()] : [];
     const companyOpeningType = await fetchJobCompanyOpeningType({
       admin,
       companyId,
@@ -533,6 +534,8 @@ export async function GET(
       fallbackCompany: companies[0] ?? row.company,
       jobCompanyId: row.job_company_id,
       overrides: row.overrides,
+      resolvedJobCompanyIds: jobCompanyIdsForMeta,
+      resolvedOpeningType: jobCompanyIdsForMeta.length > 0 ? companyOpeningType : undefined,
     });
 
     return NextResponse.json(

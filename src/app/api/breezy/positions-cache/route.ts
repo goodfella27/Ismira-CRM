@@ -230,7 +230,7 @@ export async function GET(request: Request) {
     let query = admin
       .from("breezy_positions")
       .select(
-        "breezy_position_id,name,state,friendly_id,org_type,company,department,job_company_id,overrides,synced_at,details_synced_at",
+        "breezy_position_id,name,state,friendly_id,org_type,company,department,job_company_id,override_name:overrides->name,override_company:overrides->company,override_department:overrides->department,override_priority:overrides->priority::text,override_hidden:overrides->hidden,override_show_on_ismira_web:overrides->show_on_ismira_web,synced_at,details_synced_at",
         { count: "exact" }
       )
       .eq("company_id", companyId)
@@ -293,15 +293,43 @@ export async function GET(request: Request) {
       company: string | null;
       department: string | null;
       job_company_id: string | null;
-      overrides: unknown;
+      override_name: unknown;
+      override_company: unknown;
+      override_department: unknown;
+      override_priority: string | null;
+      override_hidden: unknown;
+      override_show_on_ismira_web: unknown;
       synced_at: string | null;
       details_synced_at: string | null;
     };
 
-    const { data: companyRows } = await admin
-      .from("job_companies")
-      .select("id,company_id,breezy_company_id,name,normalized_name,slug,logo_path,website,metadata,created_at,updated_at")
-      .eq("company_id", companyId);
+    const rows = Array.isArray(data) ? (data as unknown as Row[]) : [];
+    // Fetch only IDs to retain the Edited badge, including description-only edits.
+    // Do not transfer full descriptions/requirements with the table metadata.
+    const editedQueries = Array.from({ length: Math.ceil(rows.length / 100) }, (_, batch) => {
+      const index = batch * 100;
+      return (
+        admin.from("breezy_positions")
+          .select("breezy_position_id")
+          .eq("company_id", companyId)
+          .eq("breezy_company_id", breezyCompanyId)
+          .in("breezy_position_id", rows.slice(index, index + 100).map(row => row.breezy_position_id))
+          .not("overrides", "is", null)
+          .neq("overrides", "{}")
+      );
+    });
+    const [companyResult, editedResults] = await Promise.all([
+      admin.from("job_companies")
+        .select("id,company_id,breezy_company_id,name,normalized_name,slug,logo_path,website,metadata,created_at,updated_at")
+        .eq("company_id", companyId),
+      Promise.all(editedQueries),
+    ]);
+    const companyRows = companyResult.data;
+    const editedIds = new Set<string>();
+    for (const result of editedResults) {
+      if (result.error) throw new Error(result.error.message);
+      for (const row of result.data ?? []) editedIds.add(row.breezy_position_id);
+    }
     const companies = await resolveActiveJobCompanies(
       admin,
       companyId,
@@ -314,21 +342,19 @@ export async function GET(request: Request) {
     const normalizedCompanyFilter = normalizeJobCompanyName(jobCompanyFilter);
     const normalizedSearchFilter = searchFilter.toLowerCase();
 
-    let list: InternalPositionListItem[] = (Array.isArray(data) ? (data as unknown as Row[]) : []).map(
+    let list: InternalPositionListItem[] = rows.map(
       (row) => {
-        const overrides =
-          row.overrides && typeof row.overrides === "object" && !Array.isArray(row.overrides)
-            ? (row.overrides as Record<string, unknown>)
-            : {};
-        const overrideName = typeof overrides.name === "string" ? overrides.name.trim() : "";
-        const overrideCompany =
-          typeof overrides.company === "string" ? overrides.company.trim() : "";
-        const overrideDepartment =
-          typeof overrides.department === "string" ? overrides.department.trim() : "";
-        const priorityOverride = getPositionOpeningTypeOverride(overrides);
-        const showOnIsmiraWeb = overrides.show_on_ismira_web === true;
-        const hidden = parseHiddenOverride(overrides.hidden);
-        const edited = Object.keys(overrides).length > 0;
+        const overrideName = typeof row.override_name === "string" ? row.override_name.trim() : "";
+        const overrideCompany = typeof row.override_company === "string" ? row.override_company.trim() : "";
+        const overrideDepartment = typeof row.override_department === "string" ? row.override_department.trim() : "";
+        // JSON cast to text distinguishes a missing priority (SQL null) from
+        // explicitly clearing it (the JSON text "null").
+        const priorityOverride = getPositionOpeningTypeOverride(
+          row.override_priority === null ? {} : { priority: JSON.parse(row.override_priority) }
+        );
+        const showOnIsmiraWeb = row.override_show_on_ismira_web === true;
+        const hidden = parseHiddenOverride(row.override_hidden);
+        const edited = editedIds.has(row.breezy_position_id);
         const rawCompany = overrideCompany || row.company || "";
         const displayCompany =
           (row.job_company_id ? companyNameById.get(row.job_company_id) : "") ||

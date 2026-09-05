@@ -55,6 +55,9 @@ import WysiwygEditor from "@/components/wysiwyg-editor";
 import { loadBreezyCompanyId, saveBreezyCompanyId } from "@/lib/breezy-storage";
 import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
 import { getCountryLabel, getCountryEditorOptions } from "@/lib/country";
+import { createAdminRequestCache } from "@/lib/admin-request-cache";
+import { PositionDetailsSkeleton } from "@/components/position-details-skeleton";
+import { PositionsPageSkeleton } from "@/components/positions-page-skeleton";
 import { CountryFlag } from "@/components/country-flag";
 import { pickPositionDescription } from "@/lib/breezy-position-description";
 import {
@@ -1072,6 +1075,18 @@ export default function BreezyPositionRecordsBrowser({
   const [loadingPositions, setLoadingPositions] = useState(false);
   const [companies, setCompanies] = useState<BreezyCompany[]>([]);
   const [positions, setPositions] = useState<BreezyPosition[]>([]);
+  const [requestCache] = useState(() => createAdminRequestCache());
+  const cachedFetch = requestCache.request;
+  useEffect(() => {
+    const clearOnReturn = () => { if (document.visibilityState === "visible") requestCache.clear(); };
+    window.addEventListener("focus", clearOnReturn);
+    document.addEventListener("visibilitychange", clearOnReturn);
+    return () => {
+      requestCache.clear();
+      window.removeEventListener("focus", clearOnReturn);
+      document.removeEventListener("visibilitychange", clearOnReturn);
+    };
+  }, [requestCache]);
   // Don't read localStorage during the initial render; it causes hydration mismatches.
   const [companyId, setCompanyId] = useState("");
   const [filter, setFilter] = useState("");
@@ -1081,6 +1096,7 @@ export default function BreezyPositionRecordsBrowser({
   const [positionsTotal, setPositionsTotal] = useState<number | null>(null);
   const [positionsNextOffset, setPositionsNextOffset] = useState<number | null>(null);
   const [loadingMorePositions, setLoadingMorePositions] = useState(false);
+  const detailsRequestRef = useRef(0);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const [loadMoreInView, setLoadMoreInView] = useState(false);
   const positionsQueryKeyRef = useRef<string>("");
@@ -1531,6 +1547,7 @@ export default function BreezyPositionRecordsBrowser({
   }, [availablePriorityTypes, createPriorityQuery, selectedCreateCompany]);
 
 	  const closePositionModal = useCallback(() => {
+      detailsRequestRef.current += 1;
 	    setSelectedPositionId(null);
 	    setSelectedPositionLabel(null);
 	    setDetails(null);
@@ -1614,7 +1631,7 @@ export default function BreezyPositionRecordsBrowser({
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/company/job-countries", { cache: "no-store" })
+    cachedFetch("/api/company/job-countries", { cache: "no-store" })
       .then(async (res) => {
         const data = await res.json().catch(() => null);
         if (!res.ok) throw new Error(data?.error ?? "Failed to load countries.");
@@ -1629,7 +1646,7 @@ export default function BreezyPositionRecordsBrowser({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [cachedFetch]);
 
   const isHidden = useMemo(() => {
     const override = (detailsOverrides as Record<string, unknown>)?.hidden;
@@ -1669,7 +1686,7 @@ export default function BreezyPositionRecordsBrowser({
     setLoadingCompanies(true);
     setError(null);
     try {
-      const res = await fetch("/api/breezy/companies", { cache: "no-store" });
+      const res = await cachedFetch("/api/breezy/companies", { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(
@@ -1720,8 +1737,8 @@ export default function BreezyPositionRecordsBrowser({
         : "";
       const url = `/api/breezy/positions-cache?companyId=${encodeURIComponent(
         target
-      )}&limit=20&offset=0${jobCompanyQuery}${priorityQuery}${searchQuery}`;
-      const res = await fetch(url, { cache: "no-store" });
+      )}&limit=50&offset=0${jobCompanyQuery}${priorityQuery}${searchQuery}`;
+      const res = await cachedFetch(url, { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(
@@ -1771,8 +1788,8 @@ export default function BreezyPositionRecordsBrowser({
         : "";
       const url = `/api/breezy/positions-cache?companyId=${encodeURIComponent(
         target
-      )}&limit=20&offset=${encodeURIComponent(String(positionsNextOffset))}${jobCompanyQuery}${priorityQuery}${searchQuery}`;
-      const res = await fetch(url, { cache: "no-store" });
+      )}&limit=50&offset=${encodeURIComponent(String(positionsNextOffset))}${jobCompanyQuery}${priorityQuery}${searchQuery}`;
+      const res = await cachedFetch(url, { cache: "no-store" });
       if (res.status === 416) {
         // Offset is past the end (typically because filters changed). Treat as end-of-list.
         if (positionsQueryKeyRef.current === keyAtStart) setPositionsNextOffset(null);
@@ -1812,19 +1829,10 @@ export default function BreezyPositionRecordsBrowser({
     } finally {
       setLoadingMorePositions(false);
     }
-  }, [
-    companyId,
-    jobCompanyFilter,
-    openingTypeFilter,
-    serverFilter,
-    loadingMorePositions,
-    loadingPositions,
-    positionsNextOffset,
-    positionsTotal,
-  ]);
+  }, [companyId, loadingPositions, loadingMorePositions, positionsNextOffset, serverFilter, openingTypeFilter, jobCompanyFilter, cachedFetch, positionsTotal]);
 
   const savePremiumDetails = async (positionId: string, value: JobPremiumDetails) => {
-    const res = await fetch(
+    const res = await cachedFetch(
       `/api/company/job-premium-details/${encodeURIComponent(positionId)}`,
       {
         method: "PUT",
@@ -1864,7 +1872,7 @@ export default function BreezyPositionRecordsBrowser({
     setCreateOpeningError(null);
 
     try {
-      const res = await fetch("/api/breezy/positions", {
+      const res = await cachedFetch("/api/breezy/positions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1918,7 +1926,7 @@ export default function BreezyPositionRecordsBrowser({
         overrides.description = next;
       }
 
-      const saveRes = await fetch(
+      const saveRes = await cachedFetch(
         `/api/breezy/positions-cache/${encodeURIComponent(createdId)}?companyId=${encodeURIComponent(
           target
         )}`,
@@ -1972,7 +1980,7 @@ export default function BreezyPositionRecordsBrowser({
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch("/api/job-assets/upload", { method: "POST", body: form });
+      const res = await cachedFetch("/api/job-assets/upload", { method: "POST", body: form });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(
@@ -1995,7 +2003,7 @@ export default function BreezyPositionRecordsBrowser({
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch("/api/job-assets/upload", { method: "POST", body: form });
+      const res = await cachedFetch("/api/job-assets/upload", { method: "POST", body: form });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(
@@ -2022,6 +2030,7 @@ export default function BreezyPositionRecordsBrowser({
     const targetCompanyId = companyId.trim();
     if (!targetCompanyId) return;
 
+    const requestId = ++detailsRequestRef.current;
     setSelectedPositionId(posId);
     setSelectedPositionLabel((label ?? "").trim() || null);
     setDetailsLoading(true);
@@ -2040,7 +2049,10 @@ export default function BreezyPositionRecordsBrowser({
       const url = `/api/breezy/positions-cache/${encodeURIComponent(
         posId
       )}?companyId=${encodeURIComponent(targetCompanyId)}`;
-      const res = await fetch(url, { cache: "no-store" });
+      const [res, premiumRes] = await Promise.all([
+        cachedFetch(url, { cache: "no-store" }),
+        cachedFetch(`/api/company/job-premium-details/${encodeURIComponent(posId)}`, { cache: "no-store" }),
+      ]);
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(
@@ -2049,10 +2061,6 @@ export default function BreezyPositionRecordsBrowser({
         );
       }
       const parsed = isRecord(data) ? (data as CachedPositionDetailsResponse) : null;
-      const premiumRes = await fetch(
-        `/api/company/job-premium-details/${encodeURIComponent(posId)}`,
-        { cache: "no-store" }
-      );
       const premiumData = await premiumRes.json().catch(() => null);
       if (!premiumRes.ok) {
         throw new Error(
@@ -2060,6 +2068,7 @@ export default function BreezyPositionRecordsBrowser({
             "Failed to load premium job details."
         );
       }
+      if (requestId !== detailsRequestRef.current) return;
       setPremiumDetails(normalizeJobPremiumDetails(premiumData?.details));
       const nextDetails = parsed && isRecord(parsed.details) ? parsed.details : null;
       const meta = parsed?.meta && isRecord(parsed.meta) ? parsed.meta : {};
@@ -2143,6 +2152,7 @@ export default function BreezyPositionRecordsBrowser({
         });
       }
     } catch (err) {
+      if (requestId !== detailsRequestRef.current) return;
       setDetails(null);
       setDetailsCompanyOpeningType("");
       setSelectedPositionLabel((label ?? "").trim() || null);
@@ -2150,9 +2160,9 @@ export default function BreezyPositionRecordsBrowser({
         err instanceof Error ? err.message : "Failed to load position details."
       );
     } finally {
-      setDetailsLoading(false);
+      if (requestId === detailsRequestRef.current) setDetailsLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, cachedFetch]);
 
   const openPositionEditor = useCallback(async (positionId: string, label?: string) => {
     await loadPositionDetails(positionId, label);
@@ -2407,7 +2417,7 @@ export default function BreezyPositionRecordsBrowser({
 
   const loadPriorityTypes = async () => {
     try {
-      const res = await fetch("/api/breezy/priority-types", { cache: "no-store" });
+      const res = await cachedFetch("/api/breezy/priority-types", { cache: "no-store" });
       const data = (await res.json().catch(() => null)) as PriorityTypesResponse | null;
       if (!res.ok) {
         throw new Error(data?.error || "Failed to load priority types.");
@@ -2431,7 +2441,7 @@ export default function BreezyPositionRecordsBrowser({
 
   const loadManagedDepartments = async () => {
     try {
-      const res = await fetch("/api/company/job-departments", { cache: "no-store" });
+      const res = await cachedFetch("/api/company/job-departments", { cache: "no-store" });
       const data = (await res.json().catch(() => null)) as JobDepartmentsResponse | null;
       if (!res.ok) throw new Error(data?.error || "Failed to load departments.");
       const departments = Array.isArray(data?.departments)
@@ -2456,7 +2466,7 @@ export default function BreezyPositionRecordsBrowser({
     setPrioritySaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/breezy/priority-types", {
+      const res = await cachedFetch("/api/breezy/priority-types", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ label }),
@@ -2488,7 +2498,7 @@ export default function BreezyPositionRecordsBrowser({
       if (typeof showOnFrontpage === "boolean") {
         payload.showOnFrontpage = showOnFrontpage;
       }
-      const res = await fetch("/api/breezy/priority-types", {
+      const res = await cachedFetch("/api/breezy/priority-types", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -2511,7 +2521,7 @@ export default function BreezyPositionRecordsBrowser({
     setPrioritySaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/breezy/priority-types", {
+      const res = await cachedFetch("/api/breezy/priority-types", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: normalized }),
@@ -2543,7 +2553,7 @@ export default function BreezyPositionRecordsBrowser({
       const url = `/api/breezy/positions-cache/${encodeURIComponent(
         posId
       )}?companyId=${encodeURIComponent(targetCompanyId)}`;
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ overrides: { hidden } }),
@@ -2594,7 +2604,7 @@ export default function BreezyPositionRecordsBrowser({
       const url = `/api/breezy/positions-cache/${encodeURIComponent(
         target
       )}?companyId=${encodeURIComponent(targetCompanyId)}`;
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ overrides: { hidden } }),
@@ -2634,7 +2644,7 @@ export default function BreezyPositionRecordsBrowser({
       const url = `/api/breezy/positions-cache/${encodeURIComponent(
         target
       )}/duplicate?companyId=${encodeURIComponent(targetCompanyId)}`;
-      const res = await fetch(url, { method: "POST" });
+      const res = await cachedFetch(url, { method: "POST" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(
@@ -2684,7 +2694,7 @@ export default function BreezyPositionRecordsBrowser({
       const url = `/api/breezy/positions-cache/${encodeURIComponent(
         target
       )}?companyId=${encodeURIComponent(targetCompanyId)}`;
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await cachedFetch(url, { method: "DELETE" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(
@@ -2843,7 +2853,7 @@ export default function BreezyPositionRecordsBrowser({
         const url = `/api/breezy/positions-cache/${encodeURIComponent(
           posId
         )}?companyId=${encodeURIComponent(targetCompanyId)}`;
-        const res = await fetch(url, {
+        const res = await cachedFetch(url, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -2882,15 +2892,7 @@ export default function BreezyPositionRecordsBrowser({
         setSavingEdits(false);
       }
     },
-    [
-      companyId,
-      details,
-      detailsCompanyOpeningType,
-      loadPositionDetails,
-      selectedPositionId,
-      selectedPositionLabel,
-      setPositions,
-    ]
+    [cachedFetch, companyId, details, detailsCompanyOpeningType, loadPositionDetails, selectedPositionId, selectedPositionLabel]
   );
 
   const saveEdits = async () => {
@@ -2924,7 +2926,7 @@ export default function BreezyPositionRecordsBrowser({
       } else if (hasPriorityOverride && !normalizedEditPriority) {
         overrides.priority = null;
       }
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2969,7 +2971,7 @@ export default function BreezyPositionRecordsBrowser({
       const url = `/api/breezy/positions-cache/${encodeURIComponent(
         posId
       )}?companyId=${encodeURIComponent(targetCompanyId)}`;
-      const res = await fetch(url, {
+      const res = await cachedFetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reset: true }),
@@ -3005,7 +3007,7 @@ export default function BreezyPositionRecordsBrowser({
   useEffect(() => {
     if (!companyId.trim()) return;
     saveBreezyCompanyId(companyId);
-  }, [companyId]);
+  }, [companyId, cachedFetch]);
 
   useEffect(() => {
     if (!companyId) return;
@@ -3018,7 +3020,7 @@ export default function BreezyPositionRecordsBrowser({
     setCanEdit(false);
     setEditing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId]);
+  }, [companyId, cachedFetch]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -3033,7 +3035,7 @@ export default function BreezyPositionRecordsBrowser({
     setCompanyCountsLoading(true);
     (async () => {
       try {
-        const res = await fetch(
+        const res = await cachedFetch(
           `/api/breezy/positions-cache/company-counts?companyId=${encodeURIComponent(
             target
           )}&recordType=${encodeURIComponent(recordType)}`,
@@ -3057,7 +3059,7 @@ export default function BreezyPositionRecordsBrowser({
         setCompanyCountsLoading(false);
       }
     })();
-  }, [companyId, recordType]);
+  }, [cachedFetch, companyId, recordType]);
 
   useEffect(() => {
     const target = companyId.trim();
@@ -3068,7 +3070,7 @@ export default function BreezyPositionRecordsBrowser({
         const jobCompanyQuery = jobCompanyFilter.trim()
           ? `&jobCompany=${encodeURIComponent(jobCompanyFilter.trim())}`
           : "";
-        const res = await fetch(
+        const res = await cachedFetch(
           `/api/breezy/positions-cache/priority-counts?companyId=${encodeURIComponent(
             target
           )}&recordType=${encodeURIComponent(recordType)}${jobCompanyQuery}`,
@@ -3092,7 +3094,7 @@ export default function BreezyPositionRecordsBrowser({
         setPriorityCountsLoading(false);
       }
     })();
-  }, [companyId, jobCompanyFilter, priorityCountsRefreshKey, recordType]);
+  }, [cachedFetch, companyId, jobCompanyFilter, priorityCountsRefreshKey, recordType]);
 
   useEffect(() => {
     if (!openingTypeFilter) return;
@@ -3154,7 +3156,7 @@ export default function BreezyPositionRecordsBrowser({
 
   const loadCompanyLogos = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch("/api/company/job-companies", { cache: "no-store", signal });
+      const res = await cachedFetch("/api/company/job-companies", { cache: "no-store", signal });
       const data = (await res.json().catch(() => null)) as JobCompanyLogoResponse | null;
       if (!res.ok || !data?.companies || signal?.aborted) return;
 
@@ -3193,7 +3195,7 @@ export default function BreezyPositionRecordsBrowser({
       setJobCompanies([]);
       setBenefitOptions(DEFAULT_JOB_BENEFIT_OPTIONS);
     }
-  }, []);
+  }, [cachedFetch]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -3310,8 +3312,10 @@ export default function BreezyPositionRecordsBrowser({
           </div>
         ) : null}
 
+        {(!companyId || loadingPositions) && positions.length === 0 && !error ? <PositionsPageSkeleton /> : null}
 		      <div
             className={[
+              (!companyId || loadingPositions) && positions.length === 0 && !error ? "hidden" : "",
               title || description ? "mt-8" : "mt-0",
               "rounded-3xl border border-slate-200 bg-white p-6 shadow-sm",
             ].join(" ")}
@@ -3348,7 +3352,7 @@ export default function BreezyPositionRecordsBrowser({
 		            <button
 		              type="button"
 		              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
-		              onClick={() => void loadPositions()}
+		              onClick={() => { requestCache.clear(); void loadPositions(); }}
 		              disabled={loadingPositions || !companyId.trim()}
 		              title="Reload openings"
 		            >
@@ -4892,7 +4896,7 @@ export default function BreezyPositionRecordsBrowser({
           }
         >
               {detailsLoading ? (
-                <div className="text-sm text-slate-500">Loading position…</div>
+                <PositionDetailsSkeleton />
               ) : details ? (
                 <div className="grid gap-4">
                   {(() => {
