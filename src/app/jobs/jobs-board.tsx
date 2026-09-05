@@ -1,4 +1,7 @@
 "use client";
+import { FilterTooltip } from "@/components/filter-tooltip";
+import { getPriorityTooltip } from "@/lib/breezy-priority-types";
+import { getPriorityBadgeClass, getPriorityTextClass } from "@/lib/opening-type-colors";
 
 import {
   Fragment,
@@ -222,34 +225,6 @@ function asString(value: unknown) {
 
 function normalizeFilterKey(value: unknown) {
   return asString(value).trim().toLowerCase();
-}
-
-const PRIORITY_BADGE_STYLES = [
-  "bg-gradient-to-r from-[#ff9d2e] to-[#ffbf5f] text-white shadow-orange-200/40",
-  "bg-gradient-to-r from-[#58d0d8] to-[#3ea4e6] text-white shadow-sky-200/50",
-  "bg-gradient-to-r from-[#8b5cf6] to-[#c084fc] text-white shadow-violet-200/40",
-  "bg-gradient-to-r from-[#22c55e] to-[#14b8a6] text-white shadow-emerald-200/40",
-];
-
-const PRIORITY_TEXT_STYLES = [
-  "text-[#f28714]",
-  "text-[#1d9bd7]",
-  "text-[#8b5cf6]",
-  "text-[#0f9f6e]",
-];
-
-function getPriorityBadgeClass(key: string, types: BreezyPriorityType[]) {
-  const normalized = normalizePriorityKey(key);
-  if (!normalized) return "";
-  const index = types.findIndex((item) => normalizePriorityKey(item.key) === normalized);
-  return PRIORITY_BADGE_STYLES[(index >= 0 ? index : 0) % PRIORITY_BADGE_STYLES.length];
-}
-
-function getPriorityTextClass(key: string, types: BreezyPriorityType[]) {
-  const normalized = normalizePriorityKey(key);
-  if (!normalized) return "text-slate-800";
-  const index = types.findIndex((item) => normalizePriorityKey(item.key) === normalized);
-  return PRIORITY_TEXT_STYLES[(index >= 0 ? index : 0) % PRIORITY_TEXT_STYLES.length];
 }
 
 const HERO_LOGOS_CACHE_KEY = "jobs:hero_logos:v1";
@@ -1753,6 +1728,7 @@ export default function JobsBoard() {
     DEFAULT_BENEFIT_TAG_LABELS
   );
   const [countryLabels, setCountryLabels] = useState<Record<string, string>>({});
+  const [openPriorityTooltip, setOpenPriorityTooltip] = useState<string | null>(null);
   const [priorityFilters, setPriorityFilters] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [displayLimit, setDisplayLimit] = useState<JobsDisplayLimit>(DEFAULT_JOBS_DISPLAY_LIMIT);
@@ -1821,9 +1797,15 @@ export default function JobsBoard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  const pendingCompanyNavigationRef = useRef<string | null>(null);
   const urlSyncRef = useRef<string>("");
   useEffect(() => {
+    if (pendingCompanyNavigationRef.current !== null) {
+      if ((searchParams?.toString() ?? "") !== pendingCompanyNavigationRef.current) return;
+      pendingCompanyNavigationRef.current = null;
+    }
     const timer = window.setTimeout(() => {
+      if (pendingCompanyNavigationRef.current !== null) return;
       const params = new URLSearchParams(searchParams?.toString() ?? "");
 
       const nextFilter = filter.trim();
@@ -3930,11 +3912,11 @@ export default function JobsBoard() {
                   const checked = priorityFilters.includes(key);
                   const priorityTextClass = getPriorityTextClass(key, availablePriorityTypes);
                   return (
-                    <label
+                    <div
                       key={key}
-                      className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 hover:bg-slate-50"
+                      className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 hover:bg-slate-50"
                     >
-                      <span className="flex min-w-0 items-center gap-2">
+                      <label className="flex flex-1 cursor-pointer min-w-0 items-center gap-2">
                         <input
                           type="checkbox"
                           className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
@@ -3953,11 +3935,12 @@ export default function JobsBoard() {
                         <span className={count === 0 ? "truncate text-slate-400" : `truncate ${priorityTextClass}`}>
                           {type.label}
                         </span>
-                      </span>
+                      </label>
+                      <FilterTooltip label={type.label} text={getPriorityTooltip(type)} open={openPriorityTooltip === key} onOpenChange={open => setOpenPriorityTooltip(current => open ? key : current === key ? null : current)} />
                       <span className={count === 0 ? "text-slate-400" : priorityTextClass}>
                         {count}
                       </span>
-                    </label>
+                    </div>
                   );
                 })}
 
@@ -4130,11 +4113,12 @@ export default function JobsBoard() {
                     const checked = priorityFilters.includes(key);
                     const priorityTextClass = getPriorityTextClass(key, availablePriorityTypes);
                     return (
-                      <label
+                      <div
                         key={key}
-                        className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50"
+                        className="flex items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50"
                       >
-                        <span className="flex items-center gap-3">
+                        <FilterTooltip label={type.label} text={getPriorityTooltip(type)} open={openPriorityTooltip === key} onOpenChange={open => setOpenPriorityTooltip(current => open ? key : current === key ? null : current)}>
+                        <label className="flex flex-1 cursor-pointer items-center gap-3">
                           <input
                             type="checkbox"
                             className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
@@ -4153,11 +4137,12 @@ export default function JobsBoard() {
                           <span className={count === 0 ? "text-slate-400" : priorityTextClass}>
                             {type.label}
                           </span>
-                        </span>
+                        </label>
+                        </FilterTooltip>
                         <span className={count === 0 ? "text-slate-400" : priorityTextClass}>
                           {count}
                         </span>
-                      </label>
+                      </div>
                     );
                   })}
 
@@ -4471,7 +4456,7 @@ export default function JobsBoard() {
                       return (
                         <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
                           {company ? (
-                            <span className="inline-flex items-center gap-2 pr-2">
+                            <span className="inline-flex flex-wrap items-center gap-2 pr-2">
                               {companyLogo ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
@@ -4487,21 +4472,22 @@ export default function JobsBoard() {
                               <span className="max-w-[190px] truncate whitespace-nowrap text-sm font-semibold text-slate-800 uppercase tracking-wide sm:max-w-[340px]">
                                 {company}
                               </span>
-                              {modalPriorityLabel ? (
-                                <span
-                                  className={[
-                                    "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide shadow-sm sm:px-3 sm:py-1.5 sm:text-[11px]",
-                                    getPriorityBadgeClass(
-                                      details
-                                        ? asString(isRecord(details) ? details["priority"] : undefined)
-                                        : asString(selectedSummary?.priority),
-                                      availablePriorityTypes
-                                    ),
-                                  ].join(" ")}
-                                >
-                                  {modalPriorityLabel}
-                                </span>
-                              ) : null}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  detailsAbortRef.current?.abort();
+                                  setDetailsLoadingId(null);
+                                  setShareCopied(false);
+                                  const params = new URLSearchParams(searchParams?.toString() ?? "");
+                                  for (const key of ["job", "jd", "q", "company", "department", "country", "ship", "priority"]) params.delete(key);
+                                  params.set("company", normalizeFilterKey(company));
+                                  pendingCompanyNavigationRef.current = params.toString();
+                                  router.push(`/?${params.toString()}`, { scroll: false });
+                                }}
+                                className="shrink-0 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+                              >
+                                See all jobs
+                              </button>
                             </span>
                           ) : null}
                         </div>
@@ -4525,6 +4511,21 @@ export default function JobsBoard() {
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
                       Position
                     </span>
+                              {modalPriorityLabel ? (
+                                <span
+                                  className={[
+                                    "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide shadow-sm sm:px-3 sm:py-1.5 sm:text-[11px]",
+                                    getPriorityBadgeClass(
+                                      details
+                                        ? asString(isRecord(details) ? details["priority"] : undefined)
+                                        : asString(selectedSummary?.priority),
+                                      availablePriorityTypes
+                                    ),
+                                  ].join(" ")}
+                                >
+                                  {modalPriorityLabel}
+                                </span>
+                              ) : null}
                     {(() => {
                       const department = details
                         ? asString(isRecord(details) ? details["department"] : undefined).trim() ||

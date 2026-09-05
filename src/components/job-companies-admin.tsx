@@ -1,4 +1,6 @@
 "use client";
+import { getPriorityTooltip } from "@/lib/breezy-priority-types";
+import { getPriorityBadgeClass } from "@/lib/opening-type-colors";
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -134,6 +136,7 @@ export default function JobCompaniesAdmin() {
     DEFAULT_BREEZY_PRIORITY_TYPES
   );
   const [openingTypesModalOpen, setOpeningTypesModalOpen] = useState(false);
+  const [tooltipDrafts, setTooltipDrafts] = useState<Record<string, string>>({});
   const [openingTypeDrafts, setOpeningTypeDrafts] = useState<Record<string, string>>({});
   const [newOpeningTypeLabel, setNewOpeningTypeLabel] = useState("");
   const [openingTypeSaving, setOpeningTypeSaving] = useState(false);
@@ -694,9 +697,10 @@ export default function JobCompaniesAdmin() {
     setOpeningTypeSaving(true);
     setJobCompaniesError(null);
     try {
-      const payload: { key: string; label: string; showOnFrontpage?: boolean } = {
+      const payload: { key: string; label: string; showOnFrontpage?: boolean; tooltip?: string } = {
         key: normalized,
         label,
+        ...(tooltipDrafts[normalized] !== undefined ? { tooltip: tooltipDrafts[normalized] } : {}),
       };
       if (typeof showOnFrontpage === "boolean") {
         payload.showOnFrontpage = showOnFrontpage;
@@ -972,7 +976,7 @@ export default function JobCompaniesAdmin() {
                           {label}
                         </span>
                       ))}
-                      <span className="rounded-full bg-sky-50 px-2.5 py-1 text-sky-800">
+                      <span className={`rounded-full px-2.5 py-1 ${getPriorityBadgeClass(draftOpeningType, openingTypes) || "bg-slate-100 text-slate-600"}`}>
                         {openingTypeLabel}
                       </span>
                       <span className="rounded-full bg-sky-50 px-2.5 py-1 text-sky-800">
@@ -1708,6 +1712,18 @@ export default function JobCompaniesAdmin() {
                         <Trash2 className="h-3.5 w-3.5" />
                         Delete
                       </button>
+                      <label className="grid gap-1 text-xs font-medium text-slate-600 sm:col-span-4">
+                        Tooltip explanation
+                        <textarea
+                          className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
+                          value={tooltipDrafts[key] ?? getPriorityTooltip(type)}
+                          onChange={event => setTooltipDrafts(prev => ({ ...prev, [key]: event.target.value }))}
+                          maxLength={500}
+                          rows={2}
+                          disabled={openingTypeSaving}
+                          placeholder="Explain this opening type. Leave blank to hide the tooltip."
+                        />
+                      </label>
                     </div>
                   );
                 })}

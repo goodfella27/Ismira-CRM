@@ -1,6 +1,7 @@
 export type BreezyPriorityType = {
   key: string;
   label: string;
+  tooltip?: string;
   sortOrder: number;
   showOnFrontpage: boolean;
 };
@@ -66,6 +67,7 @@ export function dedupePriorityTypes(list: BreezyPriorityType[]) {
     normalized.push({
       key,
       label,
+      tooltip: item.tooltip,
       sortOrder: Number.isFinite(item.sortOrder) ? item.sortOrder : normalized.length,
       showOnFrontpage:
         typeof item.showOnFrontpage === "boolean"
@@ -84,4 +86,13 @@ export function getPriorityLabel(
   if (!normalized) return "";
   const match = options.find((item) => normalizePriorityKey(item.key) === normalized);
   return match?.label?.trim() || humanizePriorityKey(normalized);
+}
+
+export function getPriorityTooltip(type: Pick<BreezyPriorityType, "key" | "label" | "tooltip">) {
+  if (typeof type.tooltip === "string") return type.tooltip.trim();
+  const values = [normalizePriorityKey(type.label), normalizePriorityKey(type.key)];
+  if (values.some(value => value.includes("urgent") || value === "priority-opening")) return "Hiring with priority - urgent requisition";
+  if (values.some(value => value.includes("regular") || value === "active-hiring" || value === "ongoing-interview")) return "Interviews are ongoing - placement when required";
+  if (values.some(value => value === "coming-soon" || value === "on-hold")) return "Not open yet - apply now to be considered when hiring begins";
+  return "";
 }

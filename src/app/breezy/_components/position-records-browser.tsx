@@ -1,4 +1,6 @@
 "use client";
+import { getPriorityTooltip } from "@/lib/breezy-priority-types";
+import { getPriorityBadgeClass } from "@/lib/opening-type-colors";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -145,21 +147,7 @@ function HeroCoverImage({ src, bottomActions }: { src: string; bottomActions?: R
   );
 }
 
-const PRIORITY_BADGE_STYLES = [
-  "bg-gradient-to-r from-[#ff9d2e] to-[#ffbf5f] text-white shadow-orange-200/40",
-  "bg-gradient-to-r from-[#58d0d8] to-[#3ea4e6] text-white shadow-sky-200/50",
-  "bg-gradient-to-r from-[#8b5cf6] to-[#c084fc] text-white shadow-violet-200/40",
-  "bg-gradient-to-r from-[#22c55e] to-[#14b8a6] text-white shadow-emerald-200/40",
-];
-
 const DEFAULT_ISMIRA_WEB_TITLE = "UPCOMING INTERVIEWS WITH CRUISE EMPLOYERS";
-
-function getPriorityBadgeClass(key: string, types: BreezyPriorityType[]) {
-  const normalized = normalizePriorityKey(key);
-  if (!normalized) return "";
-  const index = types.findIndex((item) => normalizePriorityKey(item.key) === normalized);
-  return PRIORITY_BADGE_STYLES[(index >= 0 ? index : 0) % PRIORITY_BADGE_STYLES.length];
-}
 
 function ModalCloseButton({
   onClick,
@@ -1202,6 +1190,7 @@ export default function BreezyPositionRecordsBrowser({
   const [departmentPickerOpen, setDepartmentPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
   const [managedDepartments, setManagedDepartments] = useState<JobDepartmentOption[]>([]);
+  const [tooltipDrafts, setTooltipDrafts] = useState<Record<string, string>>({});
   const [priorityDrafts, setPriorityDrafts] = useState<Record<string, string>>({});
   const [newPriorityLabel, setNewPriorityLabel] = useState("");
   const [prioritySaving, setPrioritySaving] = useState(false);
@@ -2491,9 +2480,10 @@ export default function BreezyPositionRecordsBrowser({
     setPrioritySaving(true);
     setError(null);
     try {
-      const payload: { key: string; label: string; showOnFrontpage?: boolean } = {
+      const payload: { key: string; label: string; showOnFrontpage?: boolean; tooltip?: string } = {
         key: normalized,
         label,
+        ...(tooltipDrafts[normalized] !== undefined ? { tooltip: tooltipDrafts[normalized] } : {}),
       };
       if (typeof showOnFrontpage === "boolean") {
         payload.showOnFrontpage = showOnFrontpage;
@@ -4163,7 +4153,7 @@ export default function BreezyPositionRecordsBrowser({
                             return canEdit && editing ? (
                               <button
                                 type="button"
-                                className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-gradient-to-r from-sky-100 to-[#64c8ff]/70 px-2.5 py-1.5 text-[10px] font-semibold text-sky-950 shadow-sm shadow-sky-200/40 transition hover:brightness-[0.98] disabled:opacity-60"
+                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] font-semibold shadow-sm ${getPriorityBadgeClass(priorityKey, availablePriorityTypes) || "bg-slate-100 text-slate-600"}`}
                                 title="Opening type"
                                 onClick={(event) => {
                                   event.stopPropagation();
@@ -4171,15 +4161,15 @@ export default function BreezyPositionRecordsBrowser({
                                 }}
                                 disabled={detailsLoading || savingEdits}
                               >
-                                <FolderKanban className="h-3.5 w-3.5 text-sky-600" />
+                                <FolderKanban className="h-3.5 w-3.5" />
                                 <span className="min-w-0 max-w-[240px] whitespace-nowrap truncate">
                                   {label}
                                 </span>
-                                <PencilLine className="h-3.5 w-3.5 text-sky-700" />
+                                <PencilLine className="h-3.5 w-3.5" />
                               </button>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-gradient-to-r from-sky-100 to-[#64c8ff]/70 px-2.5 py-1.5 text-[10px] font-semibold text-sky-950 shadow-sm shadow-sky-200/40">
-                                <FolderKanban className="h-3.5 w-3.5 text-sky-600" />
+                              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] font-semibold shadow-sm ${getPriorityBadgeClass(priorityKey, availablePriorityTypes) || "bg-slate-100 text-slate-600"}`}>
+                                <FolderKanban className="h-3.5 w-3.5" />
                                 <span className="min-w-0 max-w-[240px] whitespace-nowrap truncate">
                                   {label}
                                 </span>
@@ -4373,6 +4363,18 @@ export default function BreezyPositionRecordsBrowser({
                               <Trash2 className="h-3.5 w-3.5" />
                               Delete
                             </button>
+                      <label className="grid gap-1 text-xs font-medium text-slate-600 sm:col-span-4">
+                        Tooltip explanation
+                        <textarea
+                          className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
+                          value={tooltipDrafts[key] ?? getPriorityTooltip(type)}
+                          onChange={event => setTooltipDrafts(prev => ({ ...prev, [key]: event.target.value }))}
+                          maxLength={500}
+                          rows={2}
+                          disabled={prioritySaving}
+                          placeholder="Explain this opening type. Leave blank to hide the tooltip."
+                        />
+                      </label>
                           </div>
                         );
                       })}

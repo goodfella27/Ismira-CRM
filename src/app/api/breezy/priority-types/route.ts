@@ -19,7 +19,8 @@ type PriorityTypeRow = {
   key: string | null;
   label: string | null;
   sort_order: number | null;
-  show_on_frontpage?: boolean | null;
+  tooltip?: string | null;
+    show_on_frontpage?: boolean | null;
 };
 
 const isMissingPriorityTypesTableError = (message: string) =>
@@ -42,7 +43,7 @@ async function readPriorityTypes(companyId: string) {
   const admin = createSupabaseAdminClient();
   const initial = await admin
     .from("breezy_priority_types")
-    .select("company_id,key,label,sort_order,show_on_frontpage")
+    .select("*")
     .eq("company_id", companyId)
     .order("sort_order", { ascending: true })
     .order("label", { ascending: true });
@@ -66,6 +67,7 @@ async function readPriorityTypes(companyId: string) {
     (Array.isArray(data) ? (data as PriorityTypeRow[]) : []).map((row, index) => ({
       key: row.key ?? "",
       label: row.label ?? "",
+      tooltip: typeof row.tooltip === "string" ? row.tooltip : undefined,
       sortOrder: Number.isFinite(row.sort_order) ? Number(row.sort_order) : index,
       showOnFrontpage:
         typeof row.show_on_frontpage === "boolean"
@@ -141,7 +143,7 @@ export async function POST(request: Request) {
       sort_order: maxSort + 1,
       show_on_frontpage: false,
     });
-    if (error) throw error;
+    if (error) throw new Error(error.message.includes("tooltip") ? "Tooltip storage is not set up. Apply supabase/breezy_priority_type_tooltips.sql first." : error.message);
 
     clearJobsResponseCache();
 
@@ -170,6 +172,7 @@ export async function PATCH(request: Request) {
       key?: unknown;
       label?: unknown;
       showOnFrontpage?: unknown;
+      tooltip?: unknown;
     } | null;
     const key = typeof body?.key === "string" ? normalizePriorityKey(body.key) : "";
     const label = typeof body?.label === "string" ? body.label.trim() : "";
@@ -178,7 +181,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Missing key or label." }, { status: 400 });
     }
 
-    const updates: { label: string; show_on_frontpage?: boolean } = { label };
+    const updates: { label: string; show_on_frontpage?: boolean; tooltip?: string } = { label };
+    if (typeof body?.tooltip === "string") {
+      if (body.tooltip.length > 500) return NextResponse.json({ error: "Tooltip must be 500 characters or fewer." }, { status: 400 });
+      updates.tooltip = body.tooltip.trim();
+    }
     if (hasShowOnFrontpage) {
       updates.show_on_frontpage = body.showOnFrontpage === true;
     }
@@ -188,7 +195,7 @@ export async function PATCH(request: Request) {
       .update(updates)
       .eq("company_id", membership.companyId)
       .eq("key", key);
-    if (error) throw error;
+    if (error) throw new Error(error.message.includes("tooltip") ? "Tooltip storage is not set up. Apply supabase/breezy_priority_type_tooltips.sql first." : error.message);
 
     clearJobsResponseCache();
 
@@ -278,7 +285,7 @@ export async function DELETE(request: Request) {
       .delete()
       .eq("company_id", membership.companyId)
       .eq("key", key);
-    if (error) throw error;
+    if (error) throw new Error(error.message.includes("tooltip") ? "Tooltip storage is not set up. Apply supabase/breezy_priority_type_tooltips.sql first." : error.message);
 
     clearJobsResponseCache();
 

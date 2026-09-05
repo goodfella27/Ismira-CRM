@@ -1,3 +1,4 @@
+import { getOpeningTypeColor } from "./opening-type-colors";
 import { getCountryLabel } from "./country";
 import { normalizePriorityKey } from "./breezy-priority-types";
 import { buildPublicPositionDescription } from "./breezy-position-description";
@@ -206,7 +207,7 @@ export function buildPublicFrontpageJobsPayload(
     if (key && label) {
       visiblePriorityLabels.set(key, {
         label,
-        style: "orange",
+        style: getOpeningTypeColor(key, [{ key, label }]),
       });
     }
   }

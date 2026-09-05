@@ -584,7 +584,7 @@ async function loadPriorityTypes(
 ) {
   const initial = await admin
     .from("breezy_priority_types")
-    .select("key,label,sort_order,show_on_frontpage")
+    .select("*")
     .eq("company_id", companyId)
     .order("sort_order", { ascending: true })
     .order("label", { ascending: true });
@@ -592,6 +592,7 @@ async function loadPriorityTypes(
     key: string | null;
     label: string | null;
     sort_order: number | null;
+    tooltip?: string | null;
     show_on_frontpage?: boolean | null;
   }> | null;
   let error = initial.error;
@@ -607,7 +608,8 @@ async function loadPriorityTypes(
       key: string | null;
       label: string | null;
       sort_order: number | null;
-      show_on_frontpage?: boolean | null;
+      tooltip?: string | null;
+    show_on_frontpage?: boolean | null;
     }> | null;
     error = fallback.error;
   }
@@ -625,12 +627,14 @@ async function loadPriorityTypes(
           key: string | null;
           label: string | null;
           sort_order: number | null;
-          show_on_frontpage?: boolean | null;
+          tooltip?: string | null;
+    show_on_frontpage?: boolean | null;
         }>)
       : []
     ).map((row, index) => ({
       key: row.key ?? "",
       label: row.label ?? "",
+      tooltip: typeof row.tooltip === "string" ? row.tooltip : undefined,
       sortOrder: Number.isFinite(row.sort_order) ? Number(row.sort_order) : index,
       showOnFrontpage:
         typeof row.show_on_frontpage === "boolean"
