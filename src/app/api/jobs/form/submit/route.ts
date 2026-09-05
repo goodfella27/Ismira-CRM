@@ -1,3 +1,5 @@
+import { verifyApplicationChallenge } from "@/lib/application-challenge";
+import { validateApplication, validateApplicationCV, type ApplicationValues } from "@/lib/application-form";
 import { NextResponse } from "next/server";
 
 import { breezyFetch, findCandidatesByEmail, requireBreezyIds } from "@/lib/breezy";
@@ -21,6 +23,7 @@ const EXPERIENCE_OPTIONS = [
   "No direct experience",
 ] as const;
 const ENGLISH_LEVEL_OPTIONS = [
+  "A1", "A2", "B1", "B2", "C1",
   "Basic",
   "Intermediate",
   "Upper-Intermediate",
@@ -199,6 +202,10 @@ async function createCandidateFromResume(params: {
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
+    const multiStep = asString(formData.get("formVersion")) === "multistep";
+    if (multiStep && !verifyApplicationChallenge(asString(formData.get("challengeToken")), asString(formData.get("challengeAnswer")))) {
+      return NextResponse.json({ error: "Security check failed.", code: "captcha" }, { status: 400 });
+    }
     const { companyId, positionId: defaultPositionId } = requireBreezyIds();
 
     const firstName = asString(formData.get("firstName"));
@@ -213,7 +220,15 @@ export async function POST(request: Request) {
     const englishLevel = asString(formData.get("englishLevel"));
     const positionId = asString(formData.get("positionId")) || defaultPositionId;
     const consent = asString(formData.get("consent"));
-    const cvFile = formData.get("cv");
+    const cvEntry = formData.get("cv");
+    const cvFile = cvEntry instanceof File && cvEntry.size > 0 ? cvEntry : null;
+    if (multiStep) {
+      const values = { firstName, lastName, email, phone, department, desiredPosition, experience, isAdult, citizenship, englishLevel, consent: consent === "yes" } as ApplicationValues;
+      const errors = Object.assign({}, ...[0, 1, 2, 3].map(step => validateApplication(values, step)));
+      if (Object.keys(errors).length) return NextResponse.json({ error: "Invalid application.", errors }, { status: 400 });
+      const cvError = validateApplicationCV(cvFile);
+      if (cvError) return NextResponse.json({ error: "Invalid CV.", code: cvError }, { status: 400 });
+    }
 
     if (!positionId) {
       return NextResponse.json({ error: "Missing Breezy position configuration." }, { status: 500 });
@@ -224,10 +239,10 @@ export async function POST(request: Request) {
     if (consent !== "yes") {
       return NextResponse.json({ error: "Privacy consent is required." }, { status: 400 });
     }
-    if (!isAllowedName(firstName) || !isAllowedName(lastName)) {
+    if (!multiStep && (!isAllowedName(firstName) || !isAllowedName(lastName))) {
       return NextResponse.json({ error: "Name fields must use English letters only." }, { status: 400 });
     }
-    if (!isAllowedText(desiredPosition)) {
+    if (!multiStep && !isAllowedText(desiredPosition)) {
       return NextResponse.json({ error: "Desired position must use English characters only." }, { status: 400 });
     }
     if (!PHONE_PATTERN.test(phone)) {
@@ -245,13 +260,13 @@ export async function POST(request: Request) {
     if (!isAllowedOption(englishLevel, ENGLISH_LEVEL_OPTIONS)) {
       return NextResponse.json({ error: "Invalid English level option." }, { status: 400 });
     }
-    if (!(cvFile instanceof File) || cvFile.size <= 0) {
+    if (!multiStep && !cvFile) {
       return NextResponse.json({ error: "CV upload is required." }, { status: 400 });
     }
-    if (cvFile.size > MAX_CV_BYTES) {
+    if (cvFile && cvFile.size > MAX_CV_BYTES) {
       return NextResponse.json({ error: "CV file is too large. Maximum size is 8MB." }, { status: 400 });
     }
-    if (cvFile.type && !ALLOWED_FILE_TYPES.has(cvFile.type)) {
+    if (cvFile?.type && !ALLOWED_FILE_TYPES.has(cvFile.type)) {
       return NextResponse.json({ error: "CV must be PDF, DOC, or DOCX." }, { status: 400 });
     }
 
@@ -296,12 +311,18 @@ export async function POST(request: Request) {
           { status: updateRes.status }
         );
       }
-      await uploadResumeToBreezy({
+      if (cvFile) await uploadResumeToBreezy({
         companyId,
         positionId,
         candidateId,
         file: cvFile,
       });
+    } else if (!cvFile) {
+      const createUrl = `https://api.breezy.hr/v3/company/${encodeURIComponent(companyId)}/position/${encodeURIComponent(positionId)}/candidates`;
+      const createRes = await breezyFetch(createUrl, { method: "POST", body: JSON.stringify(candidatePayload) });
+      const createBody = await createRes.json().catch(() => null);
+      if (!createRes.ok) return NextResponse.json({ error: "Unable to create application." }, { status: createRes.status });
+      candidateId = extractCandidateId(createBody);
     } else {
       candidateId = await createCandidateFromResume({
         companyId,

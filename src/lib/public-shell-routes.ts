@@ -1,5 +1,6 @@
 const PUBLIC_SHELL_ROUTES = [
   "/",
+  "/apply",
   "/admin",
   "/login",
   "/register",

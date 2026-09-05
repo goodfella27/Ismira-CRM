@@ -1,5 +1,6 @@
 export const PUBLIC_ROUTES = [
   "/",
+  "/apply",
   "/admin",
   "/login",
   "/register",
