@@ -269,6 +269,51 @@ export function canonicalizeCountry(country?: string | null): string | null {
   return COUNTRY_DISPLAY_NAMES?.of(code) ?? country.trim();
 }
 
+export function getCountryLabel(code: string, savedName?: string | null): string {
+  const normalized = code.trim().toUpperCase();
+  const name = savedName?.trim();
+  if (name && name.toUpperCase() !== normalized) return name;
+  if (!isAlpha2(normalized)) return name || normalized || "—";
+  return COUNTRY_OPTIONS.find((country) => country.code === normalized)?.name
+    ?? COUNTRY_DISPLAY_NAMES?.of(normalized)
+    ?? normalized;
+}
+
+export function buildManualCountryGroups(value: unknown) {
+  if (!Array.isArray(value)) return null;
+  const codes = Array.from(new Set(value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim().toUpperCase())
+    .filter(isAlpha2)));
+  // An empty selection resets the override in the admin save handler.
+  if (codes.length === 0) return null;
+  const processable = codes.map((code) => ({ code, name: getCountryLabel(code) }));
+  return {
+    processable,
+    blocked: [],
+    mentioned: [],
+    all: processable.map((country) => ({ ...country, group: "processable" })),
+  };
+}
+
+export function getCountryEditorOptions(
+  enabledOptions: ReadonlyArray<{ code: string; name: string }>,
+  savedCodes: readonly string[]
+) {
+  const options = new Map<string, { code: string; name: string }>();
+  for (const option of enabledOptions) {
+    const code = option.code.trim().toUpperCase();
+    if (isAlpha2(code)) options.set(code, { code, name: getCountryLabel(code, option.name) });
+  }
+  for (const value of savedCodes) {
+    const code = value.trim().toUpperCase();
+    if (isAlpha2(code) && !options.has(code)) {
+      options.set(code, { code, name: getCountryLabel(code) });
+    }
+  }
+  return Array.from(options.values());
+}
+
 export type CountryDisplay = {
   label: string;
   flag: string;

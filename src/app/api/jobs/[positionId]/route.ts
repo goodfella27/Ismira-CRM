@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getBreezyEnv } from "@/lib/breezy";
 import { getPrimaryCompanyId } from "@/lib/company/primary";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { canonicalizeCountry } from "@/lib/country";
+import { canonicalizeCountry, buildManualCountryGroups } from "@/lib/country";
 import {
   extractCompany,
   replacePositionTitleCompany,
@@ -34,7 +34,6 @@ import { resolveJobShipTypes } from "@/lib/job-ship-types";
 export const runtime = "nodejs";
 
 const DETAILS_CACHE_CONTROL = "no-store";
-const responseCache = new Map<string, { expiresAt: number; payload: unknown }>();
 
 function applyPublicCors(headers: Headers) {
   headers.set("Access-Control-Allow-Origin", "*");
@@ -571,14 +570,6 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const companyParam = (searchParams.get("companyId") ?? "").trim();
     const companyId = companyParam || getBreezyEnv().companyId || "";
-    const cacheKey = companyId
-      ? `company-branding-v9:${companyId}:${positionId}`
-      : `default-branding-v9:${positionId}`;
-    const cached = responseCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return jsonResponse(request, cached.payload, { status: 200 });
-    }
-
     const admin = createSupabaseAdminClient();
     const primaryCompanyId = await getPrimaryCompanyId(admin);
 
@@ -630,10 +621,6 @@ export async function GET(
           company: row.company ?? undefined,
           department: row.department ?? undefined,
         };
-        responseCache.set(cacheKey, {
-          expiresAt: Date.now() + 5 * 60_000,
-          payload,
-        });
         return jsonResponse(request, payload, { status: 200 });
       }
     }
@@ -694,6 +681,7 @@ export async function GET(
     }
 
     const countries =
+      buildManualCountryGroups(isRecord(row.overrides) ? row.overrides.processable_country_codes : undefined) ??
       (companyId
         ? await fetchNationalityCountries({
             admin,
@@ -708,10 +696,6 @@ export async function GET(
       benefit_tags: resolveBenefitTags(enriched),
     };
     const payload = countries ? { ...basePayload, nationality_countries: countries } : basePayload;
-    responseCache.set(cacheKey, {
-      expiresAt: Date.now() + 5 * 60_000,
-      payload,
-    });
     return jsonResponse(request, payload, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

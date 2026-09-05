@@ -56,7 +56,7 @@ import {
   extractCompany,
   extractDepartment,
 } from "@/lib/breezy-position-fields";
-import { buildPublicPositionDescription, pickPositionDescription } from "@/lib/breezy-position-description";
+import { buildPublicPositionDescription } from "@/lib/breezy-position-description";
 import {
   DEFAULT_BREEZY_PRIORITY_TYPES,
   getPriorityLabel,
@@ -143,7 +143,7 @@ function HeroCoverImage({ src }: { src: string }) {
     </div>
   );
 }
-import { getCountryCode } from "@/lib/country";
+import { getCountryCode, getCountryLabel } from "@/lib/country";
 import StickyJobsHeader from "./sticky-jobs-header";
 
 type JobListItem = {
@@ -252,9 +252,6 @@ function getPriorityTextClass(key: string, types: BreezyPriorityType[]) {
   return PRIORITY_TEXT_STYLES[(index >= 0 ? index : 0) % PRIORITY_TEXT_STYLES.length];
 }
 
-const COUNTRY_DISPLAY_NAMES =
-  typeof Intl !== "undefined" ? new Intl.DisplayNames(["en"], { type: "region" }) : null;
-
 const HERO_LOGOS_CACHE_KEY = "jobs:hero_logos:v1";
 const HERO_LOGOS_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 
@@ -265,8 +262,7 @@ function countryLabelFromCode(code: string, labels?: Record<string, string>) {
   const upper = (code ?? "").trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(upper)) return upper || "—";
   const custom = labels?.[upper]?.trim();
-  if (custom) return custom;
-  return COUNTRY_DISPLAY_NAMES?.of(upper) ?? upper;
+  return getCountryLabel(upper, custom);
 }
 
 function HeroLogoStackSkeleton({ size = 124, className }: { size?: number; className?: string }) {
@@ -1305,7 +1301,7 @@ function CountryChips({
     <div className="flex flex-wrap gap-2">
       {items.map((item) => {
         const code = asString(item.code).toUpperCase().trim();
-        const name = asString(item.name).trim() || countryLabelFromCode(code, countryLabels);
+        const name = getCountryLabel(code, asString(item.name).trim() || countryLabels[code]);
         const flag = renderCountryFlag(code);
         return (
           <span
@@ -1405,10 +1401,6 @@ function extractDetailsMap(list: JobListItem[]) {
     next[id] = job.details;
   }
   return next;
-}
-
-function hasRenderableDescription(details: unknown) {
-  return isRecord(details) && Boolean(pickPositionDescription(details).trim());
 }
 
 function writeJobsCache(cache: JobsBoardCache) {
@@ -2617,6 +2609,25 @@ export default function JobsBoard() {
     });
   }, [loadDetails, loadJobs, selectedId]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    const refresh = async () => {
+      if (document.visibilityState !== "visible") return;
+      await loadJobs({ force: true });
+      if (selectedId && !controller.signal.aborted) {
+        await loadDetails(selectedId, controller.signal);
+      }
+    };
+    const onFocus = () => { void refresh(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      controller.abort();
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [loadDetails, loadJobs, selectedId]);
+
   const replaceSelectedIdInUrl = useCallback(
     (nextId: string | null) => {
       const params = new URLSearchParams(searchParams?.toString() ?? "");
@@ -2832,16 +2843,12 @@ export default function JobsBoard() {
       setDetailsLoadingId(null);
       return;
     }
-    const cachedDetails = detailsById[selectedId];
-    if (hasRenderableDescription(cachedDetails)) {
-      return;
-    }
     detailsAbortRef.current?.abort();
     const controller = new AbortController();
     detailsAbortRef.current = controller;
     void loadDetails(selectedId, controller.signal);
     return () => controller.abort();
-  }, [detailsById, loadDetails, selectedId]);
+  }, [loadDetails, selectedId]);
 
   useEffect(() => {
     const positionId = selectedId?.trim() ?? "";
@@ -3846,7 +3853,7 @@ export default function JobsBoard() {
                       onClick={() => setDepartmentModalOpen(true)}
                     />
                     <FilterDropdown
-                      label="Citizenship"
+                      label="Your citizenship"
                       icon={MapPin}
                       value={countryFilter}
                       placeholder="All countries"
@@ -4010,7 +4017,7 @@ export default function JobsBoard() {
                   onClick={() => setDepartmentModalOpen(true)}
                 />
                 <FilterDropdown
-                  label="Citizenship"
+                  label="Your citizenship"
                   icon={MapPin}
                   value={countryFilter}
                   placeholder="All countries"

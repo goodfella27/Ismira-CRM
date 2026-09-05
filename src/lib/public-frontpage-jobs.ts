@@ -1,3 +1,4 @@
+import { getCountryLabel } from "./country";
 import { normalizePriorityKey } from "./breezy-priority-types";
 import { buildPublicPositionDescription } from "./breezy-position-description";
 import { getPublicJobShareUrl } from "./public-job-links";
@@ -79,7 +80,7 @@ function asCountryRows(value: unknown) {
     .filter(isRecord)
     .map((country) => ({
       code: asString(country.code).toUpperCase(),
-      name: asString(country.name),
+      name: getCountryLabel(asString(country.code), asString(country.name)),
     }))
     .filter((country) => country.code && country.name);
 }

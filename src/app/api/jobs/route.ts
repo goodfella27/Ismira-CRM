@@ -1,3 +1,4 @@
+import { buildManualCountryGroups } from "@/lib/country";
 import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 
@@ -134,6 +135,14 @@ function applyOverridesToDetails(details: unknown, overrides: unknown) {
   for (const [key, value] of Object.entries(overrides)) {
     if (key === "hidden") {
       if (parseHiddenOverride(value)) base.hidden = true;
+      continue;
+    }
+    if (key === "processable_country_codes") {
+      const countries = buildManualCountryGroups(value);
+      if (countries) {
+        base.processable_country_codes = countries.processable.map((country) => country.code);
+        base.nationality_countries = countries;
+      }
       continue;
     }
     if (key === "benefit_tags") {
@@ -781,6 +790,7 @@ export async function GET(request: Request) {
           typeof overrides.department === "string" ? overrides.department.trim() : "";
         const priorityOverride = getPositionOpeningTypeOverride(overrides);
         const hasBenefitOverride = Object.prototype.hasOwnProperty.call(overrides, "benefit_tags");
+        const manualCountries = buildManualCountryGroups(overrides.processable_country_codes);
         const ismiraWebTitle =
           typeof overrides.ismira_web_title === "string" ? overrides.ismira_web_title.trim() : "";
         const orgType = normalizeOrgType(row.org_type);
@@ -816,6 +826,11 @@ export async function GET(request: Request) {
           ...(ismiraWebTitle ? { ismira_web_title: ismiraWebTitle } : {}),
           ...(hasBenefitOverride ? { benefit_tags: normalizeBenefitTags(overrides.benefit_tags) } : {}),
           updated_at: row.updated_at ?? undefined,
+          ...(manualCountries ? {
+            processable_countries: manualCountries.processable.map((country) => country.code),
+            blocked_countries: [],
+            mentioned_countries: [],
+          } : {}),
           details: rawDetails,
         } satisfies JobListItem;
       })

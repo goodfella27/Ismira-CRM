@@ -1,3 +1,4 @@
+import { buildJobCompanyNameMaps } from "@/lib/job-company-name-maps";
 import { NextResponse } from "next/server";
 
 import { requireBreezyCompanyId } from "@/lib/breezy";
@@ -105,13 +106,13 @@ export async function GET(request: Request) {
       companyId,
       Array.isArray(companyRows) ? (companyRows as JobCompanyRow[]) : []
     );
-    const companyNameById = new Map(companies.map((company) => [company.id, company.name]));
+    const { companyNameById, companyNameByNormalized } = buildJobCompanyNameMaps([
+      ...(Array.isArray(companyRows) ? (companyRows as JobCompanyRow[]) : []),
+      ...companies,
+    ]);
     const companyById = new Map(companies.map((company) => [company.id, company] as const));
     const companyByNormalized = new Map(
       companies.map((company) => [company.normalized_name, company] as const)
-    );
-    const companyNameByNormalized = new Map(
-      companies.map((company) => [company.normalized_name, company.name])
     );
     const { data: joinRows } = await admin
       .from("job_position_companies")

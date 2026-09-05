@@ -54,6 +54,7 @@ import { JobPremiumDetailsPanel } from "@/components/job-premium-details-panel";
 import WysiwygEditor from "@/components/wysiwyg-editor";
 import { loadBreezyCompanyId, saveBreezyCompanyId } from "@/lib/breezy-storage";
 import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
+import { getCountryLabel, getCountryEditorOptions } from "@/lib/country";
 import { CountryFlag } from "@/components/country-flag";
 import { pickPositionDescription } from "@/lib/breezy-position-description";
 import {
@@ -408,7 +409,7 @@ function CountryChips({ countries }: { countries: JobCountryOption[] }) {
           className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700"
         >
           <span aria-hidden="true">{renderCountryFlag(country.code)}</span>
-          <span>{country.name}</span>
+          <span>{getCountryLabel(country.code, country.name)}</span>
         </span>
       ))}
     </div>
@@ -1212,6 +1213,16 @@ export default function BreezyPositionRecordsBrowser({
     () => processableCountries.map((country) => country.code),
     [processableCountries]
   );
+  const editableCountries = useMemo(
+    () => getCountryEditorOptions(processableCountries, [
+      ...extractProcessableCountryCodesFromDetails(details),
+      ...editForm.processable_country_codes,
+    ]),
+    [processableCountries, details, editForm.processable_country_codes]
+  );
+  const editableCountryCodes = editableCountries.map((country) => country.code);
+  const allEditableCountriesSelected = editableCountryCodes.length > 0 &&
+    editableCountryCodes.every((code) => editForm.processable_country_codes.includes(code));
   const benefitOptionTags = useMemo(
     () => benefitOptions.map((option) => option.tag),
     [benefitOptions]
@@ -4996,21 +5007,19 @@ export default function BreezyPositionRecordsBrowser({
                                     setEditForm((prev) => ({
                                       ...prev,
                                       processable_country_codes:
-                                        prev.processable_country_codes.length ===
-                                        processableCountryCodes.length
+                                        editableCountryCodes.every((code) => prev.processable_country_codes.includes(code))
                                           ? []
-                                          : processableCountryCodes,
+                                          : editableCountryCodes,
                                     }))
                                   }
                                 >
-                                  {editForm.processable_country_codes.length ===
-                                  processableCountryCodes.length
+                                  {allEditableCountriesSelected
                                     ? "Clear all"
                                     : "Select all"}
                                 </button>
                               </div>
                               <div className="flex flex-wrap gap-2">
-                                {processableCountries.map((country) => {
+                                {editableCountries.map((country) => {
                                   const selected =
                                     editForm.processable_country_codes.includes(country.code);
                                   return (
@@ -5036,7 +5045,7 @@ export default function BreezyPositionRecordsBrowser({
                                       }
                                     >
                                       <span>{renderCountryFlag(country.code)}</span>
-                                      <span>{country.name}</span>
+                                      <span>{getCountryLabel(country.code, country.name)}</span>
                                       {selected ? <Check className="h-3.5 w-3.5" /> : null}
                                     </button>
                                   );
@@ -5745,7 +5754,7 @@ export default function BreezyPositionRecordsBrowser({
                         }
                       >
                         <span>{renderCountryFlag(country.code)}</span>
-                        <span>{country.name}</span>
+                        <span>{getCountryLabel(country.code, country.name)}</span>
                         {selected ? <Check className="h-3.5 w-3.5" /> : null}
                       </button>
                     );
