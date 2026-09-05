@@ -1,5 +1,5 @@
 import { normalizePriorityKey } from "./breezy-priority-types";
-import { pickPositionDescription } from "./breezy-position-description";
+import { buildPublicPositionDescription } from "./breezy-position-description";
 import { getPublicJobShareUrl } from "./public-job-links";
 
 type UnknownRecord = Record<string, unknown>;
@@ -173,7 +173,7 @@ export function buildPublicFrontpageJobDetails(
     ...(asString(source.company_logo_url)
       ? { company_logo_url: asString(source.company_logo_url) }
       : {}),
-    description_html: pickPositionDescription(source),
+    description_html: buildPublicPositionDescription(source),
     ship_types: shipTypes,
     benefit_tags: asStringArray(source.benefit_tags),
     processable_countries: asCountryRows(nationalityCountries.processable),

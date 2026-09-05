@@ -256,7 +256,7 @@
   function countryFlag(code) {
     const normalized = asString(code).toUpperCase();
     if (!/^[A-Z]{2}$/.test(normalized)) return "";
-    return String.fromCodePoint(...Array.from(normalized).map((letter) => 127397 + letter.charCodeAt(0)));
+    return `<img src="${escapeHtml(new URL(`/flags/${normalized.toLowerCase()}.svg`, apiBase).toString())}" alt="" aria-hidden="true" width="18" height="13.5" style="display:inline-block;width:18px;height:13.5px;object-fit:contain;flex-shrink:0">`;
   }
 
   function labelForBenefit(key, labels) {
@@ -390,7 +390,7 @@
           ? `<section class="ijf-info-section"><h3 class="ijf-detail-heading">Company Benefits</h3><div class="ijf-feature-grid">${benefits.slice(0, 10).map((key) => `<div class="ijf-feature"><span class="ijf-feature-icon">${iconSvg(benefitIcons[key] || "file")}</span><div class="ijf-feature-copy"><div class="ijf-feature-kicker">You get</div><div class="ijf-feature-label">${escapeHtml(labelForBenefit(key, state.labels))}</div></div></div>`).join("")}</div></section>`
           : "";
         const countriesHtml = countries.length
-          ? `<section class="ijf-info-section"><h3 class="ijf-detail-heading">Nationalities we process</h3><div class="ijf-countries">${countries.map((country) => `<span class="ijf-country"><span aria-hidden="true">${escapeHtml(countryFlag(country.code))}</span><span>${escapeHtml(country.name)}</span></span>`).join("")}</div></section>`
+          ? `<section class="ijf-info-section"><h3 class="ijf-detail-heading">Nationalities we process</h3><div class="ijf-countries">${countries.map((country) => `<span class="ijf-country"><span aria-hidden="true">${countryFlag(country.code)}</span><span>${escapeHtml(country.name)}</span></span>`).join("")}</div></section>`
           : "";
 
         modalTitle.textContent = asString(details && details.name) || asString(job.name) || "Job opening";

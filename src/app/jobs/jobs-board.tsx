@@ -48,6 +48,7 @@ import { DropdownMenu } from "radix-ui";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 
+import { CountryFlag } from "@/components/country-flag";
 import DetailsModalShell from "@/components/details-modal-shell";
 import { JobPremiumDetailsPanel } from "@/components/job-premium-details-panel";
 import { LogoStackSlider, type LogoStackItem } from "@/components/logo-stack-slider";
@@ -55,7 +56,7 @@ import {
   extractCompany,
   extractDepartment,
 } from "@/lib/breezy-position-fields";
-import { pickPositionDescription } from "@/lib/breezy-position-description";
+import { buildPublicPositionDescription, pickPositionDescription } from "@/lib/breezy-position-description";
 import {
   DEFAULT_BREEZY_PRIORITY_TYPES,
   getPriorityLabel,
@@ -1040,13 +1041,8 @@ function MultiSelectModal({
   );
 }
 
-function toFlagEmoji(code: string) {
-  const trimmed = (code ?? "").trim();
-  if (!/^[a-z]{2}$/i.test(trimmed)) return "";
-  const upper = trimmed.toUpperCase();
-  return String.fromCodePoint(
-    ...upper.split("").map((char) => 127397 + char.charCodeAt(0))
-  );
+function renderCountryFlag(code: string) {
+  return <CountryFlag code={code} />;
 }
 
 function companyOptionPrefix(label: string, logoUrl: string): ReactNode {
@@ -1310,14 +1306,14 @@ function CountryChips({
       {items.map((item) => {
         const code = asString(item.code).toUpperCase().trim();
         const name = asString(item.name).trim() || countryLabelFromCode(code, countryLabels);
-        const flag = toFlagEmoji(code);
+        const flag = renderCountryFlag(code);
         return (
           <span
             key={`${code}:${name}`}
             className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 xl:bg-white"
             title={name}
           >
-            <span aria-hidden="true">{flag || "🏳️"}</span>
+            <span aria-hidden="true">{flag}</span>
             <span className="truncate">{name}</span>
           </span>
         );
@@ -1518,7 +1514,7 @@ function getTopTestimonials(testimonials: JobTestimonial[]) {
 function getTestimonialCountryDisplay(country: string) {
   const code = getCountryCode(country);
   if (!code) return { flag: "", label: country.trim() };
-  return { flag: toFlagEmoji(code), label: countryLabelFromCode(code) };
+  return { flag: renderCountryFlag(code), label: countryLabelFromCode(code) };
 }
 
 function JobTestimonialStrip({
@@ -2095,7 +2091,11 @@ export default function JobsBoard() {
 
   const availablePriorityTypes = useMemo(() => priorityTypes, [priorityTypes]);
   const publicPriorityTypes = useMemo(
-    () => availablePriorityTypes.filter((type) => type.showOnFrontpage === true),
+    () => availablePriorityTypes.filter((type) =>
+      type.showOnFrontpage === true ||
+      normalizePriorityKey(type.key) === "coming-soon" ||
+      normalizePriorityKey(type.label) === "coming-soon"
+    ),
     [availablePriorityTypes]
   );
   const publicPriorityTypeKeys = useMemo(
@@ -3104,7 +3104,7 @@ export default function JobsBoard() {
           label: opt.label,
           prefix: (
             <span className="flex items-center gap-1">
-              <span className="text-base leading-none">{toFlagEmoji(opt.code)}</span>
+              <span className="text-base leading-none">{renderCountryFlag(opt.code)}</span>
               <MapPin className="h-4 w-4 text-emerald-600" />
             </span>
           ),
@@ -3206,7 +3206,7 @@ export default function JobsBoard() {
             label: opt.label,
             prefix: (
               <span className="flex items-center gap-1">
-                <span className="text-base leading-none">{toFlagEmoji(opt.code)}</span>
+                <span className="text-base leading-none">{renderCountryFlag(opt.code)}</span>
                 <MapPin className="h-4 w-4 text-emerald-600" />
               </span>
             ),
@@ -3449,7 +3449,7 @@ export default function JobsBoard() {
     if (countryFilter)
       chips.push({
         id: `country:${countryFilter.toUpperCase()}`,
-        label: `Country: ${toFlagEmoji(countryFilter.toUpperCase())} ${countryFilterLabel}`,
+        label: `Country: ${countryFilterLabel}`,
         onRemove: () => setCountryFilter(""),
       });
 
@@ -3494,7 +3494,7 @@ export default function JobsBoard() {
   }, [jobs, selectedId]);
 
   const modalDescription = useMemo(() => {
-    const raw = pickPositionDescription(details);
+    const raw = buildPublicPositionDescription(details);
     if (!raw.trim()) {
       return { heroSrc: "", bodyHtml: "", bodyText: "" };
     }
@@ -3856,7 +3856,7 @@ export default function JobsBoard() {
                         ...countryOptions.map((opt) => ({
                           value: opt.code,
                           label: opt.label,
-                          prefix: toFlagEmoji(opt.code),
+                          prefix: renderCountryFlag(opt.code),
                           suffix: opt.count ? String(opt.count) : "",
                         })),
                       ]}
@@ -4020,7 +4020,7 @@ export default function JobsBoard() {
                     ...countryOptions.map((opt) => ({
                       value: opt.code,
                       label: opt.label,
-                      prefix: toFlagEmoji(opt.code),
+                      prefix: renderCountryFlag(opt.code),
                       suffix: opt.count ? String(opt.count) : "",
                     })),
                   ]}

@@ -10,6 +10,51 @@ export function pickPositionDescription(
   return "";
 }
 
+// Keep the editable description field separate; public readers need all JD sections.
+export function buildPublicPositionDescription(
+  details: Record<string, unknown> | null | undefined
+): string {
+  if (!details) return "";
+  const description = pickPositionDescription(details);
+  const sections: string[] = [];
+  for (const [key, title] of [
+    ["responsibilities", "Responsibilities"],
+    ["requirements", "Requirements"],
+  ]) {
+    const value = [details[key], details[`${key}_html`], details[`${key}_text`]]
+      .find((value): value is string =>
+        typeof value === "string" && hasVisibleDescriptionText(value)
+      );
+    if (value) sections.push(`<h2>${title}</h2>\n${descriptionAsHtml(value)}`);
+  }
+  if (sections.length === 0) return description;
+  return [description ? descriptionAsHtml(description) : "", ...sections]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function descriptionAsHtml(value: string) {
+  if (/<\/?[a-z][\s\S]*>/i.test(value)) return value.trim();
+  const escaped = value.trim().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const blocks: string[] = [];
+  let bullets: string[] = [];
+  const flushBullets = () => {
+    if (bullets.length) blocks.push(`<ul>${bullets.join("")}</ul>`);
+    bullets = [];
+  };
+  for (const line of escaped.split(/\r?\n/)) {
+    const bullet = line.trim().match(/^[•*-]\s+(.+)$/);
+    if (bullet) {
+      bullets.push(`<li>${bullet[1]}</li>`);
+    } else {
+      flushBullets();
+      if (line.trim()) blocks.push(`<p>${line.trim()}</p>`);
+    }
+  }
+  flushBullets();
+  return blocks.join("\n");
+}
+
 function hasVisibleDescriptionText(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return false;

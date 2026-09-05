@@ -54,6 +54,7 @@ import { JobPremiumDetailsPanel } from "@/components/job-premium-details-panel";
 import WysiwygEditor from "@/components/wysiwyg-editor";
 import { loadBreezyCompanyId, saveBreezyCompanyId } from "@/lib/breezy-storage";
 import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
+import { CountryFlag } from "@/components/country-flag";
 import { pickPositionDescription } from "@/lib/breezy-position-description";
 import {
   BENEFIT_TAG_LABELS,
@@ -283,13 +284,8 @@ function asString(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
-function toFlagEmoji(code: string) {
-  const normalized = code.trim().toUpperCase();
-  if (!/^[A-Z]{2}$/.test(normalized)) return "";
-  return normalized
-    .split("")
-    .map((letter) => String.fromCodePoint(127397 + letter.charCodeAt(0)))
-    .join("");
+function renderCountryFlag(code: string) {
+  return <CountryFlag code={code} />;
 }
 
 function getBenefitIcon(tag: BenefitTag) {
@@ -411,7 +407,7 @@ function CountryChips({ countries }: { countries: JobCountryOption[] }) {
           key={country.code}
           className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700"
         >
-          <span aria-hidden="true">{toFlagEmoji(country.code)}</span>
+          <span aria-hidden="true">{renderCountryFlag(country.code)}</span>
           <span>{country.name}</span>
         </span>
       ))}
@@ -5039,7 +5035,7 @@ export default function BreezyPositionRecordsBrowser({
                                         }))
                                       }
                                     >
-                                      <span>{toFlagEmoji(country.code)}</span>
+                                      <span>{renderCountryFlag(country.code)}</span>
                                       <span>{country.name}</span>
                                       {selected ? <Check className="h-3.5 w-3.5" /> : null}
                                     </button>
@@ -5748,7 +5744,7 @@ export default function BreezyPositionRecordsBrowser({
                           }))
                         }
                       >
-                        <span>{toFlagEmoji(country.code)}</span>
+                        <span>{renderCountryFlag(country.code)}</span>
                         <span>{country.name}</span>
                         {selected ? <Check className="h-3.5 w-3.5" /> : null}
                       </button>
