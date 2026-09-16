@@ -32,8 +32,11 @@
   })();
   const apiBase =
     normalizeBase(readAttribute("api-base") || globalConfig.apiBase) || scriptOrigin;
+  const configuredPortalUrl = safeUrl(readAttribute("portal-url") || globalConfig.portalUrl);
   const portalUrl =
-    safeUrl(readAttribute("portal-url") || globalConfig.portalUrl) || `${apiBase}/jobs`;
+    !configuredPortalUrl || new URL(configuredPortalUrl).hostname === "ismira-crm.vercel.app"
+      ? "https://jobs.ismira.com/"
+      : configuredPortalUrl;
   const targetSelector =
     (readAttribute("target") || globalConfig.target || "#ismira-jobs").trim();
   const refreshSeconds = Math.max(
