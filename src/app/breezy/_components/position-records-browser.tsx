@@ -1,4 +1,5 @@
 "use client";
+import { OpeningTypeOrderControls } from "@/components/opening-type-order-controls";
 import { getPriorityTooltip } from "@/lib/breezy-priority-types";
 import { getPriorityBadgeClass } from "@/lib/opening-type-colors";
 
@@ -2449,6 +2450,29 @@ export default function BreezyPositionRecordsBrowser({
     }
   };
 
+  const moveOpeningType = async (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (prioritySaving || target < 0 || target >= availablePriorityTypes.length) return;
+    const orderedKeys = availablePriorityTypes.map((type) => type.key);
+    [orderedKeys[index], orderedKeys[target]] = [orderedKeys[target], orderedKeys[index]];
+    setPrioritySaving(true);
+    setError(null);
+    try {
+      const res = await cachedFetch("/api/breezy/priority-types", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedKeys }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to reorder opening types.");
+      setPriorityTypes(data.priorityTypes);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reorder opening types.");
+    } finally {
+      setPrioritySaving(false);
+    }
+  };
+
   const createPriorityType = async () => {
     const label = newPriorityLabel.trim();
     if (!label) return;
@@ -2475,19 +2499,19 @@ export default function BreezyPositionRecordsBrowser({
 
   const updatePriorityType = async (key: string, showOnFrontpage?: boolean) => {
     const normalized = normalizePriorityKey(key);
-    const label = (priorityDrafts[normalized] ?? "").trim();
-    if (!normalized || !label) return;
+    const label = (priorityDrafts[normalized] ?? priorityTypes.find((type) => type.key === normalized)?.label ?? "").trim();
+    const visibilityOnly = typeof showOnFrontpage === "boolean";
+    if (!normalized || (!visibilityOnly && !label)) return;
     setPrioritySaving(true);
     setError(null);
     try {
-      const payload: { key: string; label: string; showOnFrontpage?: boolean; tooltip?: string } = {
-        key: normalized,
-        label,
-        ...(tooltipDrafts[normalized] !== undefined ? { tooltip: tooltipDrafts[normalized] } : {}),
-      };
-      if (typeof showOnFrontpage === "boolean") {
-        payload.showOnFrontpage = showOnFrontpage;
-      }
+      const payload = visibilityOnly
+        ? { key: normalized, showOnFrontpage }
+        : {
+            key: normalized,
+            label,
+            ...(tooltipDrafts[normalized] !== undefined ? { tooltip: tooltipDrafts[normalized] } : {}),
+          };
       const res = await cachedFetch("/api/breezy/priority-types", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -2497,7 +2521,8 @@ export default function BreezyPositionRecordsBrowser({
       if (!res.ok) {
         throw new Error(data?.error || "Failed to update priority type.");
       }
-      await loadPriorityTypes();
+      if (Array.isArray(data?.priorityTypes)) setPriorityTypes(data.priorityTypes);
+      if (!visibilityOnly) await loadPriorityTypes();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update priority type.");
     } finally {
@@ -4296,27 +4321,35 @@ export default function BreezyPositionRecordsBrowser({
                   onClick={() => setPriorityTypesModalOpen(false)}
                 >
                   <div
-                    className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl"
+                    className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl"
                     onClick={(event) => event.stopPropagation()}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="text-sm font-semibold text-slate-900">Priority types</div>
                         <div className="mt-1 text-xs text-slate-500">
-                          Edit labels, add new types, and choose which badges appear on the jobs page.
+                          Use the arrows to reorder types on the jobs page. Order changes save automatically.
                         </div>
                       </div>
                       <ModalCloseButton onClick={() => setPriorityTypesModalOpen(false)} />
                     </div>
 
                     <div className="mt-4 grid gap-3">
-                      {availablePriorityTypes.map((type) => {
+                      {error ? <p role="alert" className="text-sm text-rose-600">{error}</p> : null}
+                      {availablePriorityTypes.map((type, index) => {
                         const key = normalizePriorityKey(type.key);
                         return (
                           <div
                             key={key}
                             className="grid gap-2 rounded-2xl border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
                           >
+                            <OpeningTypeOrderControls
+                              label={type.label}
+                              index={index}
+                              count={availablePriorityTypes.length}
+                              disabled={prioritySaving}
+                              onMove={(direction) => void moveOpeningType(index, direction)}
+                            />
                             <input
                               className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
                               value={priorityDrafts[key] ?? type.label}
@@ -4337,7 +4370,9 @@ export default function BreezyPositionRecordsBrowser({
                                   : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
                               ].join(" ")}
                               onClick={() => void updatePriorityType(key, !type.showOnFrontpage)}
-                              disabled={prioritySaving || !(priorityDrafts[key] ?? type.label).trim()}
+                              aria-pressed={type.showOnFrontpage}
+                              aria-label={`${type.showOnFrontpage ? "Hide" : "Show"} ${type.label} in job filters`}
+                              disabled={prioritySaving}
                             >
                               {type.showOnFrontpage ? (
                                 <Eye className="h-3.5 w-3.5" />
@@ -4881,7 +4916,7 @@ export default function BreezyPositionRecordsBrowser({
                             <button
                               type="button"
                               className="inline-flex items-center gap-2 rounded-full border border-sky-400 bg-gradient-to-r from-[#00b4ff] via-[#1594f5] to-[#006fe6] px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-300/50 transition hover:from-[#16c8ff] hover:via-[#1aa2ff] hover:to-[#075fe0] disabled:opacity-60"
-                              onClick={() => setPriorityTypesModalOpen(true)}
+                              onClick={() => { setOpeningTypePickerOpen(false); setPriorityTypesModalOpen(true); }}
                               disabled={savingEdits || detailsLoading}
                             >
                               <Plus className="h-3.5 w-3.5" />

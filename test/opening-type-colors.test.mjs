@@ -27,6 +27,23 @@ test('opening colors follow meaning regardless of list order and legacy keys',()
 });
 
 const priorities=load('src/lib/breezy-priority-types.ts');
+test('Live Interview stays pink and the existing types keep their colors after reordering', () => {
+  const types = [
+    { key: 'active-hiring', label: 'ACTIVE HIRING' },
+    { key: 'priority-opening', label: 'PRIORITY OPENING' },
+    { key: 'coming-soon', label: 'COMING SOON' },
+    { key: 'live-interview', label: 'LIVE INTERVIEW' },
+  ];
+  for (const list of [types, [...types].reverse()]) {
+    assert.equal(colors.getOpeningTypeColor('live-interview', list), 'pink');
+    assert.equal(colors.getOpeningTypeColor('active-hiring', list), 'sky');
+    assert.equal(colors.getOpeningTypeColor('priority-opening', list), 'orange');
+    assert.equal(colors.getOpeningTypeColor('coming-soon', list), 'violet');
+    assert.match(colors.getPriorityBadgeClass('live-interview', list), /bg-gradient-to-r.*shadow-pink/);
+  }
+  assert.equal(colors.getOpeningTypeColor('new-custom-type'), 'pink');
+});
+
 test('tooltip defaults, custom explanations and explicit removal survive normalization',()=>{
   assert.match(priorities.getPriorityTooltip({key:'urgent-joining',label:'URGENT OPENING'}),/urgent requisition/);
   assert.match(priorities.getPriorityTooltip({key:'ongoing-interview',label:'ACTIVE HIRING'}),/Interviews/);

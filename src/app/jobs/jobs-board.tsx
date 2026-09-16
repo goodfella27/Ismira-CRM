@@ -1,6 +1,6 @@
 "use client";
 import { FilterTooltip } from "@/components/filter-tooltip";
-import { getPriorityTooltip } from "@/lib/breezy-priority-types";
+import { getPriorityTooltip, sortPriorityTypes } from "@/lib/breezy-priority-types";
 import { getPriorityBadgeClass, getPriorityTextClass } from "@/lib/opening-type-colors";
 
 import {
@@ -2063,12 +2063,10 @@ export default function JobsBoard() {
     return jobs.filter((job) => job.__search.includes(" org:pool ") === false);
   }, [jobs]);
 
-  const availablePriorityTypes = useMemo(() => priorityTypes, [priorityTypes]);
+  const availablePriorityTypes = useMemo(() => sortPriorityTypes(priorityTypes), [priorityTypes]);
   const publicPriorityTypes = useMemo(
     () => availablePriorityTypes.filter((type) =>
-      type.showOnFrontpage === true ||
-      normalizePriorityKey(type.key) === "coming-soon" ||
-      normalizePriorityKey(type.label) === "coming-soon"
+      type.showOnFrontpage === true
     ),
     [availablePriorityTypes]
   );

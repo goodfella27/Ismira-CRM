@@ -141,7 +141,7 @@ export async function POST(request: Request) {
       key,
       label,
       sort_order: maxSort + 1,
-      show_on_frontpage: false,
+      show_on_frontpage: true,
     });
     if (error) throw new Error(error.message.includes("tooltip") ? "Tooltip storage is not set up. Apply supabase/breezy_priority_type_tooltips.sql first." : error.message);
 
@@ -177,17 +177,21 @@ export async function PATCH(request: Request) {
     const key = typeof body?.key === "string" ? normalizePriorityKey(body.key) : "";
     const label = typeof body?.label === "string" ? body.label.trim() : "";
     const hasShowOnFrontpage = typeof body?.showOnFrontpage === "boolean";
-    if (!key || !label) {
-      return NextResponse.json({ error: "Missing key or label." }, { status: 400 });
+    if (!key || (body?.label !== undefined && !label)) {
+      return NextResponse.json({ error: "A key and non-empty label, when provided, are required." }, { status: 400 });
     }
 
-    const updates: { label: string; show_on_frontpage?: boolean; tooltip?: string } = { label };
+    const updates: { label?: string; show_on_frontpage?: boolean; tooltip?: string } = {};
+    if (label) updates.label = label;
     if (typeof body?.tooltip === "string") {
       if (body.tooltip.length > 500) return NextResponse.json({ error: "Tooltip must be 500 characters or fewer." }, { status: 400 });
       updates.tooltip = body.tooltip.trim();
     }
     if (hasShowOnFrontpage) {
       updates.show_on_frontpage = body.showOnFrontpage === true;
+    }
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: "No opening type changes provided." }, { status: 400 });
     }
 
     const { error } = await admin
@@ -210,6 +214,50 @@ export async function PATCH(request: Request) {
       : raw;
     const status =
       /not authenticated/i.test(message) ? 401 : /admin only/i.test(message) ? 403 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const user = await requireUser();
+    const admin = createSupabaseAdminClient();
+    const membership = await ensureCompanyMembership(admin, user.id);
+    const body = (await request.json().catch(() => null)) as { orderedKeys?: unknown } | null;
+    const keys = body?.orderedKeys;
+    if (!Array.isArray(keys) || keys.length === 0 ||
+        keys.some((key) => typeof key !== "string" || !key) ||
+        new Set(keys).size !== keys.length) {
+      return NextResponse.json({ error: "Provide each opening type key exactly once." }, { status: 400 });
+    }
+
+    const existing = await readPriorityTypes(membership.companyId);
+    const byKey = new Map(existing.map((type) => [type.key, type]));
+    if (keys.length !== existing.length || keys.some((key) => !byKey.has(key))) {
+      return NextResponse.json({ error: "Opening types have changed. Reload and try again." }, { status: 409 });
+    }
+
+    // Save the complete order in one statement, so a failed write cannot leave
+    // half of a reorder saved. Omitted metadata columns remain unchanged.
+    const { error } = await admin.from("breezy_priority_types").upsert(
+      keys.map((key, index) => ({
+        company_id: membership.companyId,
+        key,
+        label: byKey.get(key)!.label,
+        sort_order: index,
+      })),
+      { onConflict: "company_id,key", defaultToNull: false }
+    );
+    if (error) throw new Error(error.message);
+    clearJobsResponseCache();
+    return NextResponse.json(
+      { priorityTypes: await readPriorityTypes(membership.companyId) },
+      { status: 200 }
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to reorder opening types.";
+    const status = /not authenticated/i.test(message) ? 401
+      : /admin only|access required/i.test(message) ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

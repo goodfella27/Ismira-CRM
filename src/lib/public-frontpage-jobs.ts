@@ -14,7 +14,7 @@ export type PublicFrontpageJob = {
   department?: string;
   priority: string;
   priority_label: string;
-  priority_style: "orange" | "sky" | "violet" | "emerald";
+  priority_style: "orange" | "sky" | "violet" | "pink";
   company_logo_url?: string;
   application_url?: string;
   details_url: string;

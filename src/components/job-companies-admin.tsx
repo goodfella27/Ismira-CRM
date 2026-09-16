@@ -1,4 +1,5 @@
 "use client";
+import { OpeningTypeOrderControls } from "@/components/opening-type-order-controls";
 import { getPriorityTooltip } from "@/lib/breezy-priority-types";
 import { getPriorityBadgeClass } from "@/lib/opening-type-colors";
 
@@ -666,6 +667,29 @@ export default function JobCompaniesAdmin() {
     }
   }, [jobCountryOptionsDraft]);
 
+  const moveOpeningType = async (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (openingTypeSaving || target < 0 || target >= openingTypes.length) return;
+    const orderedKeys = openingTypes.map((type) => type.key);
+    [orderedKeys[index], orderedKeys[target]] = [orderedKeys[target], orderedKeys[index]];
+    setOpeningTypeSaving(true);
+    setJobCompaniesError(null);
+    try {
+      const res = await fetch("/api/breezy/priority-types", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedKeys }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to reorder opening types.");
+      setOpeningTypes(data.priorityTypes);
+    } catch (err) {
+      setJobCompaniesError(err instanceof Error ? err.message : "Failed to reorder opening types.");
+    } finally {
+      setOpeningTypeSaving(false);
+    }
+  };
+
   const createOpeningType = async () => {
     const label = newOpeningTypeLabel.trim();
     if (!label) return;
@@ -692,19 +716,19 @@ export default function JobCompaniesAdmin() {
 
   const updateOpeningType = async (key: string, showOnFrontpage?: boolean) => {
     const normalized = normalizePriorityKey(key);
-    const label = (openingTypeDrafts[normalized] ?? "").trim();
-    if (!normalized || !label) return;
+    const label = (openingTypeDrafts[normalized] ?? openingTypes.find((type) => type.key === normalized)?.label ?? "").trim();
+    const visibilityOnly = typeof showOnFrontpage === "boolean";
+    if (!normalized || (!visibilityOnly && !label)) return;
     setOpeningTypeSaving(true);
     setJobCompaniesError(null);
     try {
-      const payload: { key: string; label: string; showOnFrontpage?: boolean; tooltip?: string } = {
-        key: normalized,
-        label,
-        ...(tooltipDrafts[normalized] !== undefined ? { tooltip: tooltipDrafts[normalized] } : {}),
-      };
-      if (typeof showOnFrontpage === "boolean") {
-        payload.showOnFrontpage = showOnFrontpage;
-      }
+      const payload = visibilityOnly
+        ? { key: normalized, showOnFrontpage }
+        : {
+            key: normalized,
+            label,
+            ...(tooltipDrafts[normalized] !== undefined ? { tooltip: tooltipDrafts[normalized] } : {}),
+          };
       const res = await fetch("/api/breezy/priority-types", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -714,7 +738,8 @@ export default function JobCompaniesAdmin() {
       if (!res.ok) {
         throw new Error(data?.error ?? "Failed to update opening type.");
       }
-      await loadOpeningTypes();
+      if (Array.isArray(data?.priorityTypes)) setOpeningTypes(data.priorityTypes);
+      if (!visibilityOnly) await loadOpeningTypes();
     } catch (err) {
       setJobCompaniesError(err instanceof Error ? err.message : "Failed to update opening type.");
     } finally {
@@ -1643,7 +1668,7 @@ export default function JobCompaniesAdmin() {
               <div>
                 <div className="text-sm font-extrabold text-slate-950">Opening types</div>
                 <div className="mt-1 text-xs font-semibold text-slate-500">
-                  Edit labels, add new types, and choose which badges appear on the jobs page.
+                  Use the arrows to reorder types on the jobs page. Order changes save automatically.
                 </div>
               </div>
               <button
@@ -1659,13 +1684,21 @@ export default function JobCompaniesAdmin() {
 
             <div className="max-h-[70vh] overflow-auto px-5 py-4">
               <div className="grid gap-3">
-                {openingTypes.map((type) => {
+                {jobCompaniesError ? <p role="alert" className="text-sm text-rose-600">{jobCompaniesError}</p> : null}
+                {openingTypes.map((type, index) => {
                   const key = normalizePriorityKey(type.key);
                   return (
                     <div
                       key={key}
                       className="grid gap-2 rounded-2xl border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
                     >
+                      <OpeningTypeOrderControls
+                        label={type.label}
+                        index={index}
+                        count={openingTypes.length}
+                        disabled={openingTypeSaving}
+                        onMove={(direction) => void moveOpeningType(index, direction)}
+                      />
                       <input
                         className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
                         value={openingTypeDrafts[key] ?? type.label}
@@ -1686,7 +1719,9 @@ export default function JobCompaniesAdmin() {
                             : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
                         ].join(" ")}
                         onClick={() => void updateOpeningType(key, !type.showOnFrontpage)}
-                        disabled={openingTypeSaving || !(openingTypeDrafts[key] ?? type.label).trim()}
+                        aria-pressed={type.showOnFrontpage}
+                        aria-label={`${type.showOnFrontpage ? "Hide" : "Show"} ${type.label} in job filters`}
+                        disabled={openingTypeSaving}
                       >
                         {type.showOnFrontpage ? (
                           <Eye className="h-3.5 w-3.5" />
