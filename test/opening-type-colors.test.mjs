@@ -27,6 +27,15 @@ test('opening colors follow meaning regardless of list order and legacy keys',()
 });
 
 const priorities=load('src/lib/breezy-priority-types.ts');
+test('Live Interview has fallback tooltip text when storage is missing, but respects saved overrides', () => {
+  const type = { key: 'live-interview', label: 'LIVE INTERVIEW' };
+  assert.equal(priorities.getPriorityTooltip(type), 'Personal job interview session planned');
+  assert.equal(priorities.getPriorityTooltip({ ...type, tooltip: null }), 'Personal job interview session planned');
+  assert.equal(priorities.getPriorityTooltip({ key: 'custom-key', label: 'LIVE INTERVIEW' }), 'Personal job interview session planned');
+  assert.equal(priorities.getPriorityTooltip({ ...type, tooltip: 'Meet our recruiter' }), 'Meet our recruiter');
+  assert.equal(priorities.getPriorityTooltip({ ...type, tooltip: '' }), '');
+});
+
 test('Live Interview stays pink and the existing types keep their colors after reordering', () => {
   const types = [
     { key: 'active-hiring', label: 'ACTIVE HIRING' },

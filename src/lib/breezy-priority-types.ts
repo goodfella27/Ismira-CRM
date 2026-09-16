@@ -91,6 +91,7 @@ export function getPriorityLabel(
 export function getPriorityTooltip(type: Pick<BreezyPriorityType, "key" | "label" | "tooltip">) {
   if (typeof type.tooltip === "string") return type.tooltip.trim();
   const values = [normalizePriorityKey(type.label), normalizePriorityKey(type.key)];
+  if (values.includes("live-interview")) return "Personal job interview session planned";
   if (values.some(value => value.includes("urgent") || value === "priority-opening")) return "Hiring with priority - urgent requisition";
   if (values.some(value => value.includes("regular") || value === "active-hiring" || value === "ongoing-interview")) return "Interviews are ongoing - placement when required";
   if (values.some(value => value === "coming-soon" || value === "on-hold")) return "Not open yet - apply now to be considered when hiring begins";
