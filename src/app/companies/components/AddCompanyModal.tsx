@@ -1,3 +1,6 @@
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { NativeSelect as UiSelect } from "@/components/ui/select";
 import { useMemo, useState, type FormEvent } from "react";
 
 export type CompanyOwner = {
@@ -120,17 +123,17 @@ export default function AddCompanyModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+      <div className="w-full max-w-xl rounded-panel border border-border bg-card shadow-xl">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Add Company</h2>
-            <p className="text-xs text-slate-500">
+            <h2 className="text-lg font-semibold text-foreground">Add Company</h2>
+            <p className="text-xs text-muted-foreground">
               Create a new company record.
             </p>
           </div>
           <button
             type="button"
-            className="text-sm text-slate-500 hover:text-slate-800"
+            className="text-sm text-muted-foreground hover:text-foreground"
             onClick={handleClose}
           >
             Close
@@ -139,11 +142,11 @@ export default function AddCompanyModal({
 
         <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
           <div className="grid gap-2">
-            <label className="text-xs font-semibold text-slate-600">
+            <label className="text-xs font-semibold text-muted-foreground">
               Company name
             </label>
-            <input
-              className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+            <UiInput
+              className="h-10"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="e.g. Tech Edge College"
@@ -152,12 +155,12 @@ export default function AddCompanyModal({
           </div>
 
           <div className="grid gap-2">
-            <label className="text-xs font-semibold text-slate-600">
+            <label className="text-xs font-semibold text-muted-foreground">
               Company owner
             </label>
             {hasOwnerSelect ? (
-              <select
-                className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+              <UiSelect
+                className="h-10"
                 value={resolvedOwnerId}
                 onChange={(event) => {
                   const next = event.target.value;
@@ -169,10 +172,10 @@ export default function AddCompanyModal({
                     {owner.name || owner.email}
                   </option>
                 ))}
-              </select>
+              </UiSelect>
             ) : (
-              <input
-                className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+              <UiInput
+                className="h-10"
                 value={ownerName || defaultOwner?.name || ""}
                 onChange={(event) => setOwnerName(event.target.value)}
                 placeholder="e.g. Arturas Zakarauskas"
@@ -182,22 +185,22 @@ export default function AddCompanyModal({
 
           <div className="grid gap-2 md:grid-cols-2">
             <div className="grid gap-2">
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-muted-foreground">
                 Phone number
               </label>
-              <input
-                className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+              <UiInput
+                className="h-10"
                 value={phone}
                 onChange={(event) => setPhone(event.target.value)}
                 placeholder="+1 ..."
               />
             </div>
             <div className="grid gap-2">
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-muted-foreground">
                 City
               </label>
-              <input
-                className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+              <UiInput
+                className="h-10"
                 value={city}
                 onChange={(event) => setCity(event.target.value)}
                 placeholder="e.g. Sydney"
@@ -207,22 +210,22 @@ export default function AddCompanyModal({
 
           <div className="grid gap-2 md:grid-cols-2">
             <div className="grid gap-2">
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-muted-foreground">
                 Country/Region
               </label>
-              <input
-                className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+              <UiInput
+                className="h-10"
                 value={country}
                 onChange={(event) => setCountry(event.target.value)}
                 placeholder="e.g. Australia"
               />
             </div>
             <div className="grid gap-2">
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-semibold text-muted-foreground">
                 Industry
               </label>
-              <input
-                className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+              <UiInput
+                className="h-10"
                 value={industry}
                 onChange={(event) => setIndustry(event.target.value)}
                 placeholder="e.g. Education"
@@ -231,11 +234,11 @@ export default function AddCompanyModal({
           </div>
 
           <div className="grid gap-2">
-            <label className="text-xs font-semibold text-slate-600">
+            <label className="text-xs font-semibold text-muted-foreground">
               Website (optional)
             </label>
-            <input
-              className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+            <UiInput
+              className="h-10"
               value={websiteUrl}
               onChange={(event) => setWebsiteUrl(event.target.value)}
               placeholder="https://company.com"
@@ -248,19 +251,19 @@ export default function AddCompanyModal({
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-2">
-            <button
+            <UiButton variant="secondary" size="md"
               type="button"
-              className="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600"
+              className=""
               onClick={handleClose}
             >
               Cancel
-            </button>
-            <button
+            </UiButton>
+            <UiButton variant="primary" size="md"
               type="submit"
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500"
+              className=""
             >
               Add company
-            </button>
+            </UiButton>
           </div>
         </form>
       </div>

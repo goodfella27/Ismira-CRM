@@ -2,8 +2,8 @@ import Skeleton from "@/components/Skeleton";
 
 export default function PipelineLoading() {
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
-      <div className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen flex flex-col bg-muted">
+      <div className="border-b border-border bg-card">
         <div className="mx-auto flex w-full max-w-none items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
             <Skeleton className="h-8 w-8 rounded-full" />
@@ -28,9 +28,9 @@ export default function PipelineLoading() {
             {Array.from({ length: 5 }).map((_, columnIndex) => (
               <div
                 key={columnIndex}
-                className="flex h-full w-[280px] flex-col rounded-xl border border-slate-200 bg-white"
+                className="flex h-full w-[280px] flex-col rounded-md border border-border bg-card"
               >
-                <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
+                <div className="flex items-center justify-between border-b border-border px-3 py-2">
                   <Skeleton className="h-3 w-24" />
                   <Skeleton className="h-5 w-8 rounded-full" />
                 </div>

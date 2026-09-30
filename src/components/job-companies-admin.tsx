@@ -1,4 +1,8 @@
 "use client";
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { NativeSelect as UiSelect } from "@/components/ui/select";
+import { Textarea as UiTextarea } from "@/components/ui/textarea";
 import { OpeningTypeOrderControls } from "@/components/opening-type-order-controls";
 import { getPriorityTooltip } from "@/lib/breezy-priority-types";
 import { getPriorityBadgeClass } from "@/lib/opening-type-colors";
@@ -843,41 +847,41 @@ export default function JobCompaniesAdmin() {
   const countryOptionsChanged = !sameCountryOptions(jobCountryOptionsDraft, jobCountryOptions);
 
   return (
-    <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="mt-8 rounded-panel border border-border bg-card p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight text-slate-900">
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">
             Job company display
           </h2>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-muted-foreground">
             Manage company names, logos, ship type, and benefits used on the public jobs board.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {mergeHistoryItems.length > 0 ? (
-            <button
+            <UiButton variant="secondary" size="md"
               type="button"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              className="inline-flex h-10 items-center justify-center gap-2 transition"
               onClick={() => setMergeHistoryOpen(true)}
             >
               <Undo2 className="h-4 w-4" />
               Merge history
-            </button>
+            </UiButton>
           ) : null}
-          <button
+          <UiButton variant="primary" size="md"
             type="button"
-            className="h-10 rounded-full bg-slate-900 px-5 text-sm font-semibold text-white disabled:opacity-60"
+            className="h-10 disabled:opacity-60"
             onClick={handleSyncJobCompanies}
             disabled={jobCompaniesSyncing}
           >
             {jobCompaniesSyncing ? "Syncing..." : "Sync companies"}
-          </button>
+          </UiButton>
         </div>
       </div>
 
-      <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50/70 p-2">
+      <div className="mt-5 rounded-panel border border-border bg-muted/70 p-2">
         <div className="flex flex-col gap-2 sm:flex-row">
-          <input
+          <UiInput
             type="text"
             value={newJobCompanyName}
             onChange={(event) => setNewJobCompanyName(event.target.value)}
@@ -887,32 +891,32 @@ export default function JobCompaniesAdmin() {
               void handleAddJobCompany();
             }}
             placeholder="Add a company manually"
-            className="h-11 min-w-0 flex-1 rounded-2xl border border-transparent bg-white px-4 text-sm font-semibold text-slate-900 outline-none shadow-sm shadow-slate-200/60 focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+            className="h-11 min-w-0 flex-1"
           />
-          <button
+          <UiButton variant="primary" size="lg"
             type="button"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-5 text-sm font-bold text-white shadow-lg shadow-sky-200/70 transition hover:brightness-105 disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 transition hover:brightness-105 disabled:opacity-60"
             onClick={() => void handleAddJobCompany()}
             disabled={jobCompaniesActionId === "new"}
           >
             <Plus className="h-4 w-4" />
             {jobCompaniesActionId === "new" ? "Adding..." : "Add company"}
-          </button>
+          </UiButton>
         </div>
       </div>
 
       {jobCompaniesError ? (
-        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="mt-4 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
           {jobCompaniesError}
         </div>
       ) : null}
 
       {jobCompaniesLoading ? (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+        <div className="mt-4 rounded-panel border border-border bg-muted px-4 py-6 text-sm text-muted-foreground">
           Loading companies...
         </div>
       ) : jobCompanies.length === 0 ? (
-        <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+        <div className="mt-4 rounded-panel border border-dashed border-border bg-muted px-4 py-6 text-sm text-muted-foreground">
           No extracted job companies yet. Run Sync companies after Breezy positions are cached.
         </div>
       ) : (
@@ -950,21 +954,21 @@ export default function JobCompaniesAdmin() {
               <div
                 key={item.id}
                 className={[
-                  "overflow-hidden rounded-3xl border bg-white transition",
+                  "overflow-hidden rounded-panel border bg-card transition",
                   isExpanded || hasChanges
-                    ? "border-sky-200 shadow-sm shadow-sky-100/70"
-                    : "border-slate-200 hover:border-slate-300",
+                    ? "border-input shadow-sm shadow-sky-100/70"
+                    : "border-border hover:border-input",
                 ].join(" ")}
               >
                 <button
                   type="button"
-                  className="flex w-full items-center gap-4 px-4 py-4 text-left transition hover:bg-slate-50/70"
+                  className="flex w-full items-center gap-4 px-4 py-4 text-left transition hover:bg-muted/70"
                   onClick={() =>
                     setExpandedJobCompanyId((current) => (current === item.id ? null : item.id))
                   }
                   aria-expanded={isExpanded}
                 >
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-panel border border-border bg-muted">
                     {item.logoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -973,62 +977,62 @@ export default function JobCompaniesAdmin() {
                         className="h-full w-full object-contain"
                       />
                     ) : (
-                      <span className="text-sm font-semibold text-slate-400">
+                      <span className="text-sm font-semibold text-muted-foreground">
                         {item.name.slice(0, 1).toUpperCase()}
                       </span>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="truncate text-sm font-extrabold uppercase tracking-wide text-slate-950">
+                      <div className="truncate text-sm font-extrabold uppercase tracking-wide text-foreground">
                         {draftName || item.name}
                       </div>
                       {hasChanges ? (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                        <span className="rounded-full bg-warning-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning">
                           Unsaved
                         </span>
                       ) : null}
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-500">
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1">
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-muted-foreground">
+                      <span className="rounded-full bg-muted px-2.5 py-1">
                         {item.positionsCount} {item.positionsCount === 1 ? "position" : "positions"}
                       </span>
                       {shipTypeLabels.map((label) => (
                         <span
                           key={label}
-                          className="rounded-full bg-cyan-50 px-2.5 py-1 text-cyan-800"
+                          className="rounded-full bg-accent px-2.5 py-1 text-foreground"
                         >
                           {label}
                         </span>
                       ))}
-                      <span className={`rounded-full px-2.5 py-1 ${getPriorityBadgeClass(draftOpeningType, openingTypes) || "bg-slate-100 text-slate-600"}`}>
+                      <span className={`rounded-full px-2.5 py-1 ${getPriorityBadgeClass(draftOpeningType, openingTypes) || "bg-muted text-muted-foreground"}`}>
                         {openingTypeLabel}
                       </span>
-                      <span className="rounded-full bg-sky-50 px-2.5 py-1 text-sky-800">
+                      <span className="rounded-full bg-accent px-2.5 py-1 text-foreground">
                         {draftBenefitTags.length} benefits
                       </span>
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800">
+                      <span className="rounded-full bg-success-muted px-2.5 py-1 text-success">
                         {draftCountryCodes.length} countries
                       </span>
                     </div>
                   </div>
                   <ChevronDown
                     className={[
-                      "h-5 w-5 shrink-0 text-slate-400 transition-transform",
+                      "h-5 w-5 shrink-0 text-muted-foreground transition-transform",
                       isExpanded ? "rotate-180" : "",
                     ].join(" ")}
                   />
                 </button>
 
                 {isExpanded ? (
-                  <div className="border-t border-slate-100 bg-gradient-to-b from-slate-50/70 to-white px-4 pb-4 pt-4">
+                  <div className="border-t border-border bg-muted px-4 pb-4 pt-4">
                     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
                       <div className="space-y-4">
                         <div>
-                          <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                          <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                             Company name
                           </label>
-                          <input
+                          <UiInput
                             type="text"
                             value={draftName}
                             disabled={isBusy}
@@ -1038,12 +1042,12 @@ export default function JobCompaniesAdmin() {
                                 [item.id]: event.target.value,
                               }))
                             }
-                            className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-extrabold uppercase tracking-wide text-slate-950 outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                            className="mt-2 h-12 w-full uppercase tracking-wide"
                           />
                         </div>
 
                         <div>
-                          <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                          <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                             Ship type
                           </div>
                           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1056,8 +1060,8 @@ export default function JobCompaniesAdmin() {
                               className={[
                                 "rounded-full border px-4 py-2 text-xs font-bold transition",
                                 draftShipTypes.length === 0
-                                  ? "border-slate-950 bg-slate-950 text-white"
-                                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                  ? "border-input bg-primary text-primary-foreground"
+                                  : "border-border bg-card text-muted-foreground hover:bg-muted",
                               ].join(" ")}
                             >
                               Auto / Unknown
@@ -1080,8 +1084,8 @@ export default function JobCompaniesAdmin() {
                                   className={[
                                     "rounded-full border px-4 py-2 text-xs font-bold transition",
                                     active
-                                      ? "border-cyan-300 bg-cyan-50 text-cyan-900 ring-2 ring-cyan-100"
-                                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                      ? "border-input bg-accent text-foreground ring-2 ring-ring"
+                                      : "border-border bg-card text-muted-foreground hover:bg-muted",
                                   ].join(" ")}
                                 >
                                   {JOB_SHIP_TYPE_LABELS[shipType]}
@@ -1092,7 +1096,7 @@ export default function JobCompaniesAdmin() {
                         </div>
 
                         <div>
-                          <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                          <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                             Opening type
                           </div>
                           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1108,8 +1112,8 @@ export default function JobCompaniesAdmin() {
                               className={[
                                 "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold transition",
                                 !draftOpeningType
-                                  ? "border-slate-950 bg-slate-950 text-white"
-                                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                  ? "border-input bg-primary text-primary-foreground"
+                                  : "border-border bg-card text-muted-foreground hover:bg-muted",
                               ].join(" ")}
                             >
                               <FolderKanban className="h-3.5 w-3.5" />
@@ -1133,8 +1137,8 @@ export default function JobCompaniesAdmin() {
                                   className={[
                                     "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold transition",
                                     active
-                                      ? "border-sky-300 bg-sky-50 text-sky-900 ring-2 ring-sky-100"
-                                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                      ? "border-input bg-accent text-foreground ring-2 ring-ring"
+                                      : "border-border bg-card text-muted-foreground hover:bg-muted",
                                   ].join(" ")}
                                 >
                                   {active ? <Check className="h-3.5 w-3.5" /> : null}
@@ -1142,24 +1146,24 @@ export default function JobCompaniesAdmin() {
                                 </button>
                               );
                             })}
-                            <button
+                            <UiButton variant="primary" size="sm"
                               type="button"
-                              className="inline-flex items-center gap-2 rounded-full border border-sky-400 bg-gradient-to-r from-[#00b4ff] via-[#1594f5] to-[#006fe6] px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-300/50 transition hover:from-[#16c8ff] hover:via-[#1aa2ff] hover:to-[#075fe0] disabled:opacity-60"
+                              className="inline-flex items-center gap-2 transition disabled:opacity-60"
                               onClick={() => setOpeningTypesModalOpen(true)}
                               disabled={isBusy}
                             >
                               <Plus className="h-3.5 w-3.5" />
                               Add / Remove
-                            </button>
+                            </UiButton>
                           </div>
                         </div>
 
                         <div>
                           <div className="flex items-center justify-between gap-3">
-                            <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                            <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                               Benefits shown on cards
                             </div>
-                            <div className="text-xs font-semibold text-slate-500">
+                            <div className="text-xs font-semibold text-muted-foreground">
                               {draftBenefitTags.length} selected
                             </div>
                           </div>
@@ -1184,8 +1188,8 @@ export default function JobCompaniesAdmin() {
                                   className={[
                                     "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-bold transition",
                                     active
-                                      ? "border-sky-300 bg-sky-50 text-sky-800 ring-2 ring-sky-100"
-                                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                      ? "border-input bg-accent text-foreground ring-2 ring-ring"
+                                      : "border-border bg-card text-muted-foreground hover:bg-muted",
                                   ].join(" ")}
                                 >
                                   <span>{option.label || BENEFIT_TAG_LABELS[tag] || tag}</span>
@@ -1193,25 +1197,25 @@ export default function JobCompaniesAdmin() {
                                 </button>
                               );
                             })}
-                            <button
+                            <UiButton variant="primary" size="sm"
                               type="button"
-                              className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-sky-400 bg-gradient-to-r from-[#00b4ff] via-[#1594f5] to-[#006fe6] px-4 text-xs font-bold text-white shadow-lg shadow-sky-300/50 transition hover:from-[#16c8ff] hover:via-[#1aa2ff] hover:to-[#075fe0]"
+                              className="inline-flex h-9 items-center justify-center gap-2 transition"
                               onClick={() => setBenefitOptionsModalOpen(true)}
                             >
                               <PencilLine className="h-3.5 w-3.5" />
                               Add / manage benefits
-                            </button>
+                            </UiButton>
                           </div>
                         </div>
 
                         <div>
                           <div className="flex items-center justify-between gap-3">
-                            <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                            <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                               Nationalities we process
                             </div>
-                            <button
+                            <UiButton variant="secondary" size="sm"
                               type="button"
-                              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+                              className="transition disabled:opacity-60"
                               disabled={isBusy}
                               onClick={() =>
                                 setJobCompanyCountryDrafts((prev) => ({
@@ -1226,9 +1230,9 @@ export default function JobCompaniesAdmin() {
                               {draftCountryCodes.length === jobCountryOptionsDraft.length
                                 ? "Clear all"
                                 : "Select all"}
-                            </button>
+                            </UiButton>
                           </div>
-                          <div className="mt-2 rounded-2xl border border-slate-200 bg-white p-3">
+                          <div className="mt-2 rounded-panel border border-border bg-card p-3">
                             <div className="flex flex-wrap gap-2">
                               {jobCountryOptionsDraft.map((country) => {
                                 const selected = draftCountryCodes.includes(country.code);
@@ -1253,8 +1257,8 @@ export default function JobCompaniesAdmin() {
                                     className={[
                                       "inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-bold transition",
                                       selected
-                                        ? "border-emerald-300 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-100"
-                                        : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                        ? "border-success/25 bg-success-muted text-success ring-2 ring-success/25"
+                                        : "border-border bg-card text-muted-foreground hover:bg-muted",
                                     ].join(" ")}
                                   >
                                     <span aria-hidden="true">{toFlagEmoji(country.code)}</span>
@@ -1262,27 +1266,27 @@ export default function JobCompaniesAdmin() {
                                   </button>
                                 );
                               })}
-                              <button
+                              <UiButton variant="primary" size="sm"
                                 type="button"
-                                className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-sky-400 bg-gradient-to-r from-[#00b4ff] via-[#1594f5] to-[#006fe6] px-4 text-xs font-bold text-white shadow-lg shadow-sky-300/50 transition hover:from-[#16c8ff] hover:via-[#1aa2ff] hover:to-[#075fe0]"
+                                className="inline-flex h-9 items-center justify-center gap-2 transition"
                                 onClick={() => setCountryOptionsModalOpen(true)}
                               >
                                 <PencilLine className="h-3.5 w-3.5" />
                                 Add / manage countries
-                              </button>
+                              </UiButton>
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      <div className="space-y-2 rounded-3xl border border-slate-200 bg-white p-3">
+                      <div className="space-y-2 rounded-panel border border-border bg-card p-3">
                         <button
                           type="button"
                           className={[
-                            "inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-extrabold transition disabled:cursor-not-allowed",
+                            "inline-flex h-12 w-full items-center justify-center gap-2 rounded-panel text-sm font-extrabold transition disabled:cursor-not-allowed",
                             hasChanges
-                              ? "bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] text-white shadow-lg shadow-sky-200/70 hover:brightness-105"
-                              : "bg-slate-100 text-slate-400",
+                              ? "bg-primary text-primary-foreground shadow-lg hover:brightness-105"
+                              : "bg-muted text-muted-foreground",
                           ].join(" ")}
                           onClick={() => void handleSaveJobCompany(item.id)}
                           disabled={isBusy || !hasChanges}
@@ -1291,11 +1295,11 @@ export default function JobCompaniesAdmin() {
                           {isBusy ? "Saving..." : hasChanges ? "Save changes" : "Saved"}
                         </button>
                         {hasChanges ? (
-                          <div className="rounded-2xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+                          <div className="rounded-panel bg-warning-muted px-3 py-2 text-xs font-semibold text-warning">
                             Changes are local until you save.
                           </div>
                         ) : null}
-                        <label className="inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 transition hover:bg-slate-50">
+                        <label className="inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-panel border border-border bg-card px-4 text-xs font-bold text-foreground transition hover:bg-muted">
                           <input
                             type="file"
                             accept="image/*"
@@ -1313,7 +1317,7 @@ export default function JobCompaniesAdmin() {
                         {item.logoUrl ? (
                           <button
                             type="button"
-                            className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                            className="h-11 w-full rounded-panel border border-border bg-card px-4 text-xs font-bold text-foreground transition hover:bg-muted disabled:opacity-60"
                             onClick={() => void handleRemoveJobCompanyLogo(item.id)}
                             disabled={isBusy}
                           >
@@ -1321,12 +1325,12 @@ export default function JobCompaniesAdmin() {
                           </button>
                         ) : null}
                         {jobCompanies.length > 1 ? (
-                          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
-                            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">
+                          <div className="rounded-panel border border-warning/25 bg-warning-muted p-3">
+                            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-warning">
                               <GitMerge className="h-3.5 w-3.5" />
                               Merge company
                             </div>
-                            <select
+                            <UiSelect
                               value={mergeTargetId}
                               disabled={isBusy}
                               onChange={(event) =>
@@ -1335,7 +1339,7 @@ export default function JobCompaniesAdmin() {
                                   [item.id]: event.target.value,
                                 }))
                               }
-                              className="mt-2 h-10 w-full rounded-xl border border-amber-200 bg-white px-3 text-xs font-bold text-slate-800 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                              className="mt-2 h-10 w-full"
                             >
                               {jobCompanies
                                 .filter((candidate) => candidate.id !== item.id)
@@ -1344,14 +1348,14 @@ export default function JobCompaniesAdmin() {
                                     {candidate.name}
                                   </option>
                                 ))}
-                            </select>
-                            <div className="mt-2 text-[11px] font-semibold leading-5 text-amber-800">
+                            </UiSelect>
+                            <div className="mt-2 text-[11px] font-semibold leading-5 text-warning">
                               Move {item.positionsCount} positions
                               {mergeTarget ? ` into ${mergeTarget.name}` : ""}. Undo is available from Recent merges.
                             </div>
                             <button
                               type="button"
-                              className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-3 text-xs font-bold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
+                              className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-warning/25 bg-card px-3 text-xs font-bold text-warning transition hover:bg-warning-muted disabled:opacity-60"
                               onClick={() => void handleMergeJobCompany(item.id)}
                               disabled={isBusy || !mergeTargetId}
                             >
@@ -1362,7 +1366,7 @@ export default function JobCompaniesAdmin() {
                         ) : null}
                         <button
                           type="button"
-                          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 text-xs font-bold text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
+                          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-panel border border-destructive/25 bg-card px-4 text-xs font-bold text-destructive transition hover:bg-danger-muted disabled:opacity-60"
                           onClick={() => void handleDeleteJobCompany(item.id, item.name)}
                           disabled={isBusy}
                         >
@@ -1380,33 +1384,33 @@ export default function JobCompaniesAdmin() {
       )}
       {benefitOptionsModalOpen ? (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-overlay p-4"
           onClick={() => setBenefitOptionsModalOpen(false)}
         >
           <div
-            className="flex max-h-[86vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+            className="flex max-h-[86vh] w-full max-w-4xl flex-col overflow-hidden rounded-panel bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
               <div>
-                <div className="text-sm font-extrabold text-slate-950">Manage benefits</div>
-                <div className="mt-1 text-xs font-semibold text-slate-500">
+                <div className="text-sm font-extrabold text-foreground">Manage benefits</div>
+                <div className="mt-1 text-xs font-semibold text-muted-foreground">
                   Add, rename, or remove benefit options used on job company cards.
                 </div>
               </div>
-              <button
+              <UiButton variant="secondary" size="md"
                 type="button"
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center transition"
                 aria-label="Close benefits"
                 onClick={() => setBenefitOptionsModalOpen(false)}
               >
                 <X className="h-4 w-4" />
-              </button>
+              </UiButton>
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
-              <div className="flex flex-col gap-2 rounded-2xl border border-sky-200 bg-sky-50/70 p-2 sm:flex-row">
-                <input
+              <div className="flex flex-col gap-2 rounded-panel border border-input bg-accent/70 p-2 sm:flex-row">
+                <UiInput
                   type="text"
                   value={newJobBenefitLabel}
                   onChange={(event) => setNewJobBenefitLabel(event.target.value)}
@@ -1416,26 +1420,26 @@ export default function JobCompaniesAdmin() {
                     handleAddJobBenefitOption();
                   }}
                   placeholder="Add new benefit"
-                  className="h-10 min-w-0 flex-1 rounded-xl border border-sky-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className="h-10 min-w-0 flex-1"
                 />
-                <button
+                <UiButton variant="primary" size="sm"
                   type="button"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-xs font-bold text-white transition hover:bg-sky-700 disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 transition disabled:opacity-60"
                   onClick={() => handleAddJobBenefitOption()}
                   disabled={jobBenefitOptionsSaving || !newJobBenefitLabel.trim()}
                 >
                   <Plus className="h-4 w-4" />
                   Add benefit
-                </button>
+                </UiButton>
               </div>
 
               <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {jobBenefitOptionsDraft.map((option) => (
                   <div
                     key={option.tag}
-                    className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5"
+                    className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-card p-1.5"
                   >
-                    <input
+                    <UiInput
                       type="text"
                       value={option.label}
                       disabled={jobBenefitOptionsSaving}
@@ -1448,11 +1452,11 @@ export default function JobCompaniesAdmin() {
                           )
                         )
                       }
-                      className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                      className="h-8 min-w-0 flex-1"
                     />
-                    <button
+                    <UiButton variant="secondary" size="md"
                       type="button"
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-destructive transition disabled:opacity-50"
                       aria-label={`Remove ${option.label}`}
                       disabled={jobBenefitOptionsSaving || jobBenefitOptionsDraft.length <= 1}
                       onClick={() => {
@@ -1472,33 +1476,33 @@ export default function JobCompaniesAdmin() {
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    </UiButton>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-5 py-4">
-              <div className="text-xs font-semibold text-slate-500">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4">
+              <div className="text-xs font-semibold text-muted-foreground">
                 {benefitOptionsChanged ? "Benefit option changes are not saved yet." : "Benefit options are saved."}
               </div>
               <div className="flex items-center gap-2">
-                <button
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="h-10 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+                  className="h-10 transition"
                   onClick={() => setBenefitOptionsModalOpen(false)}
                 >
                   Close
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="primary" size="sm"
                   type="button"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-xs font-bold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 transition disabled:opacity-60"
                   onClick={() => void handleSaveJobBenefitOptions()}
                   disabled={jobBenefitOptionsSaving || !benefitOptionsChanged}
                 >
                   <Save className="h-4 w-4" />
                   {jobBenefitOptionsSaving ? "Saving..." : "Save benefits"}
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>
@@ -1507,33 +1511,33 @@ export default function JobCompaniesAdmin() {
 
       {countryOptionsModalOpen ? (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-overlay p-4"
           onClick={() => setCountryOptionsModalOpen(false)}
         >
           <div
-            className="flex max-h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+            className="flex max-h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-panel bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
               <div>
-                <div className="text-sm font-extrabold text-slate-950">Manage countries</div>
-                <div className="mt-1 text-xs font-semibold text-slate-500">
+                <div className="text-sm font-extrabold text-foreground">Manage countries</div>
+                <div className="mt-1 text-xs font-semibold text-muted-foreground">
                   Add, rename, or remove country options used by company nationality filters.
                 </div>
               </div>
-              <button
+              <UiButton variant="secondary" size="md"
                 type="button"
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center transition"
                 aria-label="Close countries"
                 onClick={() => setCountryOptionsModalOpen(false)}
               >
                 <X className="h-4 w-4" />
-              </button>
+              </UiButton>
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
-              <div className="grid gap-2 rounded-2xl border border-sky-200 bg-sky-50/70 p-2 md:grid-cols-[92px_minmax(0,1fr)_auto]">
-                <input
+              <div className="grid gap-2 rounded-panel border border-input bg-accent/70 p-2 md:grid-cols-[92px_minmax(0,1fr)_auto]">
+                <UiInput
                   type="text"
                   value={newJobCountryCode}
                   onChange={(event) => setNewJobCountryCode(event.target.value.toUpperCase())}
@@ -1544,9 +1548,9 @@ export default function JobCompaniesAdmin() {
                   }}
                   placeholder="Code"
                   maxLength={2}
-                  className="h-10 rounded-xl border border-sky-200 bg-white px-3 text-sm font-extrabold uppercase tracking-wide text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className="h-10 uppercase tracking-wide"
                 />
-                <input
+                <UiInput
                   type="text"
                   value={newJobCountryName}
                   onChange={(event) => setNewJobCountryName(event.target.value)}
@@ -1556,11 +1560,11 @@ export default function JobCompaniesAdmin() {
                     handleAddJobCountryOption();
                   }}
                   placeholder="Country name"
-                  className="h-10 min-w-0 rounded-xl border border-sky-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className="h-10 min-w-0"
                 />
-                <button
+                <UiButton variant="primary" size="sm"
                   type="button"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-xs font-bold text-white transition hover:bg-sky-700 disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 transition disabled:opacity-60"
                   onClick={handleAddJobCountryOption}
                   disabled={
                     jobCountryOptionsSaving ||
@@ -1570,19 +1574,19 @@ export default function JobCompaniesAdmin() {
                 >
                   <Plus className="h-4 w-4" />
                   Add country
-                </button>
+                </UiButton>
               </div>
 
               <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {jobCountryOptionsDraft.map((country) => (
                   <div
                     key={country.code}
-                    className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5"
+                    className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-card p-1.5"
                   >
-                    <div className="flex h-8 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-lg">
+                    <div className="flex h-8 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-lg">
                       {toFlagEmoji(country.code) || country.code}
                     </div>
-                    <input
+                    <UiInput
                       type="text"
                       value={country.name}
                       disabled={jobCountryOptionsSaving}
@@ -1595,14 +1599,14 @@ export default function JobCompaniesAdmin() {
                           )
                         )
                       }
-                      className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                      className="h-8 min-w-0 flex-1"
                     />
-                    <div className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-extrabold text-slate-500">
+                    <div className="shrink-0 rounded-lg bg-muted px-2 py-1 text-[10px] font-extrabold text-muted-foreground">
                       {country.code}
                     </div>
-                    <button
+                    <UiButton variant="secondary" size="md"
                       type="button"
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-destructive transition disabled:opacity-50"
                       aria-label={`Remove ${country.name}`}
                       disabled={jobCountryOptionsSaving || jobCountryOptionsDraft.length <= 1}
                       onClick={() => {
@@ -1622,33 +1626,33 @@ export default function JobCompaniesAdmin() {
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    </UiButton>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-5 py-4">
-              <div className="text-xs font-semibold text-slate-500">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4">
+              <div className="text-xs font-semibold text-muted-foreground">
                 {countryOptionsChanged ? "Country option changes are not saved yet." : "Country options are saved."}
               </div>
               <div className="flex items-center gap-2">
-                <button
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="h-10 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+                  className="h-10 transition"
                   onClick={() => setCountryOptionsModalOpen(false)}
                 >
                   Close
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="primary" size="sm"
                   type="button"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-xs font-bold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 transition disabled:opacity-60"
                   onClick={() => void handleSaveJobCountryOptions()}
                   disabled={jobCountryOptionsSaving || !countryOptionsChanged}
                 >
                   <Save className="h-4 w-4" />
                   {jobCountryOptionsSaving ? "Saving..." : "Save countries"}
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>
@@ -1657,40 +1661,40 @@ export default function JobCompaniesAdmin() {
 
       {openingTypesModalOpen ? (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-overlay p-4"
           onClick={() => setOpeningTypesModalOpen(false)}
         >
           <div
-            className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+            className="w-full max-w-2xl overflow-hidden rounded-panel bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
               <div>
-                <div className="text-sm font-extrabold text-slate-950">Opening types</div>
-                <div className="mt-1 text-xs font-semibold text-slate-500">
+                <div className="text-sm font-extrabold text-foreground">Opening types</div>
+                <div className="mt-1 text-xs font-semibold text-muted-foreground">
                   Use the arrows to reorder types on the jobs page. Order changes save automatically.
                 </div>
               </div>
-              <button
+              <UiButton variant="secondary" size="md"
                 type="button"
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:opacity-60"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center transition disabled:opacity-60"
                 onClick={() => setOpeningTypesModalOpen(false)}
                 disabled={openingTypeSaving}
                 aria-label="Close opening types"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </UiButton>
             </div>
 
             <div className="max-h-[70vh] overflow-auto px-5 py-4">
               <div className="grid gap-3">
-                {jobCompaniesError ? <p role="alert" className="text-sm text-rose-600">{jobCompaniesError}</p> : null}
+                {jobCompaniesError ? <p role="alert" className="text-sm text-destructive">{jobCompaniesError}</p> : null}
                 {openingTypes.map((type, index) => {
                   const key = normalizePriorityKey(type.key);
                   return (
                     <div
                       key={key}
-                      className="grid gap-2 rounded-2xl border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
+                      className="grid gap-2 rounded-panel border border-border p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
                     >
                       <OpeningTypeOrderControls
                         label={type.label}
@@ -1699,8 +1703,8 @@ export default function JobCompaniesAdmin() {
                         disabled={openingTypeSaving}
                         onMove={(direction) => void moveOpeningType(index, direction)}
                       />
-                      <input
-                        className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
+                      <UiInput
+                        className="h-11 w-full disabled:opacity-60"
                         value={openingTypeDrafts[key] ?? type.label}
                         disabled={openingTypeSaving}
                         onChange={(event) =>
@@ -1713,10 +1717,10 @@ export default function JobCompaniesAdmin() {
                       <button
                         type="button"
                         className={[
-                          "inline-flex h-11 items-center justify-center gap-2 rounded-2xl border px-4 text-xs font-semibold transition disabled:opacity-60",
+                          "inline-flex h-11 items-center justify-center gap-2 rounded-panel border px-4 text-xs font-semibold transition disabled:opacity-60",
                           type.showOnFrontpage
-                            ? "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100"
-                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                            ? "border-input bg-accent text-foreground hover:bg-accent"
+                            : "border-border bg-card text-muted-foreground hover:bg-muted",
                         ].join(" ")}
                         onClick={() => void updateOpeningType(key, !type.showOnFrontpage)}
                         aria-pressed={type.showOnFrontpage}
@@ -1730,27 +1734,27 @@ export default function JobCompaniesAdmin() {
                         )}
                         {type.showOnFrontpage ? "Frontpage" : "Hidden"}
                       </button>
-                      <button
+                      <UiButton variant="secondary" size="sm"
                         type="button"
-                        className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                        className="h-11 transition disabled:opacity-60"
                         onClick={() => void updateOpeningType(key)}
                         disabled={openingTypeSaving || !(openingTypeDrafts[key] ?? type.label).trim()}
                       >
                         Save
-                      </button>
-                      <button
+                      </UiButton>
+                      <UiButton variant="secondary" size="sm"
                         type="button"
-                        className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                        className="inline-flex h-11 items-center justify-center gap-2 text-destructive transition disabled:opacity-60"
                         onClick={() => void deleteOpeningType(key)}
                         disabled={openingTypeSaving}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         Delete
-                      </button>
-                      <label className="grid gap-1 text-xs font-medium text-slate-600 sm:col-span-4">
+                      </UiButton>
+                      <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-4">
                         Tooltip explanation
-                        <textarea
-                          className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
+                        <UiTextarea
+                          className="w-full"
                           value={tooltipDrafts[key] ?? getPriorityTooltip(type)}
                           onChange={event => setTooltipDrafts(prev => ({ ...prev, [key]: event.target.value }))}
                           maxLength={500}
@@ -1763,9 +1767,9 @@ export default function JobCompaniesAdmin() {
                   );
                 })}
 
-                <div className="grid gap-2 rounded-2xl border border-dashed border-slate-300 p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                  <input
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
+                <div className="grid gap-2 rounded-panel border border-dashed border-input p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <UiInput
+                    className="h-11 w-full disabled:opacity-60"
                     placeholder="New type label"
                     value={newOpeningTypeLabel}
                     disabled={openingTypeSaving}
@@ -1776,15 +1780,15 @@ export default function JobCompaniesAdmin() {
                       void createOpeningType();
                     }}
                   />
-                  <button
+                  <UiButton variant="primary" size="sm"
                     type="button"
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-950 bg-slate-950 px-4 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                    className="inline-flex h-11 items-center justify-center gap-2 transition disabled:opacity-60"
                     onClick={() => void createOpeningType()}
                     disabled={openingTypeSaving || !newOpeningTypeLabel.trim()}
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Add type
-                  </button>
+                  </UiButton>
                 </div>
               </div>
             </div>
@@ -1793,55 +1797,55 @@ export default function JobCompaniesAdmin() {
       ) : null}
       {mergeHistoryOpen ? (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-overlay p-4"
           onClick={() => setMergeHistoryOpen(false)}
         >
           <div
-            className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+            className="w-full max-w-2xl overflow-hidden rounded-panel bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
               <div>
-                <div className="text-sm font-extrabold text-slate-950">Merge history</div>
-                <div className="mt-1 text-xs font-semibold text-slate-500">
+                <div className="text-sm font-extrabold text-foreground">Merge history</div>
+                <div className="mt-1 text-xs font-semibold text-muted-foreground">
                   Undo recent company merges from this list.
                 </div>
               </div>
-              <button
+              <UiButton variant="secondary" size="sm"
                 type="button"
-                className="h-9 rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+                className="h-9 transition"
                 onClick={() => setMergeHistoryOpen(false)}
               >
                 Close
-              </button>
+              </UiButton>
             </div>
             <div className="max-h-[60vh] space-y-2 overflow-auto px-5 py-4">
               {mergeHistoryItems.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                <div className="rounded-panel border border-dashed border-border bg-muted px-4 py-8 text-center text-sm text-muted-foreground">
                   No recent merges.
                 </div>
               ) : (
                 mergeHistoryItems.map((merge) => (
                   <div
                     key={merge.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-border bg-muted px-4 py-3"
                   >
-                    <div className="min-w-0 text-xs font-semibold text-slate-700">
-                      <span className="font-extrabold text-slate-950">{merge.sourceName}</span>
+                    <div className="min-w-0 text-xs font-semibold text-foreground">
+                      <span className="font-extrabold text-foreground">{merge.sourceName}</span>
                       {" into "}
-                      <span className="font-extrabold text-slate-950">{merge.targetName}</span>
+                      <span className="font-extrabold text-foreground">{merge.targetName}</span>
                       {" · "}
                       {merge.positionsMoved} positions
                     </div>
-                    <button
+                    <UiButton variant="secondary" size="sm"
                       type="button"
-                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+                      className="inline-flex h-8 items-center justify-center gap-1.5 transition disabled:opacity-60"
                       onClick={() => void handleUndoJobCompanyMerge(merge.id)}
                       disabled={jobCompaniesActionId === `undo:${merge.id}`}
                     >
                       <Undo2 className="h-3.5 w-3.5" />
                       {jobCompaniesActionId === `undo:${merge.id}` ? "Undoing..." : "Undo"}
-                    </button>
+                    </UiButton>
                   </div>
                 ))
               )}

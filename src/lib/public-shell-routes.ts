@@ -12,6 +12,7 @@ const PUBLIC_SHELL_ROUTES = [
 ];
 
 const PROTECTED_SHELL_ROUTES = [
+  "/design-system",
   "/breezy",
   "/calendar",
   "/companies",

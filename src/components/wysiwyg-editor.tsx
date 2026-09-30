@@ -1,5 +1,6 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bold,
@@ -165,7 +166,6 @@ export default function WysiwygEditor({
     const el = editorRef.current;
     if (!el) return;
     el.focus();
-    // eslint-disable-next-line deprecation/deprecation
     document.execCommand(command, false, commandValue);
     emitChange();
   };
@@ -186,75 +186,75 @@ export default function WysiwygEditor({
   };
 
   return (
-    <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-slate-50 px-2 py-2">
-        <button
+    <div className="w-full overflow-hidden rounded-panel border border-border bg-card shadow-sm">
+      <div className="flex flex-wrap items-center gap-1 border-b border-border bg-muted px-2 py-2">
+        <UiButton variant="secondary" size="md"
           type="button"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-slate-700 transition hover:bg-white disabled:opacity-50"
+          className="inline-flex h-9 w-9 items-center justify-center transition disabled:opacity-50"
           onClick={() => exec("bold")}
           disabled={disabled}
           title="Bold"
         >
           <Bold className="h-4 w-4" />
-        </button>
-        <button
+        </UiButton>
+        <UiButton variant="secondary" size="md"
           type="button"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-slate-700 transition hover:bg-white disabled:opacity-50"
+          className="inline-flex h-9 w-9 items-center justify-center transition disabled:opacity-50"
           onClick={() => exec("italic")}
           disabled={disabled}
           title="Italic"
         >
           <Italic className="h-4 w-4" />
-        </button>
-        <button
+        </UiButton>
+        <UiButton variant="secondary" size="md"
           type="button"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-slate-700 transition hover:bg-white disabled:opacity-50"
+          className="inline-flex h-9 w-9 items-center justify-center transition disabled:opacity-50"
           onClick={() => exec("underline")}
           disabled={disabled}
           title="Underline"
         >
           <Underline className="h-4 w-4" />
-        </button>
-        <div className="mx-1 h-6 w-px bg-slate-200" />
-        <button
+        </UiButton>
+        <div className="mx-1 h-6 w-px bg-accent" />
+        <UiButton variant="secondary" size="md"
           type="button"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-slate-700 transition hover:bg-white disabled:opacity-50"
+          className="inline-flex h-9 w-9 items-center justify-center transition disabled:opacity-50"
           onClick={() => exec("insertUnorderedList")}
           disabled={disabled}
           title="Bulleted list"
         >
           <List className="h-4 w-4" />
-        </button>
-        <button
+        </UiButton>
+        <UiButton variant="secondary" size="md"
           type="button"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-slate-700 transition hover:bg-white disabled:opacity-50"
+          className="inline-flex h-9 w-9 items-center justify-center transition disabled:opacity-50"
           onClick={() => exec("insertOrderedList")}
           disabled={disabled}
           title="Numbered list"
         >
           <ListOrdered className="h-4 w-4" />
-        </button>
-        <div className="mx-1 h-6 w-px bg-slate-200" />
-        <button
+        </UiButton>
+        <div className="mx-1 h-6 w-px bg-accent" />
+        <UiButton variant="secondary" size="md"
           type="button"
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-transparent px-3 text-slate-700 transition hover:bg-white disabled:opacity-50"
+          className="inline-flex h-9 items-center justify-center gap-2 transition disabled:opacity-50"
           onClick={() => void onAddLink()}
           disabled={disabled}
           title="Add link"
         >
           <Link2 className="h-4 w-4" />
           <span className="text-xs font-semibold">Link</span>
-        </button>
-        <button
+        </UiButton>
+        <UiButton variant="secondary" size="md"
           type="button"
-          className="ml-auto inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-transparent px-3 text-slate-700 transition hover:bg-white disabled:opacity-50"
+          className="ml-auto inline-flex h-9 items-center justify-center gap-2 transition disabled:opacity-50"
           onClick={() => exec("removeFormat")}
           disabled={disabled}
           title="Clear formatting"
         >
           <Eraser className="h-4 w-4" />
           <span className="text-xs font-semibold">Clear</span>
-        </button>
+        </UiButton>
       </div>
 
       <div className="relative">
@@ -262,11 +262,11 @@ export default function WysiwygEditor({
           ref={editorRef}
           className={[
             minHeightClassName,
-            "w-full px-4 py-3 text-sm text-slate-800 outline-none",
-            "focus:ring-2 focus:ring-emerald-100",
-            disabled ? "bg-slate-50 text-slate-500" : "bg-white",
-            "[&_*]:max-w-full [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-2xl [&_img]:border [&_img]:border-slate-200",
-            "[&_a]:font-semibold [&_a]:text-emerald-700 [&_a:hover]:underline",
+            "w-full px-4 py-3 text-sm text-foreground outline-none",
+            "focus:ring-2 focus:ring-success/25",
+            disabled ? "bg-muted text-muted-foreground" : "bg-card",
+            "[&_*]:max-w-full [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-panel [&_img]:border [&_img]:border-border",
+            "[&_a]:font-semibold [&_a]:text-success [&_a:hover]:underline",
             "[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5",
           ].join(" ")}
           contentEditable={!disabled}
@@ -283,13 +283,12 @@ export default function WysiwygEditor({
             event.preventDefault();
             const text = event.clipboardData.getData("text/plain");
             if (!text) return;
-            // eslint-disable-next-line deprecation/deprecation
             document.execCommand("insertText", false, text);
             emitChange();
           }}
         />
         {!safeValue.trim() ? (
-          <div className="pointer-events-none absolute left-4 top-3 text-sm text-slate-400">
+          <div className="pointer-events-none absolute left-4 top-3 text-sm text-muted-foreground">
             {placeholder}
           </div>
         ) : null}

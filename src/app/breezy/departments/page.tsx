@@ -1,5 +1,8 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { NativeSelect as UiSelect } from "@/components/ui/select";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Eye,
@@ -285,30 +288,30 @@ export default function BreezyDepartmentsPage() {
     <div className="mx-auto w-full">
       {mergeSource ? (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 grid place-items-center bg-overlay px-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="merge-department-title"
         >
-          <div className="w-full max-w-lg rounded-3xl border border-amber-200 bg-white p-6 shadow-2xl">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
+          <div className="w-full max-w-lg rounded-panel border border-warning/25 bg-card p-6 shadow-2xl">
+            <div className="flex h-12 w-12 items-center justify-center rounded-panel bg-warning-muted text-warning ring-1 ring-warning/25">
               <GitMerge className="h-5 w-5" />
             </div>
             <h2
               id="merge-department-title"
-              className="mt-4 text-xl font-semibold tracking-tight text-slate-950"
+              className="mt-4 text-xl font-semibold tracking-tight text-foreground"
             >
               Merge department
             </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
               Move {mergeSource.count.toLocaleString()} jobs from {mergeSource.label} into another department.
             </p>
             <label className="mt-5 block">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Merge into
               </span>
-              <select
-                className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-amber-300"
+              <UiSelect
+                className="mt-2 h-12 w-full"
                 value={mergeTargetKey}
                 onChange={(event) => setMergeTargetKey(event.target.value)}
                 disabled={savingKey === `merge:${mergeSource.key}`}
@@ -320,15 +323,15 @@ export default function BreezyDepartmentsPage() {
                       {item.label} ({item.count.toLocaleString()})
                     </option>
                   ))}
-              </select>
+              </UiSelect>
             </label>
-            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-900">
+            <div className="mt-4 rounded-panel border border-warning/25 bg-warning-muted px-4 py-3 text-sm font-semibold leading-6 text-warning">
               Source department will be hidden after merge. Jobs stay in Breezy and only their cached department override changes.
             </div>
             <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
-              <button
+              <UiButton variant="secondary" size="lg"
                 type="button"
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center transition disabled:opacity-60"
                 onClick={() => {
                   setMergeSource(null);
                   setMergeTargetKey("");
@@ -336,10 +339,10 @@ export default function BreezyDepartmentsPage() {
                 disabled={savingKey === `merge:${mergeSource.key}`}
               >
                 Cancel
-              </button>
-              <button
+              </UiButton>
+              <UiButton variant="ghost" size="lg"
                 type="button"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-amber-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center gap-2 transition disabled:opacity-60"
                 onClick={() => void mergeDepartment()}
                 disabled={savingKey === `merge:${mergeSource.key}` || !mergeTargetKey}
               >
@@ -349,7 +352,7 @@ export default function BreezyDepartmentsPage() {
                   <GitMerge className="h-4 w-4" />
                 )}
                 Merge
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -357,38 +360,38 @@ export default function BreezyDepartmentsPage() {
 
       {deleteConfirm ? (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 grid place-items-center bg-overlay px-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="delete-department-title"
         >
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-700 ring-1 ring-rose-100">
+          <div className="w-full max-w-md rounded-panel border border-border bg-card p-6 shadow-2xl">
+            <div className="flex h-12 w-12 items-center justify-center rounded-panel bg-danger-muted text-destructive ring-1 ring-destructive/25">
               <Trash2 className="h-5 w-5" />
             </div>
             <h2
               id="delete-department-title"
-              className="mt-4 text-xl font-semibold tracking-tight text-slate-950"
+              className="mt-4 text-xl font-semibold tracking-tight text-foreground"
             >
               Remove department?
             </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
               {deleteConfirm.count > 0
                 ? `${deleteConfirm.label} will be hidden from the public jobs page. Existing jobs stay unchanged.`
                 : `${deleteConfirm.label} will be removed from the department list.`}
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
-              <button
+              <UiButton variant="secondary" size="lg"
                 type="button"
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center transition disabled:opacity-60"
                 onClick={() => setDeleteConfirm(null)}
                 disabled={savingKey === deleteConfirm.key}
               >
                 Cancel
-              </button>
-              <button
+              </UiButton>
+              <UiButton variant="destructive" size="lg"
                 type="button"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center gap-2 text-destructive-foreground transition disabled:opacity-60"
                 onClick={() => void deleteDepartment(deleteConfirm)}
                 disabled={savingKey === deleteConfirm.key}
               >
@@ -398,7 +401,7 @@ export default function BreezyDepartmentsPage() {
                   <Trash2 className="h-4 w-4" />
                 )}
                 Remove
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -406,27 +409,27 @@ export default function BreezyDepartmentsPage() {
 
       {addModalOpen ? (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 grid place-items-center bg-overlay px-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="add-department-title"
         >
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+          <div className="w-full max-w-md rounded-panel border border-border bg-card p-6 shadow-2xl">
+            <div className="flex h-12 w-12 items-center justify-center rounded-panel bg-success-muted text-success ring-1 ring-success/25">
               <Plus className="h-5 w-5" />
             </div>
             <h2
               id="add-department-title"
-              className="mt-4 text-xl font-semibold tracking-tight text-slate-950"
+              className="mt-4 text-xl font-semibold tracking-tight text-foreground"
             >
               Add department
             </h2>
             <label className="mt-5 block">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Title
               </span>
-              <input
-                className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none focus:border-emerald-300"
+              <UiInput
+                className="mt-2 h-11 w-full"
                 value={newLabel}
                 onChange={(event) => setNewLabel(event.target.value)}
                 placeholder="Department name"
@@ -440,9 +443,9 @@ export default function BreezyDepartmentsPage() {
               />
             </label>
             <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
-              <button
+              <UiButton variant="secondary" size="lg"
                 type="button"
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center transition disabled:opacity-60"
                 onClick={() => {
                   setAddModalOpen(false);
                   setNewLabel("");
@@ -450,10 +453,10 @@ export default function BreezyDepartmentsPage() {
                 disabled={savingKey === "new"}
               >
                 Cancel
-              </button>
-              <button
+              </UiButton>
+              <UiButton variant="primary" size="lg"
                 type="button"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-black disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center gap-2 transition disabled:opacity-60"
                 onClick={() => void addDepartment()}
                 disabled={savingKey !== null || !newLabel.trim()}
               >
@@ -463,86 +466,86 @@ export default function BreezyDepartmentsPage() {
                   <Save className="h-4 w-4" />
                 )}
                 Save
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total</div>
-          <div className="mt-2 text-3xl font-semibold text-slate-900">{items.length}</div>
+        <div className="rounded-panel border border-border bg-card p-5 shadow-sm">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</div>
+          <div className="mt-2 text-3xl font-semibold text-foreground">{items.length}</div>
         </div>
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Visible</div>
-          <div className="mt-2 text-3xl font-semibold text-emerald-700">{visibleCount}</div>
+        <div className="rounded-panel border border-border bg-card p-5 shadow-sm">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Visible</div>
+          <div className="mt-2 text-3xl font-semibold text-success">{visibleCount}</div>
         </div>
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Hidden</div>
-          <div className="mt-2 text-3xl font-semibold text-slate-900">{hiddenCount}</div>
+        <div className="rounded-panel border border-border bg-card p-5 shadow-sm">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Hidden</div>
+          <div className="mt-2 text-3xl font-semibold text-foreground">{hiddenCount}</div>
         </div>
       </div>
 
       {error ? (
-        <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="mt-5 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       ) : null}
 
       {lastMerge ? (
-        <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+        <div className="mt-5 rounded-panel border border-success/25 bg-success-muted px-4 py-3 text-sm font-semibold text-success">
           {lastMerge.sourceLabel} was merged into {lastMerge.targetLabel}.{" "}
           {lastMerge.positionsMoved.toLocaleString()} jobs moved.
         </div>
       ) : null}
 
-      <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mt-6 rounded-panel border border-border bg-card p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4">
-            <Search className="h-4 w-4 text-slate-400" />
-            <input
-              className="h-11 w-full border-none bg-transparent text-sm text-slate-800 outline-none"
+          <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-panel border border-border bg-card px-4">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <UiInput
+              className="h-11 w-full"
               placeholder="Search departments..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
           </div>
-          <button
+          <UiButton variant="secondary" size="lg"
             type="button"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 transition disabled:opacity-60"
             onClick={() => void load()}
             disabled={loading}
           >
             <RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
             Refresh
-          </button>
-          <button
+          </UiButton>
+          <UiButton variant="primary" size="lg"
             type="button"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-black disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 transition disabled:opacity-60"
             onClick={() => setAddModalOpen(true)}
             disabled={savingKey !== null}
           >
             <Plus className="h-4 w-4" />
             Add
-          </button>
+          </UiButton>
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="mt-6 overflow-hidden rounded-panel border border-border bg-card shadow-sm">
         {loading ? (
-          <div className="px-4 py-12 text-center text-sm text-slate-500">
+          <div className="px-4 py-12 text-center text-sm text-muted-foreground">
             Loading departments...
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="px-4 py-12 text-center text-sm text-slate-500">
+          <div className="px-4 py-12 text-center text-sm text-muted-foreground">
             No departments found.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full table-auto">
-              <thead className="bg-slate-50">
-                <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <thead className="bg-muted">
+                <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   <th scope="col" className="px-4 py-3">
                     Department
                   </th>
@@ -565,19 +568,19 @@ export default function BreezyDepartmentsPage() {
                     <tr
                       key={item.key}
                       className={[
-                        "transition hover:bg-slate-50",
-                        draft.isHidden ? "bg-slate-50/70 text-slate-400" : "bg-white text-slate-900",
+                        "transition hover:bg-muted",
+                        draft.isHidden ? "bg-muted/70 text-muted-foreground" : "bg-card text-foreground",
                       ].join(" ")}
                     >
                       <td className="min-w-[320px] px-4 py-3">
-                        <input
-                          className="h-10 w-full rounded-xl border border-transparent bg-transparent px-3 text-sm font-semibold outline-none transition hover:border-slate-200 hover:bg-white focus:border-emerald-300 focus:bg-white"
+                        <UiInput
+                          className="h-10 w-full transition"
                           value={draft.label}
                           onChange={(event) => updateDraft(item.key, { label: event.target.value })}
                           aria-label="Department name"
                         />
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-slate-600">
+                      <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-muted-foreground">
                         {item.count.toLocaleString()}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
@@ -585,14 +588,14 @@ export default function BreezyDepartmentsPage() {
                           className={[
                             "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold",
                             draft.isHidden
-                              ? "bg-slate-100 text-slate-600"
-                              : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+                              ? "bg-muted text-muted-foreground"
+                              : "bg-success-muted text-success ring-1 ring-success/25",
                           ].join(" ")}
                         >
                           <span
                             className={[
                               "h-2 w-2 rounded-full",
-                              draft.isHidden ? "bg-slate-400" : "bg-emerald-500",
+                              draft.isHidden ? "bg-muted-foreground" : "bg-emerald-500",
                             ].join(" ")}
                           />
                           {draft.isHidden ? "Hidden" : "Visible"}
@@ -600,9 +603,9 @@ export default function BreezyDepartmentsPage() {
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
-                          <button
+                          <UiButton variant="primary" size="md"
                             type="button"
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-black disabled:opacity-60"
+                            className="inline-flex h-10 items-center justify-center gap-2 transition disabled:opacity-60"
                             onClick={() => void saveDepartment(item.key)}
                             disabled={busy || savingKey !== null || !draft.label.trim()}
                             title="Save"
@@ -610,11 +613,11 @@ export default function BreezyDepartmentsPage() {
                           >
                             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                             Save
-                          </button>
+                          </UiButton>
                           <div className="relative" data-department-menu>
-                            <button
+                            <UiButton variant="secondary" size="md"
                               type="button"
-                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                              className="inline-flex h-10 w-10 items-center justify-center transition disabled:opacity-60"
                               onClick={() =>
                                 setMenuOpenKey((current) => (current === item.key ? null : item.key))
                               }
@@ -625,17 +628,17 @@ export default function BreezyDepartmentsPage() {
                               aria-expanded={menuOpenKey === item.key}
                             >
                               <MoreHorizontal className="h-4 w-4" />
-                            </button>
+                            </UiButton>
 
                             {menuOpenKey === item.key ? (
                               <div
                                 role="menu"
-                                className="absolute right-0 top-full z-30 mt-2 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-xl"
+                                className="absolute right-0 top-full z-30 mt-2 w-44 overflow-hidden rounded-panel border border-border bg-card py-1 shadow-xl"
                               >
                                 <button
                                   type="button"
                                   role="menuitem"
-                                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-foreground hover:bg-muted"
                                   onClick={() => {
                                     updateDraft(item.key, { isHidden: !draft.isHidden });
                                     setMenuOpenKey(null);
@@ -647,7 +650,7 @@ export default function BreezyDepartmentsPage() {
                                 <button
                                   type="button"
                                   role="menuitem"
-                                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-foreground hover:bg-muted"
                                   onClick={() => openMergeModal(item)}
                                   disabled={items.length < 2}
                                 >
@@ -657,7 +660,7 @@ export default function BreezyDepartmentsPage() {
                                 <button
                                   type="button"
                                   role="menuitem"
-                                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50"
+                                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-destructive hover:bg-danger-muted"
                                   onClick={() => {
                                     setMenuOpenKey(null);
                                     setDeleteConfirm(item);

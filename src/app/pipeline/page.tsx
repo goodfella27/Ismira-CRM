@@ -1,5 +1,8 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { NativeSelect as UiSelect } from "@/components/ui/select";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { arrayMove } from "@dnd-kit/sortable";
@@ -2787,22 +2790,22 @@ export default function PipelinePage() {
   if (!hydrated) {
     return (
       <div
-        className="min-h-screen flex flex-col bg-[#f3f3f3]"
+        className="min-h-screen flex flex-col bg-background"
         aria-busy="true"
         aria-live="polite"
       >
-        <header className="border-b border-slate-200 bg-white">
+        <header className="border-b border-border bg-card">
           <div className="mx-auto flex w-full max-w-none items-center justify-between gap-4 px-4 py-4">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-slate-200 animate-pulse" />
+              <div className="h-10 w-10 rounded-full bg-accent animate-pulse" />
               <div className="min-w-0">
-                <div className="h-4 w-40 rounded bg-slate-200 animate-pulse" />
-                <div className="mt-2 h-3 w-56 rounded bg-slate-100 animate-pulse" />
+                <div className="h-4 w-40 rounded bg-accent animate-pulse" />
+                <div className="mt-2 h-3 w-56 rounded bg-muted animate-pulse" />
               </div>
             </div>
             <div className="flex w-[min(520px,45vw)] items-center gap-3">
-              <div className="h-10 flex-1 rounded-full bg-slate-100 animate-pulse" />
-              <div className="h-10 w-36 rounded-full bg-emerald-200/70 animate-pulse" />
+              <div className="h-10 flex-1 rounded-full bg-muted animate-pulse" />
+              <div className="h-10 w-36 rounded-full bg-success-muted animate-pulse" />
             </div>
           </div>
         </header>
@@ -2810,38 +2813,38 @@ export default function PipelinePage() {
         <section className="mx-auto flex w-full max-w-none flex-1 min-h-0 flex-col gap-4 px-4 py-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="h-10 w-52 rounded-md bg-white border border-slate-200 animate-pulse" />
-              <div className="h-10 w-28 rounded-md bg-white border border-slate-200 animate-pulse" />
-              <div className="h-10 w-28 rounded-md bg-white border border-slate-200 animate-pulse" />
-              <div className="h-10 w-56 rounded-md bg-white border border-slate-200 animate-pulse" />
+              <div className="h-10 w-52 rounded-md bg-card border border-border animate-pulse" />
+              <div className="h-10 w-28 rounded-md bg-card border border-border animate-pulse" />
+              <div className="h-10 w-28 rounded-md bg-card border border-border animate-pulse" />
+              <div className="h-10 w-56 rounded-md bg-card border border-border animate-pulse" />
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex-1 min-h-0 overflow-hidden rounded-panel border border-border bg-card shadow-sm">
             <div className="flex h-full min-h-0 gap-4 overflow-hidden p-4">
               {Array.from({ length: 4 }).map((_, idx) => (
                 <div
                   key={`col-skel-${idx}`}
-                  className="flex min-w-[260px] flex-1 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-3"
+                  className="flex min-w-[260px] flex-1 flex-col rounded-panel border border-border bg-muted p-3"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="h-3 w-28 rounded bg-slate-200 animate-pulse" />
-                    <div className="h-5 w-10 rounded-full bg-slate-200 animate-pulse" />
+                    <div className="h-3 w-28 rounded bg-accent animate-pulse" />
+                    <div className="h-5 w-10 rounded-full bg-accent animate-pulse" />
                   </div>
                   <div className="mt-3 space-y-3">
                     {Array.from({ length: 4 }).map((__, cardIdx) => (
                       <div
                         key={`card-skel-${idx}-${cardIdx}`}
-                        className="rounded-2xl border border-slate-200 bg-white p-3"
+                        className="rounded-panel border border-border bg-card p-3"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="h-10 w-10 rounded-full bg-slate-200 animate-pulse" />
+                          <div className="h-10 w-10 rounded-full bg-accent animate-pulse" />
                           <div className="min-w-0 flex-1">
-                            <div className="h-3 w-40 rounded bg-slate-200 animate-pulse" />
-                            <div className="mt-2 h-3 w-56 rounded bg-slate-100 animate-pulse" />
+                            <div className="h-3 w-40 rounded bg-accent animate-pulse" />
+                            <div className="mt-2 h-3 w-56 rounded bg-muted animate-pulse" />
                             <div className="mt-3 flex gap-2">
-                              <div className="h-6 w-16 rounded-full bg-slate-100 animate-pulse" />
-                              <div className="h-6 w-20 rounded-full bg-slate-100 animate-pulse" />
+                              <div className="h-6 w-16 rounded-full bg-muted animate-pulse" />
+                              <div className="h-6 w-20 rounded-full bg-muted animate-pulse" />
                             </div>
                           </div>
                         </div>
@@ -2865,38 +2868,38 @@ export default function PipelinePage() {
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f3f3f3]">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen flex flex-col bg-background">
+      <header className="border-b border-border bg-card">
         <div className="mx-auto flex w-full max-w-none items-center gap-4 px-4 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
               IS
             </div>
             <div>
-              <div className="text-sm font-semibold text-slate-900">AGN ISMIRA LTA</div>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span className="font-medium text-slate-700">
+              <div className="text-sm font-semibold text-foreground">AGN ISMIRA LTA</div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">
                   {activePipeline?.name ?? "Pipeline board"}
                 </span>
-                <span className="text-slate-300">•</span>
+                <span className="text-muted-foreground">•</span>
                 <span>Pipeline board</span>
-                <button
+                <UiButton variant="primary" size="sm"
                   type="button"
-                  className="ml-1 rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-black"
+                  className="ml-1"
                   onClick={() => setIsPipelineModalOpen(true)}
                 >
                   Change
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>
           <div className="ml-auto flex items-center gap-4 md:mr-16">
             {ENABLE_SMART_SEARCH ? (
               <div className="relative w-[520px] max-w-[60vw]">
-                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
-                  <Search className="h-4 w-4 text-slate-500" />
+                <div className="flex items-center gap-2 rounded-panel border border-border bg-card px-4 py-2.5 shadow-sm">
+                  <Search className="h-4 w-4 text-muted-foreground" />
                   <input
-                    className="w-full bg-transparent text-sm text-slate-700 outline-none"
+                    className="w-full bg-transparent text-sm text-foreground outline-none"
                     placeholder="Search by name, email, phone, or country"
                     value={smartSearchQuery}
                     onChange={(event) => setSmartSearchQuery(event.target.value)}
@@ -2908,7 +2911,7 @@ export default function PipelinePage() {
                   {smartSearchQuery ? (
                     <button
                       type="button"
-                      className="text-xs text-slate-400 hover:text-slate-600"
+                      className="text-xs text-muted-foreground hover:text-muted-foreground"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => setSmartSearchQuery("")}
                     >
@@ -2918,10 +2921,10 @@ export default function PipelinePage() {
                 </div>
                 {smartSearchOpen && smartSearchResults.length > 0 ? (
                   <div
-                    className="absolute left-0 right-0 z-20 mt-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl"
+                    className="absolute left-0 right-0 z-20 mt-3 rounded-panel border border-border bg-card p-3 shadow-xl"
                     onMouseDown={(event) => event.preventDefault()}
                   >
-                    <div className="mb-2 text-[11px] font-semibold uppercase text-slate-400">
+                    <div className="mb-2 text-[11px] font-semibold uppercase text-muted-foreground">
                       Results
                     </div>
                     <div className="grid gap-2">
@@ -2931,10 +2934,10 @@ export default function PipelinePage() {
                       const attachmentCount = attachmentCounts[candidate.id] ?? 0;
                       const relative = formatRelative(candidate.created_at);
                       return (
-                        <button
+                        <UiButton variant="secondary" size="md"
                           key={candidate.id}
                           type="button"
-                          className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm text-slate-700 hover:bg-white"
+                          className="flex items-center justify-between text-left"
                           onClick={() => {
                             setDrawerRequestedRightTab(null);
                             setDrawerCandidateId(candidate.id);
@@ -2949,16 +2952,16 @@ export default function PipelinePage() {
                               {getInitials(candidate.name)}
                             </div>
                             <div>
-                              <div className="font-semibold text-slate-900">
+                              <div className="font-semibold text-foreground">
                                 {candidate.name}
                               </div>
                               <div
-                                className="text-xs text-slate-500"
+                                className="text-xs text-muted-foreground"
                                 title={candidate.email || undefined}
                               >
                                 {formatEmailShort(candidate.email) || "—"}
                               </div>
-                              <div className="text-xs text-slate-400">
+                              <div className="text-xs text-muted-foreground">
                                 {country.label !== "—"
                                   ? `${country.flag ? `${country.flag} ` : ""}${country.label}`
                                   : "—"}
@@ -2968,7 +2971,7 @@ export default function PipelinePage() {
                           <div className="flex flex-col items-end gap-2 pl-4">
                             {candidate.meeting_start ? (
                               <span
-                                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-emerald-700 shadow-sm"
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-success/25 bg-success-muted text-success shadow-sm"
                                 title={`Meeting starts: ${new Date(
                                   candidate.meeting_start
                                 ).toLocaleString()}`}
@@ -2976,58 +2979,58 @@ export default function PipelinePage() {
                                 <CalendarDays className="h-4 w-4" />
                               </span>
                             ) : null}
-                            <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                               <span className="inline-flex items-center gap-1">
-                                <Clock className="h-3.5 w-3.5 text-slate-400" />
+                                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                                 {relative || "—"}
                               </span>
                               <span className="inline-flex items-center gap-1">
-                                <MessageCircle className="h-3.5 w-3.5 text-slate-400" />
+                                <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />
                                 {noteCount}
                               </span>
                               <span className="inline-flex items-center gap-1">
-                                <Paperclip className="h-3.5 w-3.5 text-slate-400" />
+                                <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
                                 {attachmentCount}
                               </span>
                             </div>
                           </div>
-                        </button>
+                        </UiButton>
                       );
                     })}
                     </div>
                   </div>
                 ) : smartSearchOpen && smartSearchQuery.trim() ? (
-                  <div className="absolute left-0 right-0 z-20 mt-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 shadow-xl">
-                    <div className="text-xs font-semibold uppercase text-slate-400">
+                  <div className="absolute left-0 right-0 z-20 mt-3 rounded-panel border border-border bg-card p-4 text-sm text-muted-foreground shadow-xl">
+                    <div className="text-xs font-semibold uppercase text-muted-foreground">
                       No results
                     </div>
-                    <div className="mt-2 text-xs text-slate-500">
+                    <div className="mt-2 text-xs text-muted-foreground">
                       Try name, email, phone number, or country.
                     </div>
                   </div>
                 ) : null}
               </div>
             ) : null}
-            <button
+            <UiButton variant="primary" size="md"
               type="button"
-              className="flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500"
+              className="flex items-center gap-2 transition"
               onClick={() => setIsAddModalOpen(true)}
             >
               <Plus className="h-4 w-4" />
               Add Candidates
-            </button>
+            </UiButton>
           </div>
         </div>
       </header>
       {remoteError ? (
         <div className="mx-auto w-full max-w-none px-4 py-3">
-          <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+          <div className="rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-xs text-destructive">
             {remoteError}
           </div>
         </div>
       ) : remoteLoading ? (
         <div className="mx-auto w-full max-w-none px-4 py-3">
-          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+          <div className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
             Syncing pipeline data...
           </div>
         </div>
@@ -3036,10 +3039,10 @@ export default function PipelinePage() {
       <section className="mx-auto flex w-full max-w-none flex-1 min-h-0 flex-col gap-4 px-4 py-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
-              <Layers className="h-4 w-4 text-slate-500" />
-              <select
-                className="bg-transparent text-sm text-slate-700 focus:outline-none"
+            <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm">
+              <Layers className="h-4 w-4 text-muted-foreground" />
+              <UiSelect
+                className=""
                 value={selectedPipelineId}
                 onChange={(event) => setSelectedPipelineId(event.target.value)}
               >
@@ -3053,35 +3056,35 @@ export default function PipelinePage() {
                       : ""}
                   </option>
                 ))}
-              </select>
-              <ChevronDown className="h-4 w-4 text-slate-400" />
+              </UiSelect>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </div>
-            <button
+            <UiButton variant="secondary" size="md"
               type="button"
-              className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
+              className=""
               onClick={handleCreatePipeline}
             >
               New Pipeline
-            </button>
-            <button
+            </UiButton>
+            <UiButton variant="secondary" size="md"
               type="button"
-              className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
+              className=""
               onClick={handleAddStage}
             >
               Add Stage
-            </button>
-            <button
+            </UiButton>
+            <UiButton variant="secondary" size="md"
               type="button"
-              className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600 shadow-sm hover:bg-rose-100"
+              className="text-destructive"
               onClick={handleDeletePipeline}
               disabled={pipelines.length <= 1}
             >
               Delete Pipeline
-            </button>
-            <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
-              <Mail className="h-4 w-4 text-slate-500" />
-              <select
-                className="bg-transparent text-sm text-slate-700 focus:outline-none"
+            </UiButton>
+            <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <UiSelect
+                className=""
                 value={selectedMailerLiteGroupId}
                 onChange={(event) => {
                   const value = event.target.value;
@@ -3099,23 +3102,23 @@ export default function PipelinePage() {
                     {group.active_count ? ` (${group.active_count})` : ""}
                   </option>
                 ))}
-              </select>
-              <ChevronDown className="h-4 w-4 text-slate-400" />
+              </UiSelect>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
         </div>
         {mailerliteError ? (
-          <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+          <div className="rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-xs text-destructive">
             {mailerliteError}
           </div>
         ) : null}
         {breezyError ? (
-          <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+          <div className="rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-xs text-destructive">
             {breezyError}
           </div>
         ) : null}
 
-        <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar bg-[#f3f3f3] [background-image:radial-gradient(rgba(148,163,184,0.25)_1px,transparent_1px)] [background-size:22px_22px]">
+        <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar bg-background">
           <Board
             stages={activeStages}
             candidates={filteredCandidates}
@@ -3160,27 +3163,27 @@ export default function PipelinePage() {
           onClick={() => setIsPipelineModalOpen(false)}
         >
           <div
-            className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-lg overflow-hidden rounded-panel bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="border-b border-slate-200 px-5 py-4">
-              <div className="text-sm font-semibold text-slate-900">
+            <div className="border-b border-border px-5 py-4">
+              <div className="text-sm font-semibold text-foreground">
                 Change Pipeline
               </div>
-              <div className="mt-1 text-xs text-slate-500">
+              <div className="mt-1 text-xs text-muted-foreground">
                 Select the pipeline you want to view.
               </div>
             </div>
             <div className="px-5 py-4">
-              <input
+              <UiInput
                 value={pipelineSearch}
                 onChange={(event) => setPipelineSearch(event.target.value)}
                 placeholder="Search pipelines..."
-                className="h-10 w-full rounded-full border border-slate-200 px-4 text-sm outline-none focus:border-emerald-300"
+                className="h-10 w-full"
               />
               <div className="mt-4 max-h-[320px] space-y-2 overflow-y-auto pr-1">
                 {filteredPipelines.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-xs text-slate-400">
+                  <div className="rounded-md border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
                     No pipelines found.
                   </div>
                 ) : (
@@ -3193,15 +3196,15 @@ export default function PipelinePage() {
                         setIsPipelineModalOpen(false);
                         setPipelineSearch("");
                       }}
-                      className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm ${
+                      className={`flex w-full items-center justify-between rounded-md border px-4 py-3 text-sm ${
                         pipeline.id === selectedPipelineId
-                          ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-emerald-200"
+                          ? "border-success/25 bg-success-muted text-success"
+                          : "border-border bg-card text-foreground hover:border-success/25"
                       }`}
                     >
                       <span className="font-medium">{pipeline.name}</span>
                       {pipeline.id === selectedPipelineId ? (
-                        <span className="text-[11px] font-semibold uppercase text-emerald-600">
+                        <span className="text-[11px] font-semibold uppercase text-success">
                           Current
                         </span>
                       ) : null}
@@ -3210,14 +3213,14 @@ export default function PipelinePage() {
                 )}
               </div>
             </div>
-            <div className="flex justify-end border-t border-slate-200 px-5 py-3">
-              <button
+            <div className="flex justify-end border-t border-border px-5 py-3">
+              <UiButton variant="primary" size="sm"
                 type="button"
-                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+                className=""
                 onClick={() => setIsPipelineModalOpen(false)}
               >
                 Close
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>

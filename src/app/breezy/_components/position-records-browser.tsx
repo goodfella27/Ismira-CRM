@@ -1,4 +1,7 @@
 "use client";
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { Textarea as UiTextarea } from "@/components/ui/textarea";
 import { OpeningTypeOrderControls } from "@/components/opening-type-order-controls";
 import { getPriorityTooltip } from "@/lib/breezy-priority-types";
 import { getPriorityBadgeClass } from "@/lib/opening-type-colors";
@@ -116,7 +119,7 @@ function HeroCoverImage({ src, bottomActions }: { src: string; bottomActions?: R
 
   if (!src) {
     return (
-      <div className="relative aspect-[16/7] w-full bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6]">
+      <div className="relative aspect-[16/7] w-full bg-muted">
         {actions}
       </div>
     );
@@ -124,7 +127,7 @@ function HeroCoverImage({ src, bottomActions }: { src: string; bottomActions?: R
 
   return (
     <div
-      className="relative w-full overflow-hidden bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6]"
+      className="relative w-full overflow-hidden bg-muted"
       style={aspectRatio ? { aspectRatio: String(aspectRatio) } : { aspectRatio: "16 / 7" }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -158,15 +161,15 @@ function ModalCloseButton({
   disabled?: boolean;
 }) {
   return (
-    <button
+    <UiButton variant="primary" size="md"
       type="button"
       aria-label="Close"
-      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm transition hover:bg-black focus:outline-none focus:ring-2 focus:ring-white/60 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-60"
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center transition disabled:opacity-60"
       onClick={onClick}
       disabled={disabled}
     >
       <X className="h-5 w-5" aria-hidden="true" />
-    </button>
+    </UiButton>
   );
 }
 
@@ -398,7 +401,7 @@ function CountryChips({ countries }: { countries: JobCountryOption[] }) {
       {countries.map((country) => (
         <span
           key={country.code}
-          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700"
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-semibold text-foreground"
         >
           <span aria-hidden="true">{renderCountryFlag(country.code)}</span>
           <span>{getCountryLabel(country.code, country.name)}</span>
@@ -434,9 +437,9 @@ function BenefitChips({
         return (
           <span
             key={tag}
-            className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-900"
+            className="inline-flex items-center gap-2 rounded-full border border-input bg-accent px-3 py-1.5 text-xs font-semibold text-foreground"
           >
-            <Icon className="h-3.5 w-3.5 text-sky-600" aria-hidden="true" />
+            <Icon className="h-3.5 w-3.5 text-foreground" aria-hidden="true" />
             <span>{label}</span>
           </span>
         );
@@ -497,9 +500,9 @@ function PremiumSelectField({
     <div className="grid content-start gap-1.5">
       <div
         id={labelId}
-        className="flex items-center gap-1.5 text-xs font-semibold text-slate-700"
+        className="flex items-center gap-1.5 text-xs font-semibold text-foreground"
       >
-        <LabelIcon className="h-3.5 w-3.5 text-orange-500" aria-hidden="true" />
+        <LabelIcon className="h-3.5 w-3.5 text-warning" aria-hidden="true" />
         {label}
       </div>
       <Select.Root
@@ -511,21 +514,21 @@ function PremiumSelectField({
       >
         <Select.Trigger
           aria-labelledby={labelId}
-          className="group inline-flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 data-[state=open]:border-orange-400 data-[state=open]:ring-2 data-[state=open]:ring-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="group inline-flex h-11 w-full items-center justify-between gap-3 rounded-md border border-warning/25 bg-card px-3 text-sm font-semibold text-foreground outline-none transition hover:border-warning/25 focus:border-warning/25 focus:ring-2 focus:ring-warning/25 data-[state=open]:border-warning/25 data-[state=open]:ring-2 data-[state=open]:ring-warning/25 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span className="flex min-w-0 items-center gap-2.5">
-            <SelectedIcon className="h-4 w-4 shrink-0 text-orange-500" aria-hidden="true" />
+            <SelectedIcon className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
             <span className="truncate">{selectedOption.label}</span>
           </span>
           <Select.Icon asChild>
-            <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-data-[state=open]:rotate-180" />
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
           </Select.Icon>
         </Select.Trigger>
         <Select.Portal>
           <Select.Content
             position="popper"
             sideOffset={6}
-            className="z-[12000] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-950/15"
+            className="z-[12000] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border border-border bg-card p-1.5 shadow-xl shadow-slate-950/15"
           >
             <Select.Viewport>
               {options.map((option) => {
@@ -534,9 +537,9 @@ function PremiumSelectField({
                   <Select.Item
                     key={option.value}
                     value={option.value}
-                    className="relative flex h-10 cursor-default select-none items-center gap-2.5 rounded-lg px-3 pr-9 text-sm font-medium text-slate-700 outline-none transition data-[disabled]:pointer-events-none data-[highlighted]:bg-orange-50 data-[highlighted]:text-slate-950 data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-amber-100 data-[state=checked]:to-pink-50 data-[state=checked]:text-slate-950"
+                    className="relative flex h-10 cursor-default select-none items-center gap-2.5 rounded-lg px-3 pr-9 text-sm font-medium text-foreground outline-none transition data-[disabled]:pointer-events-none data-[highlighted]:bg-warning-muted data-[highlighted]:text-foreground data-[state=checked]:bg-muted data-[state=checked]:text-foreground"
                   >
-                    <OptionIcon className="h-4 w-4 shrink-0 text-orange-500" aria-hidden="true" />
+                    <OptionIcon className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
                     <Select.ItemText>{option.label}</Select.ItemText>
                     <Select.ItemIndicator className="absolute right-3 inline-flex items-center text-pink-500">
                       <Check className="h-4 w-4" aria-hidden="true" />
@@ -566,28 +569,28 @@ function PremiumDetailsFields({
   const salaryNoteIsMissing = hasSalary && !hasSalaryNote;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="relative isolate flex flex-wrap items-center justify-between gap-3 overflow-hidden bg-gradient-to-r from-amber-300 via-orange-400 to-fuchsia-400 px-4 py-4 text-slate-950">
+    <div className="overflow-hidden rounded-panel border border-border bg-card">
+      <div className="relative isolate flex flex-wrap items-center justify-between gap-3 overflow-hidden bg-muted px-4 py-4 text-foreground">
         <div
-          className="pointer-events-none absolute -right-8 -top-20 -z-10 h-40 w-40 rounded-full bg-white/25 blur-3xl"
+          className="pointer-events-none absolute -right-8 -top-20 -z-10 h-40 w-40 rounded-full bg-card/25 blur-3xl"
           aria-hidden="true"
         />
         <div>
           <div className="text-xs font-bold uppercase tracking-wide">
             Premium details
           </div>
-          <div className="mt-1 text-xs text-slate-900/75">
+          <div className="mt-1 text-xs text-foreground/75">
             Admin, Member Premium and Member Basic users can view these values.
           </div>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/50 bg-white/30 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-950 backdrop-blur-sm">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/50 bg-card/30 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-foreground backdrop-blur-sm">
           <LockKeyhole className="h-3 w-3" aria-hidden="true" />
           Protected
         </span>
       </div>
       <div className="grid gap-4 p-4">
         {salaryNoteIsMissing ? (
-          <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">
+          <div className="flex items-start gap-2 rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-xs font-semibold text-destructive">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>
               Salary note is required because Salary has a value. Add the payment context before saving.
@@ -595,38 +598,38 @@ function PremiumDetailsFields({
           </div>
         ) : null}
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
+          <label className="grid content-start gap-1.5 text-xs font-semibold text-foreground">
             <span className="flex flex-wrap items-center gap-1.5">
               <span className="inline-flex items-center gap-1.5">
-                <BadgeDollarSign className="h-3.5 w-3.5 text-orange-500" aria-hidden="true" />
+                <BadgeDollarSign className="h-3.5 w-3.5 text-warning" aria-hidden="true" />
                 Salary
               </span>
               {hasSalary ? (
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+                <span className="rounded-full bg-warning-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning">
                   Requires salary note
                 </span>
               ) : null}
             </span>
-            <input
+            <UiInput
               value={value.salaryText}
               disabled={disabled}
               maxLength={500}
               onChange={(event) => onChange({ ...value, salaryText: event.target.value })}
-              className="h-11 rounded-xl border border-amber-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:opacity-60"
+              className="h-11 transition disabled:opacity-60"
               placeholder="Example: €2,500 per month + gratuities or sales commission"
             />
           </label>
-          <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
+          <label className="grid content-start gap-1.5 text-xs font-semibold text-foreground">
             <span className="flex items-center gap-1.5">
-              <Gift className="h-3.5 w-3.5 text-orange-500" aria-hidden="true" />
+              <Gift className="h-3.5 w-3.5 text-warning" aria-hidden="true" />
               Gratuities / bonuses / commissions
             </span>
-            <input
+            <UiInput
               value={value.tipsText}
               disabled={disabled}
               maxLength={500}
               onChange={(event) => onChange({ ...value, tipsText: event.target.value })}
-              className="h-11 rounded-xl border border-amber-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:opacity-60"
+              className="h-11 transition disabled:opacity-60"
               placeholder="Example: Typical monthly gratuities €600+"
             />
           </label>
@@ -646,17 +649,17 @@ function PremiumDetailsFields({
             })
           }
         />
-        <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
+        <label className="grid content-start gap-1.5 text-xs font-semibold text-foreground">
           <span className="flex items-center gap-1.5">
             <CalendarDays className="h-3.5 w-3.5 text-pink-500" aria-hidden="true" />
             Contract length
           </span>
-          <input
+          <UiInput
             value={value.contractLength}
             disabled={disabled}
             maxLength={200}
             onChange={(event) => onChange({ ...value, contractLength: event.target.value })}
-            className="h-11 rounded-xl border border-amber-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:opacity-60"
+            className="h-11 transition disabled:opacity-60"
             placeholder="Example: 6 months"
           />
         </label>
@@ -682,18 +685,18 @@ function PremiumDetailsFields({
             onChange({ ...value, cabinType: cabinType as JobPremiumDetails["cabinType"] })
           }
         />
-        <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
+        <label className="grid content-start gap-1.5 text-xs font-semibold text-foreground">
           <span className="flex flex-wrap items-center gap-1.5">
             <span className="inline-flex items-center gap-1.5">
               <StickyNote className="h-3.5 w-3.5 text-pink-500" aria-hidden="true" />
               Salary note
             </span>
             {hasSalary ? (
-              <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-700">
+              <span className="rounded-full bg-danger-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive">
                 Required
               </span>
             ) : (
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 Optional
               </span>
             )}
@@ -705,20 +708,20 @@ function PremiumDetailsFields({
             aria-invalid={salaryNoteIsMissing}
             maxLength={500}
             onChange={(event) => onChange({ ...value, salaryNote: event.target.value })}
-            className={`h-11 rounded-xl border bg-white px-3 text-sm text-slate-900 outline-none transition disabled:opacity-60 ${
+            className={`h-11 rounded-md border bg-card px-3 text-sm text-foreground outline-none transition disabled:opacity-60 ${
               salaryNoteIsMissing
-                ? "border-rose-400 bg-rose-50/40 hover:border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
-                : "border-amber-200 hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                ? "border-destructive/25 bg-danger-muted hover:border-destructive/25 focus:border-destructive/25 focus:ring-2 focus:ring-destructive/25"
+                : "border-warning/25 hover:border-warning/25 focus:border-warning/25 focus:ring-2 focus:ring-warning/25"
             }`}
             placeholder="Paid while on board"
           />
           <span
             className={`inline-flex items-start gap-1.5 font-normal ${
               salaryNoteIsMissing
-                ? "text-rose-700"
+                ? "text-destructive"
                 : hasSalary
-                  ? "text-emerald-700"
-                  : "text-slate-500"
+                  ? "text-success"
+                  : "text-muted-foreground"
             }`}
           >
             {salaryNoteIsMissing ? (
@@ -736,17 +739,17 @@ function PremiumDetailsFields({
           </span>
         </label>
         </div>
-        <label className="grid content-start gap-1.5 text-xs font-semibold text-slate-700">
+        <label className="grid content-start gap-1.5 text-xs font-semibold text-foreground">
         <span className="flex items-center gap-1.5">
           <NotebookText className="h-3.5 w-3.5 text-pink-500" aria-hidden="true" />
           Additional premium information
         </span>
-        <textarea
+        <UiTextarea
           value={value.additionalInfo}
           disabled={disabled}
           maxLength={5000}
           onChange={(event) => onChange({ ...value, additionalInfo: event.target.value })}
-          className="min-h-[110px] rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none transition hover:border-orange-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:opacity-60"
+          className="min-h-[110px] leading-6 transition disabled:opacity-60"
           placeholder="Add contract, rotation, bonus or other information reserved for members."
         />
         </label>
@@ -939,23 +942,23 @@ function RichText({ content }: { content: string }) {
     return (
       <div
         className={[
-          "text-[15px] leading-7 text-slate-800",
+          "text-[15px] leading-7 text-foreground",
           "[&>*:first-child]:mt-0",
           "[&_p]:mt-3",
-          "[&_h1]:mb-2 [&_h1]:mt-6 [&_h1]:border-l-4 [&_h1]:border-sky-300 [&_h1]:pl-4 [&_h1]:text-lg [&_h1]:font-extrabold [&_h1]:uppercase [&_h1]:tracking-normal [&_h1]:text-slate-900",
+          "[&_h1]:mb-2 [&_h1]:mt-6 [&_h1]:border-l-4 [&_h1]:border-input [&_h1]:pl-4 [&_h1]:text-lg [&_h1]:font-extrabold [&_h1]:uppercase [&_h1]:tracking-normal [&_h1]:text-foreground",
           "xl:[&_h1]:mb-3 xl:[&_h1]:mt-8 xl:[&_h1]:text-[1.1rem]",
-          "[&_h2]:mb-2 [&_h2]:mt-6 [&_h2]:border-l-4 [&_h2]:border-sky-300 [&_h2]:pl-4 [&_h2]:text-base [&_h2]:font-extrabold [&_h2]:uppercase [&_h2]:tracking-normal [&_h2]:text-slate-900",
+          "[&_h2]:mb-2 [&_h2]:mt-6 [&_h2]:border-l-4 [&_h2]:border-input [&_h2]:pl-4 [&_h2]:text-base [&_h2]:font-extrabold [&_h2]:uppercase [&_h2]:tracking-normal [&_h2]:text-foreground",
           "xl:[&_h2]:mb-3 xl:[&_h2]:mt-8 xl:[&_h2]:text-[1.05rem]",
-          "[&_h3]:mb-2 [&_h3]:mt-5 [&_h3]:border-l-4 [&_h3]:border-sky-200 [&_h3]:pl-4 [&_h3]:text-base [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-normal [&_h3]:text-slate-800",
-          "[&_h4]:mb-1 [&_h4]:mt-4 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:uppercase [&_h4]:tracking-normal [&_h4]:text-slate-600",
+          "[&_h3]:mb-2 [&_h3]:mt-5 [&_h3]:border-l-4 [&_h3]:border-input [&_h3]:pl-4 [&_h3]:text-base [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-normal [&_h3]:text-foreground",
+          "[&_h4]:mb-1 [&_h4]:mt-4 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:uppercase [&_h4]:tracking-normal [&_h4]:text-muted-foreground",
           "[&_ul]:mt-3 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5 xl:[&_ul]:mt-4 xl:[&_ul]:space-y-3 xl:[&_ul]:pl-7",
           "[&_ol]:mt-3 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-5 xl:[&_ol]:mt-4 xl:[&_ol]:space-y-3 xl:[&_ol]:pl-7",
-          "[&_li]:leading-7 [&_li]:marker:text-sky-500",
-          "[&_strong]:font-extrabold [&_strong]:text-slate-900",
-          "[&_a]:font-semibold [&_a]:text-emerald-700 [&_a:hover]:underline",
-          "[&_img]:my-4 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-2xl [&_img]:border [&_img]:border-slate-200 [&_img]:shadow-[0_20px_50px_-30px_rgba(15,23,42,0.45)]",
+          "[&_li]:leading-7 [&_li]:marker:text-foreground",
+          "[&_strong]:font-extrabold [&_strong]:text-foreground",
+          "[&_a]:font-semibold [&_a]:text-success [&_a:hover]:underline",
+          "[&_img]:my-4 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-panel [&_img]:border [&_img]:border-border [&_img]:shadow-overlay",
           "[&_figure]:my-4",
-          "[&_hr]:my-6 [&_hr]:border-slate-200",
+          "[&_hr]:my-6 [&_hr]:border-border",
           "[&_br]:leading-6",
         ].join(" ")}
         dangerouslySetInnerHTML={{ __html: safeHtml || "" }}
@@ -964,7 +967,7 @@ function RichText({ content }: { content: string }) {
   }
 
   return (
-    <div className="whitespace-pre-wrap text-sm leading-6 text-slate-800">
+    <div className="whitespace-pre-wrap text-sm leading-6 text-foreground">
       {safeText || "—"}
     </div>
   );
@@ -2172,10 +2175,10 @@ export default function BreezyPositionRecordsBrowser({
       const hidden = Boolean(pos.hidden) && orgType !== "pool";
       const stateNormalized = asString(pos.state).trim().toLowerCase();
       const statusTone = hidden
-        ? "bg-rose-50 text-rose-700 ring-1 ring-rose-100"
+        ? "bg-danger-muted text-destructive ring-1 ring-destructive/25"
         : stateNormalized === "published"
-          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
-          : "bg-slate-100 text-slate-600 ring-1 ring-slate-200";
+          ? "bg-success-muted text-success ring-1 ring-success/25"
+          : "bg-muted text-muted-foreground ring-1 ring-ring";
       const statusLabel = hidden
         ? "Hidden"
         : asString(pos.state).trim() || "Draft";
@@ -2193,8 +2196,8 @@ export default function BreezyPositionRecordsBrowser({
           aria-pressed={active}
           className={[
             "group align-middle transition",
-            id ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/25" : "",
-            active ? "bg-emerald-50" : "hover:bg-slate-50",
+            id ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-success/25" : "",
+            active ? "bg-success-muted" : "hover:bg-muted",
           ].join(" ")}
           onClick={() => (id ? void loadPositionDetails(id, name) : undefined)}
           onKeyDown={(event) => {
@@ -2206,7 +2209,7 @@ export default function BreezyPositionRecordsBrowser({
         >
           <td className="whitespace-nowrap px-4 py-3">
             <div className="flex items-center gap-3" title={company || "Position"}>
-              <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm">
+              <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-card text-sm font-bold text-muted-foreground shadow-sm">
                 {companyLogoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -2236,7 +2239,7 @@ export default function BreezyPositionRecordsBrowser({
                     <span className="max-w-[220px] truncate whitespace-nowrap">{priorityLabel}</span>
                   </span>
                 ) : null}
-                <div title={name} className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-950">
+                <div title={name} className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
                   {name}
                 </div>
               </div>
@@ -2246,7 +2249,7 @@ export default function BreezyPositionRecordsBrowser({
           <td className="whitespace-nowrap px-4 py-3 text-right">
             {showOnIsmiraWeb ? (
               <span
-                className="relative inline-flex items-center gap-1.5 rounded-full border border-fuchsia-200 bg-gradient-to-r from-fuchsia-500 via-rose-500 to-amber-400 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm shadow-fuchsia-200/60"
+                className="relative inline-flex items-center gap-1.5 rounded-full border border-border bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground shadow-sm"
                 title="Shown externally on Ismira Web"
               >
                 <span className="absolute -left-1 -top-1 grid h-3.5 w-3.5 place-items-center rounded-full border border-white bg-emerald-500">
@@ -2256,18 +2259,18 @@ export default function BreezyPositionRecordsBrowser({
                 <span className="whitespace-nowrap">Ismira Web</span>
               </span>
             ) : (
-              <span className="text-xs font-medium text-slate-300">-</span>
+              <span className="text-xs font-medium text-muted-foreground">-</span>
             )}
           </td>
 
           <td className="whitespace-nowrap px-4 py-3 text-right">
             {department ? (
-              <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-800 ring-1 ring-sky-100">
-                <Layers className="h-3.5 w-3.5 text-sky-600" />
+              <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1 text-[11px] font-semibold text-foreground ring-1 ring-ring">
+                <Layers className="h-3.5 w-3.5 text-foreground" />
                 <span className="max-w-[220px] truncate whitespace-nowrap">{department}</span>
               </span>
             ) : (
-              <span className="text-xs font-medium text-slate-300">-</span>
+              <span className="text-xs font-medium text-muted-foreground">-</span>
             )}
           </td>
 
@@ -2282,11 +2285,11 @@ export default function BreezyPositionRecordsBrowser({
           <td className="whitespace-nowrap px-4 py-3 text-right">
             {id ? (
               <div className="relative inline-flex">
-                <button
+                <UiButton variant="primary" size="md"
                   type="button"
                   aria-haspopup="menu"
                   aria-expanded={cardMenuOpenId === rowKey}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
+                  className="inline-flex h-10 w-10 items-center justify-center transition disabled:opacity-60"
                   onClick={(event) => {
                     event.stopPropagation();
                     const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
@@ -2310,7 +2313,7 @@ export default function BreezyPositionRecordsBrowser({
                   title="Actions"
                 >
                   <AlignJustify className="h-5 w-5" />
-                </button>
+                </UiButton>
 
                 {cardMenuOpenId === rowKey ? (
                   typeof document !== "undefined" && cardMenuAnchor
@@ -2319,7 +2322,7 @@ export default function BreezyPositionRecordsBrowser({
                           ref={cardMenuRef}
                           role="menu"
                           className={[
-                            "fixed z-[80] w-56 origin-bottom-right -translate-x-full rounded-2xl border border-slate-200 bg-white shadow-xl",
+                            "fixed z-[80] w-56 origin-bottom-right -translate-x-full rounded-panel border border-border bg-card shadow-xl",
                             cardMenuAnchor.top > 220 ? "-translate-y-full" : "",
                           ].join(" ")}
                           style={{
@@ -2341,7 +2344,7 @@ export default function BreezyPositionRecordsBrowser({
                           <button
                             type="button"
                             role="menuitem"
-                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-60"
                             onClick={() => void openPositionEditor(id, name)}
                             disabled={cardActionSavingId === id}
                           >
@@ -2351,7 +2354,7 @@ export default function BreezyPositionRecordsBrowser({
                           <button
                             type="button"
                             role="menuitem"
-                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-60"
                             onClick={() => void duplicatePositionRecord(id)}
                             disabled={cardActionSavingId === id}
                           >
@@ -2361,18 +2364,18 @@ export default function BreezyPositionRecordsBrowser({
                           <button
                             type="button"
                             role="menuitem"
-                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-60"
                             onClick={() => void patchPositionHidden(id, !hidden)}
                             disabled={cardActionSavingId === id}
                           >
                             {hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                             {hidden ? "Unhide" : "Hide"}
                           </button>
-                          <div className="border-t border-slate-200" />
+                          <div className="border-t border-border" />
                           <button
                             type="button"
                             role="menuitem"
-                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-destructive hover:bg-danger-muted disabled:opacity-60"
                             onClick={() => requestDeletePosition(id, name)}
                             disabled={cardActionSavingId === id}
                           >
@@ -3224,37 +3227,13 @@ export default function BreezyPositionRecordsBrowser({
     });
   }, [loadCompanyLogos]);
 
-  useEffect(() => {
-    if (!selectedPositionId) return;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setSelectedPositionId(null);
-        setSelectedPositionLabel(null);
-        setDetails(null);
-        setDetailsOverrides({});
-        setDetailsCompanyOpeningType("");
-        setCanEdit(false);
-        setEditing(false);
-      }
-    };
-
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [selectedPositionId]);
 
 	  return (
 	    <div className="mx-auto w-full">
 	      {deleteConfirm && typeof document !== "undefined"
 	        ? createPortal(
 	            <div
-	              className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm"
+	              className="fixed inset-0 z-[90] flex items-center justify-center bg-overlay p-4 backdrop-blur-sm"
 	              role="dialog"
 	              aria-modal="true"
 	              aria-label="Delete opening"
@@ -3264,15 +3243,15 @@ export default function BreezyPositionRecordsBrowser({
 	              }}
 	            >
 	              <div
-	                className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
+	                className="w-full max-w-md rounded-panel border border-border bg-card p-6 shadow-2xl"
 	                onClick={(event) => event.stopPropagation()}
 	              >
 	                <div className="flex items-start justify-between gap-4">
 	                  <div>
-	                    <div className="text-base font-semibold text-slate-950">Delete opening?</div>
-	                    <div className="mt-2 text-sm text-slate-600">
+	                    <div className="text-base font-semibold text-foreground">Delete opening?</div>
+	                    <div className="mt-2 text-sm text-muted-foreground">
 	                      This will remove{" "}
-	                      <span className="font-semibold text-slate-900">
+	                      <span className="font-semibold text-foreground">
 	                        {(deleteConfirm.label || deleteConfirm.positionId).trim()}
 	                      </span>{" "}
 	                      from the site and admin list.
@@ -3285,17 +3264,17 @@ export default function BreezyPositionRecordsBrowser({
 	                </div>
 
 	                <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-	                  <button
+	                  <UiButton variant="secondary" size="lg"
 	                    type="button"
-	                    className="h-11 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+	                    className="h-11 transition disabled:opacity-60"
 	                    onClick={() => setDeleteConfirm(null)}
 	                    disabled={cardActionSavingId === deleteConfirm.positionId}
 	                  >
 	                    Cancel
-	                  </button>
-	                  <button
+	                  </UiButton>
+	                  <UiButton variant="destructive" size="lg"
 	                    type="button"
-	                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-60"
+	                    className="inline-flex h-11 items-center justify-center gap-2 text-destructive-foreground transition disabled:opacity-60"
 	                    onClick={async () => {
 	                      const id = deleteConfirm.positionId;
 	                      const ok = await performDeletePosition(id);
@@ -3305,7 +3284,7 @@ export default function BreezyPositionRecordsBrowser({
 	                  >
 	                    <Trash2 className="h-4 w-4" />
 	                    {cardActionSavingId === deleteConfirm.positionId ? "Deleting…" : "Delete"}
-	                  </button>
+	                  </UiButton>
 	                </div>
 	              </div>
 	            </div>,
@@ -3315,12 +3294,12 @@ export default function BreezyPositionRecordsBrowser({
         {title || description ? (
           <div>
             {title ? (
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground">
                 {title}
               </h1>
             ) : null}
             {description ? (
-              <p className={title ? "mt-2 text-sm text-slate-600" : "text-sm text-slate-600"}>
+              <p className={title ? "mt-2 text-sm text-muted-foreground" : "text-sm text-muted-foreground"}>
                 {description}
               </p>
             ) : null}
@@ -3332,30 +3311,30 @@ export default function BreezyPositionRecordsBrowser({
             className={[
               (!companyId || loadingPositions) && positions.length === 0 && !error ? "hidden" : "",
               title || description ? "mt-8" : "mt-0",
-              "rounded-3xl border border-slate-200 bg-white p-6 shadow-sm",
+              "rounded-panel border border-border bg-card p-6 shadow-sm",
             ].join(" ")}
           >
 		        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
 
 		          <div>
-		            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+		            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 		              Search
 	            </div>
-		            <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4">
-		              <Search className="h-4 w-4 text-slate-400" />
-		              <input
-		                className="h-11 w-full border-none bg-transparent text-sm text-slate-800 outline-none"
+		            <div className="mt-2 flex items-center gap-2 rounded-panel border border-border bg-card px-4">
+		              <Search className="h-4 w-4 text-muted-foreground" />
+		              <UiInput
+		                className="h-11 w-full"
 		                placeholder="Search openings…"
 		                value={filter}
 		                onChange={(event) => setFilter(event.target.value)}
 		              />
-                  <span className="shrink-0 whitespace-nowrap border-l border-slate-200 pl-3 text-sm text-slate-500">
-                    <span className="font-semibold text-slate-900">
+                  <span className="shrink-0 whitespace-nowrap border-l border-border pl-3 text-sm text-muted-foreground">
+                    <span className="font-semibold text-foreground">
                       {filteredPositions.length.toLocaleString()}
                     </span>{" "}
                     {recordType === "pool" ? "pools" : "positions"}
                     {typeof positionsTotal === "number" ? (
-                      <span className="ml-1 text-slate-400">
+                      <span className="ml-1 text-muted-foreground">
                         / {positionsTotal.toLocaleString()}
                       </span>
                     ) : null}
@@ -3364,9 +3343,9 @@ export default function BreezyPositionRecordsBrowser({
 		          </div>
 
 		          <div className="flex items-center justify-end gap-2">
-		            <button
+		            <UiButton variant="secondary" size="lg"
 		              type="button"
-		              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+		              className="inline-flex h-11 w-11 shrink-0 items-center justify-center transition disabled:opacity-60"
 		              onClick={() => { requestCache.clear(); void loadPositions(); }}
 		              disabled={loadingPositions || !companyId.trim()}
 		              title="Reload openings"
@@ -3374,11 +3353,11 @@ export default function BreezyPositionRecordsBrowser({
 		              <RefreshCw
 		                className={loadingPositions ? "h-4 w-4 animate-spin" : "h-4 w-4"}
 		              />
-		            </button>
+		            </UiButton>
 		            {recordType === "position" ? (
-		              <button
+		              <UiButton variant="primary" size="lg"
 		                type="button"
-	                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
+	                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 transition disabled:opacity-60"
 	                onClick={() => {
 	                  setCreateOpeningError(null);
 	                  setCreateOpeningDraft({
@@ -3407,26 +3386,26 @@ export default function BreezyPositionRecordsBrowser({
 	              >
 	                <Plus className="h-4 w-4" />
 	                New opening
-	              </button>
+	              </UiButton>
 	            ) : null}
 	          </div>
 	        </div>
 
         {error ? (
-          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="mt-4 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         ) : null}
 
         {warning ? (
-          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="mt-4 rounded-panel border border-warning/25 bg-warning-muted px-4 py-3 text-sm text-warning">
             {warning}
           </div>
         ) : null}
 
 	        <div className="mt-5">
 	          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Companies
             </div>
 
@@ -3444,10 +3423,10 @@ export default function BreezyPositionRecordsBrowser({
                       key={item.name}
                       type="button"
                       className={[
-                        "flex items-center gap-3 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition hover:bg-slate-50",
+                        "flex items-center gap-3 rounded-panel border bg-card px-4 py-3 text-left shadow-sm transition hover:bg-muted",
                         active
-                          ? "border-emerald-400 bg-emerald-200 text-emerald-950 shadow-md ring-2 ring-emerald-600/15"
-                          : "border-slate-200 text-slate-700",
+                          ? "border-success/25 bg-success-muted text-success shadow-md ring-2 ring-success/25"
+                          : "border-border text-foreground",
                       ].join(" ")}
                       onClick={() =>
                         setJobCompanyFilter((prev) =>
@@ -3458,7 +3437,7 @@ export default function BreezyPositionRecordsBrowser({
                       }
                       title={item.name}
                     >
-                      <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white text-sm font-bold text-slate-700 ring-1 ring-slate-200">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-sm font-bold text-foreground ring-1 ring-ring">
                         {logoUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -3474,17 +3453,17 @@ export default function BreezyPositionRecordsBrowser({
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">{item.name}</span>
                         {active ? (
-                          <span className="block truncate text-xs text-emerald-800">
+                          <span className="block truncate text-xs text-success">
                             Selected (click to clear)
                           </span>
                         ) : companyCountsLoading ? (
-                          <span className="block truncate text-xs text-slate-400">Loading…</span>
+                          <span className="block truncate text-xs text-muted-foreground">Loading…</span>
                         ) : item.count ? (
-                          <span className="block truncate text-xs text-slate-500">
+                          <span className="block truncate text-xs text-muted-foreground">
                             {item.count} openings
                           </span>
                         ) : (
-                          <span className="block truncate text-xs text-slate-500">Filter</span>
+                          <span className="block truncate text-xs text-muted-foreground">Filter</span>
                         )}
                       </span>
                     </button>
@@ -3505,10 +3484,10 @@ export default function BreezyPositionRecordsBrowser({
                       key={item.name}
                       type="button"
                       className={[
-                        "flex min-w-[180px] items-center gap-3 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition hover:bg-slate-50",
+                        "flex min-w-[180px] items-center gap-3 rounded-panel border bg-card px-4 py-3 text-left shadow-sm transition hover:bg-muted",
                         active
-                          ? "border-emerald-400 bg-emerald-200 text-emerald-950 shadow-md ring-2 ring-emerald-600/15"
-                          : "border-slate-200 text-slate-700",
+                          ? "border-success/25 bg-success-muted text-success shadow-md ring-2 ring-success/25"
+                          : "border-border text-foreground",
                       ].join(" ")}
                       onClick={() =>
                         setJobCompanyFilter((prev) =>
@@ -3519,7 +3498,7 @@ export default function BreezyPositionRecordsBrowser({
                       }
                       title={item.name}
                     >
-                      <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white text-sm font-bold text-slate-700 ring-1 ring-slate-200">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-sm font-bold text-foreground ring-1 ring-ring">
                         {logoUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -3535,17 +3514,17 @@ export default function BreezyPositionRecordsBrowser({
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">{item.name}</span>
                         {active ? (
-                          <span className="block truncate text-xs text-emerald-800">
+                          <span className="block truncate text-xs text-success">
                             Selected (click to clear)
                           </span>
                         ) : companyCountsLoading ? (
-                          <span className="block truncate text-xs text-slate-400">Loading…</span>
+                          <span className="block truncate text-xs text-muted-foreground">Loading…</span>
                         ) : item.count ? (
-                          <span className="block truncate text-xs text-slate-500">
+                          <span className="block truncate text-xs text-muted-foreground">
                             {item.count} openings
                           </span>
                         ) : (
-                          <span className="block truncate text-xs text-slate-500">Filter</span>
+                          <span className="block truncate text-xs text-muted-foreground">Filter</span>
                         )}
                       </span>
                     </button>
@@ -3558,7 +3537,7 @@ export default function BreezyPositionRecordsBrowser({
               {jobCompanyFilter.trim() ? (
                 <button
                   type="button"
-                  className="text-sm font-semibold text-slate-600 hover:underline"
+                  className="text-sm font-semibold text-muted-foreground hover:underline"
                   onClick={() => setJobCompanyFilter("")}
                 >
                   Clear filter
@@ -3570,7 +3549,7 @@ export default function BreezyPositionRecordsBrowser({
               {companyFilterOptions.length > 10 ? (
                 <button
                   type="button"
-                  className="text-sm font-semibold text-emerald-700 hover:underline"
+                  className="text-sm font-semibold text-success hover:underline"
                   onClick={() => setShowAllCompanies((prev) => !prev)}
                 >
                   {showAllCompanies ? "Show less" : "Show all"}
@@ -3583,13 +3562,13 @@ export default function BreezyPositionRecordsBrowser({
           (priorityCountsLoading || openingTypeFilterOptions.length > 0) ? (
             <div className="mt-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Opening type
                 </div>
                 {openingTypeFilter ? (
                   <button
                     type="button"
-                    className="text-sm font-semibold text-slate-600 hover:underline"
+                    className="text-sm font-semibold text-muted-foreground hover:underline"
                     onClick={() => setOpeningTypeFilter("")}
                   >
                     Clear type
@@ -3598,7 +3577,7 @@ export default function BreezyPositionRecordsBrowser({
               </div>
               <div className="mt-3 flex flex-wrap gap-3">
                 {priorityCountsLoading && openingTypeFilterOptions.length === 0 ? (
-                  <span className="inline-flex h-11 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-400 shadow-sm">
+                  <span className="inline-flex h-11 items-center rounded-panel border border-border bg-card px-4 text-sm font-semibold text-muted-foreground shadow-sm">
                     Loading types…
                   </span>
                 ) : (
@@ -3609,10 +3588,10 @@ export default function BreezyPositionRecordsBrowser({
                         key={item.key}
                         type="button"
                         className={[
-                          "inline-flex h-11 items-center gap-2 rounded-2xl border px-4 text-sm font-semibold shadow-sm transition",
+                          "inline-flex h-11 items-center gap-2 rounded-panel border px-4 text-sm font-semibold shadow-sm transition",
                           active
-                            ? "border-sky-400 bg-sky-100 text-sky-950 ring-2 ring-sky-500/15"
-                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                            ? "border-input bg-accent text-foreground ring-2 ring-ring/15"
+                            : "border-border bg-card text-foreground hover:bg-muted",
                         ].join(" ")}
                         onClick={() =>
                           setOpeningTypeFilter((prev) =>
@@ -3623,12 +3602,12 @@ export default function BreezyPositionRecordsBrowser({
                         <span
                           className={[
                             "h-2.5 w-2.5 rounded-full shadow-sm",
-                            getPriorityBadgeClass(item.key, availablePriorityTypes) || "bg-slate-300",
+                            getPriorityBadgeClass(item.key, availablePriorityTypes) || "bg-accent",
                           ].join(" ")}
                           aria-hidden="true"
                         />
                         <span>{item.label}</span>
-                        <span className={active ? "text-sky-800" : "text-slate-400"}>
+                        <span className={active ? "text-foreground" : "text-muted-foreground"}>
                           {item.count}
                         </span>
                       </button>
@@ -3639,11 +3618,11 @@ export default function BreezyPositionRecordsBrowser({
             </div>
           ) : null}
 
-          <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="mt-5 overflow-hidden rounded-panel border border-border bg-card shadow-sm">
             <div className="overflow-x-auto">
               <table className="min-w-full table-auto">
-                <thead className="bg-slate-50">
-                  <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <thead className="bg-muted">
+                  <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     <th scope="col" className="px-4 py-3">
                       Company
                     </th>
@@ -3669,7 +3648,7 @@ export default function BreezyPositionRecordsBrowser({
                     <tr>
                       <td
                         colSpan={6}
-                        className="bg-white px-4 py-10 text-center text-sm text-slate-500"
+                        className="bg-card px-4 py-10 text-center text-sm text-muted-foreground"
                       >
                         Loading positions…
                       </td>
@@ -3678,7 +3657,7 @@ export default function BreezyPositionRecordsBrowser({
                     <tr>
                       <td
                         colSpan={6}
-                        className="bg-white px-4 py-10 text-center text-sm text-slate-500"
+                        className="bg-card px-4 py-10 text-center text-sm text-muted-foreground"
                       >
                         No {recordType === "pool" ? "pools" : "positions"} found.
                       </td>
@@ -3695,12 +3674,12 @@ export default function BreezyPositionRecordsBrowser({
             <div className="mt-6">
               <div ref={loadMoreSentinelRef} className="h-1 w-full" />
               {loadingMorePositions ? (
-                <div className="mt-3 text-center text-sm text-slate-500">
+                <div className="mt-3 text-center text-sm text-muted-foreground">
                   Loading more…
                 </div>
               ) : null}
               {!loadingMorePositions && positionsNextOffset === null && positionsTotal !== null ? (
-                <div className="mt-3 text-center text-xs text-slate-400">
+                <div className="mt-3 text-center text-xs text-muted-foreground">
                   End of list
                 </div>
               ) : null}
@@ -3721,7 +3700,7 @@ export default function BreezyPositionRecordsBrowser({
               bottomActions={
                 editing && canEdit ? (
                   <>
-                    <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-white/40 bg-slate-950/80 px-4 text-xs font-semibold text-white shadow-lg backdrop-blur transition hover:bg-slate-900 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
+                    <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-white/40 bg-overlay px-4 text-xs font-semibold text-white shadow-lg backdrop-blur transition hover:bg-black/70 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
                       {editUploadingHero ? (
                         <RefreshCw className="h-4 w-4 animate-spin" />
                       ) : (
@@ -3750,7 +3729,7 @@ export default function BreezyPositionRecordsBrowser({
                         type="button"
                         aria-label="Remove banner image"
                         title="Remove banner image"
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/40 bg-white/90 text-rose-700 shadow-lg backdrop-blur transition hover:bg-rose-50 disabled:opacity-60"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/40 bg-card/90 text-destructive shadow-lg backdrop-blur transition hover:bg-danger-muted disabled:opacity-60"
                         disabled={savingEdits || editUploadingHero}
                         onClick={() => setEditForm((prev) => ({ ...prev, hero_image_url: "" }))}
                       >
@@ -3767,7 +3746,7 @@ export default function BreezyPositionRecordsBrowser({
 	              {!editing && canEdit ? (
 	                <button
 	                  type="button"
-	                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-200/70 ring-1 ring-white/20 hover:from-[#256fd2] hover:to-[#55bbff] focus:outline-none focus:ring-2 focus:ring-sky-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70"
+	                  className="inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-lg ring-1 ring-white/20 focus:outline-none focus:ring-2 focus:ring-ring/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70"
 	                  onClick={startEditing}
 	                  disabled={detailsLoading || !details}
 	                  title="Edit fields"
@@ -3780,7 +3759,7 @@ export default function BreezyPositionRecordsBrowser({
                   <button
                     type="button"
                     aria-label="Menu"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-white/85 text-slate-800 shadow-sm backdrop-blur hover:bg-white disabled:opacity-60"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-card/85 text-foreground shadow-sm backdrop-blur hover:bg-card disabled:opacity-60"
                     onClick={(event) => {
                       event.stopPropagation();
                       setVisibilityMenuOpen((prev) => !prev);
@@ -3792,10 +3771,10 @@ export default function BreezyPositionRecordsBrowser({
                   </button>
 
                   {visibilityMenuOpen ? (
-                    <div className="absolute right-0 top-12 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+                    <div className="absolute right-0 top-12 w-48 overflow-hidden rounded-panel border border-border bg-card shadow-xl">
                       <button
                         type="button"
-                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-60"
                         onClick={() =>
                           selectedPositionId && void duplicatePositionRecord(selectedPositionId)
                         }
@@ -3811,20 +3790,20 @@ export default function BreezyPositionRecordsBrowser({
                       </button>
                       <button
                         type="button"
-                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-60"
                         onClick={() => void setHiddenOverride(!isHidden)}
                         disabled={visibilitySaving}
                       >
                         {isHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                         {isHidden ? "Unhide" : "Hide"}
                       </button>
-                      <div className="px-4 pb-3 text-[11px] leading-4 text-slate-500">
+                      <div className="px-4 pb-3 text-[11px] leading-4 text-muted-foreground">
                         Hidden jobs stay off the HR portal unless Ismira Web is enabled.
                       </div>
-                      <div className="border-t border-slate-200" />
+                      <div className="border-t border-border" />
                       <button
                         type="button"
-                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-destructive hover:bg-danger-muted disabled:opacity-60"
                         onClick={() => void deletePositionRecord()}
                         disabled={visibilitySaving}
                       >
@@ -3839,7 +3818,7 @@ export default function BreezyPositionRecordsBrowser({
             </>
 	          }
 	          stickyHeader={
-	            <div className="border-b border-slate-200/80 bg-white/95 px-6 pb-5 pt-6 backdrop-blur">
+	            <div className="border-b border-border/80 bg-card/95 px-6 pb-5 pt-6 backdrop-blur">
 	              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
 	                <div className="min-w-0">
 	                  <div className="mb-3">
@@ -3862,14 +3841,14 @@ export default function BreezyPositionRecordsBrowser({
                         ? companyLogoByName[primaryCompany.toLowerCase()] ?? ""
                         : "";
                       return primaryCompany ? (
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                           <span className="inline-flex items-center gap-2">
                             {logoSrc ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={logoSrc}
                                 alt={primaryCompany}
-                                className="h-8 w-8 flex-none rounded-full bg-white object-cover shadow-sm ring-1 ring-slate-200"
+                                className="h-8 w-8 flex-none rounded-full bg-card object-cover shadow-sm ring-1 ring-ring"
                                 loading="lazy"
                                 decoding="async"
                               />
@@ -3878,7 +3857,7 @@ export default function BreezyPositionRecordsBrowser({
                             {canEdit && editing ? (
                               <button
                                 type="button"
-                                className="inline-flex items-center gap-2 rounded-full px-2 py-1 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:opacity-60"
+                                className="inline-flex items-center gap-2 rounded-full px-2 py-1 text-left text-sm font-semibold text-foreground transition hover:bg-muted disabled:opacity-60"
                                 title="Edit company"
                                 onClick={() => {
                                   setInlineEditField("company");
@@ -3891,10 +3870,10 @@ export default function BreezyPositionRecordsBrowser({
                                 <span className="max-w-[340px] whitespace-nowrap truncate">
                                   {companyLabel}
                                 </span>
-                                <PencilLine className="h-4 w-4 text-slate-500" />
+                                <PencilLine className="h-4 w-4 text-muted-foreground" />
                               </button>
                             ) : (
-                              <span className="max-w-[340px] whitespace-nowrap text-sm font-semibold text-slate-800 truncate">
+                              <span className="max-w-[340px] whitespace-nowrap text-sm font-semibold text-foreground truncate">
                                 {companyLabel}
                               </span>
                             )}
@@ -3909,7 +3888,7 @@ export default function BreezyPositionRecordsBrowser({
                       {editing && inlineEditField === "title" ? (
                         <input
                           id="breezy-position-modal-title"
-                          className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-lg font-extrabold text-slate-900 shadow-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 sm:text-2xl"
+                          className="h-12 w-full rounded-panel border border-border bg-card px-4 text-lg font-extrabold text-foreground shadow-sm outline-none transition focus:border-success/25 focus:ring-2 focus:ring-success/25 sm:text-2xl"
                           value={editForm.name}
                           disabled={savingEdits}
                           onChange={(event) =>
@@ -3944,7 +3923,7 @@ export default function BreezyPositionRecordsBrowser({
                             <button
                               type="button"
                               id="breezy-position-modal-title"
-                              className="min-w-0 text-left text-xl font-extrabold leading-tight text-slate-900 break-words transition hover:text-slate-950 disabled:opacity-60 sm:text-2xl"
+                              className="min-w-0 text-left text-xl font-extrabold leading-tight text-foreground break-words transition hover:text-foreground disabled:opacity-60 sm:text-2xl"
                               title="Edit title"
                               onClick={() => {
                                 const currentTitle =
@@ -3970,7 +3949,7 @@ export default function BreezyPositionRecordsBrowser({
                           ) : (
                             <div
                               id="breezy-position-modal-title"
-                              className="min-w-0 text-xl font-extrabold leading-tight text-slate-900 break-words sm:text-2xl"
+                              className="min-w-0 text-xl font-extrabold leading-tight text-foreground break-words sm:text-2xl"
                             >
                               {detailsLoading
                                 ? "Loading…"
@@ -3982,7 +3961,7 @@ export default function BreezyPositionRecordsBrowser({
                           {canEdit && editing ? (
                             <button
                               type="button"
-                              className="mt-1 inline-flex h-9 w-9 flex-none items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                              className="mt-1 inline-flex h-9 w-9 flex-none items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm transition hover:bg-muted disabled:opacity-60"
                               title="Edit title"
                               onClick={() => {
                                 const currentTitle =
@@ -4005,9 +3984,9 @@ export default function BreezyPositionRecordsBrowser({
                     </div>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap">
                         {recordType === "pool" ? "Pool" : "Position"}
                       </span>
                       {(() => {
@@ -4028,15 +4007,15 @@ export default function BreezyPositionRecordsBrowser({
                               const content = (
                                 <>
                                   {badge.key === "department" ? (
-                                    <Layers className="h-3.5 w-3.5 text-amber-600" />
+                                    <Layers className="h-3.5 w-3.5 text-warning" />
                                   ) : (
-                                    <MapPin className="h-3.5 w-3.5 text-cyan-600" />
+                                    <MapPin className="h-3.5 w-3.5 text-foreground" />
                                   )}
                                   <span className="min-w-0 max-w-[320px] whitespace-nowrap truncate">
                                     {badge.label}
                                   </span>
                                   {canEdit && editing && badge.key === "department" ? (
-                                    <PencilLine className="h-3.5 w-3.5 text-amber-700" />
+                                    <PencilLine className="h-3.5 w-3.5 text-warning" />
                                   ) : null}
                                 </>
                               );
@@ -4044,8 +4023,8 @@ export default function BreezyPositionRecordsBrowser({
                               const className = [
                                 "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-semibold shadow-sm",
                                 badge.key === "department"
-                                  ? "border-amber-200 bg-gradient-to-r from-amber-100 to-[#ffc45c]/70 text-amber-950 shadow-amber-200/40"
-                                  : "border-cyan-200 bg-gradient-to-r from-cyan-100 to-sky-100 text-cyan-950 shadow-cyan-200/40",
+                                  ? "border-border bg-muted text-foreground"
+                                  : "border-border bg-muted text-foreground",
                               ].join(" ");
 
                               if (canEdit && editing && badge.key === "department") {
@@ -4106,8 +4085,8 @@ export default function BreezyPositionRecordsBrowser({
                                 className={[
                                   "relative inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-semibold shadow-sm transition hover:brightness-[0.98] disabled:opacity-60",
                                   showOnIsmiraWeb
-                                    ? "border-fuchsia-300 bg-gradient-to-r from-fuchsia-500 via-rose-500 to-amber-400 text-white shadow-fuchsia-300/50"
-                                    : "border-fuchsia-200 bg-gradient-to-r from-violet-50 via-fuchsia-50 to-rose-50 text-fuchsia-900 shadow-fuchsia-100/60",
+                                    ? "border-border bg-primary text-primary-foreground"
+                                    : "border-border bg-muted text-foreground",
                                 ].join(" ")}
                                 title={title}
                                 onClick={(event) => {
@@ -4124,14 +4103,14 @@ export default function BreezyPositionRecordsBrowser({
                                 <Globe2
                                   className={[
                                     "h-3.5 w-3.5",
-                                    showOnIsmiraWeb ? "text-white" : "text-fuchsia-600",
+                                    showOnIsmiraWeb ? "text-primary-foreground" : "text-fuchsia-600",
                                   ].join(" ")}
                                 />
                                 <span className="whitespace-nowrap">Ismira Web</span>
                                 <PencilLine
                                   className={[
                                     "h-3.5 w-3.5",
-                                    showOnIsmiraWeb ? "text-white" : "text-fuchsia-700",
+                                    showOnIsmiraWeb ? "text-primary-foreground" : "text-fuchsia-700",
                                   ].join(" ")}
                                 />
                               </button>
@@ -4140,8 +4119,8 @@ export default function BreezyPositionRecordsBrowser({
                                 className={[
                                   "relative inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-semibold shadow-sm",
                                   showOnIsmiraWeb
-                                    ? "border-fuchsia-300 bg-gradient-to-r from-fuchsia-500 via-rose-500 to-amber-400 text-white shadow-fuchsia-300/50"
-                                    : "border-fuchsia-200 bg-gradient-to-r from-violet-50 via-fuchsia-50 to-rose-50 text-fuchsia-900 shadow-fuchsia-100/60",
+                                    ? "border-border bg-primary text-primary-foreground"
+                                    : "border-border bg-muted text-foreground",
                                 ].join(" ")}
                                 title={title}
                               >
@@ -4153,7 +4132,7 @@ export default function BreezyPositionRecordsBrowser({
                                 <Globe2
                                   className={[
                                     "h-3.5 w-3.5",
-                                    showOnIsmiraWeb ? "text-white" : "text-fuchsia-600",
+                                    showOnIsmiraWeb ? "text-primary-foreground" : "text-fuchsia-600",
                                   ].join(" ")}
                                 />
                                 <span className="whitespace-nowrap">Ismira Web</span>
@@ -4178,7 +4157,7 @@ export default function BreezyPositionRecordsBrowser({
                             return canEdit && editing ? (
                               <button
                                 type="button"
-                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] font-semibold shadow-sm ${getPriorityBadgeClass(priorityKey, availablePriorityTypes) || "bg-slate-100 text-slate-600"}`}
+                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] font-semibold shadow-sm ${getPriorityBadgeClass(priorityKey, availablePriorityTypes) || "bg-muted text-muted-foreground"}`}
                                 title="Opening type"
                                 onClick={(event) => {
                                   event.stopPropagation();
@@ -4193,7 +4172,7 @@ export default function BreezyPositionRecordsBrowser({
                                 <PencilLine className="h-3.5 w-3.5" />
                               </button>
                             ) : (
-                              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] font-semibold shadow-sm ${getPriorityBadgeClass(priorityKey, availablePriorityTypes) || "bg-slate-100 text-slate-600"}`}>
+                              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] font-semibold shadow-sm ${getPriorityBadgeClass(priorityKey, availablePriorityTypes) || "bg-muted text-muted-foreground"}`}>
                                 <FolderKanban className="h-3.5 w-3.5" />
                                 <span className="min-w-0 max-w-[240px] whitespace-nowrap truncate">
                                   {label}
@@ -4208,8 +4187,8 @@ export default function BreezyPositionRecordsBrowser({
                               className={[
                                 "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-semibold shadow-sm transition hover:brightness-[0.98] disabled:opacity-60",
                                 isHidden
-                                  ? "border-rose-200 bg-rose-50 text-rose-900 shadow-rose-200/40"
-                                  : "border-emerald-200 bg-emerald-50 text-emerald-900 shadow-emerald-200/40",
+                                  ? "border-destructive/25 bg-danger-muted text-destructive shadow-rose-200/40"
+                                  : "border-success/25 bg-success-muted text-success shadow-emerald-200/40",
                               ].join(" ")}
                               title="Active status"
                               onClick={(event) => {
@@ -4219,9 +4198,9 @@ export default function BreezyPositionRecordsBrowser({
                               disabled={detailsLoading || visibilitySaving}
                             >
                               {isHidden ? (
-                                <EyeOff className="h-3.5 w-3.5 text-rose-600" />
+                                <EyeOff className="h-3.5 w-3.5 text-destructive" />
                               ) : (
-                                <Eye className="h-3.5 w-3.5 text-emerald-600" />
+                                <Eye className="h-3.5 w-3.5 text-success" />
                               )}
                               <span className="whitespace-nowrap">
                                 {isHidden ? "Not active" : "Active"}
@@ -4229,7 +4208,7 @@ export default function BreezyPositionRecordsBrowser({
                               <PencilLine
                                 className={[
                                   "h-3.5 w-3.5",
-                                  isHidden ? "text-rose-700" : "text-emerald-700",
+                                  isHidden ? "text-destructive" : "text-success",
                                 ].join(" ")}
                               />
                             </button>
@@ -4238,14 +4217,14 @@ export default function BreezyPositionRecordsBrowser({
                               className={[
                                 "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-semibold shadow-sm",
                                 isHidden
-                                  ? "border-rose-200 bg-rose-50 text-rose-900 shadow-rose-200/40"
-                                  : "border-emerald-200 bg-emerald-50 text-emerald-900 shadow-emerald-200/40",
+                                  ? "border-destructive/25 bg-danger-muted text-destructive shadow-rose-200/40"
+                                  : "border-success/25 bg-success-muted text-success shadow-emerald-200/40",
                               ].join(" ")}
                             >
                               {isHidden ? (
-                                <EyeOff className="h-3.5 w-3.5 text-rose-600" />
+                                <EyeOff className="h-3.5 w-3.5 text-destructive" />
                               ) : (
-                                <Eye className="h-3.5 w-3.5 text-emerald-600" />
+                                <Eye className="h-3.5 w-3.5 text-success" />
                               )}
                               <span className="whitespace-nowrap">
                                 {isHidden ? "Not active" : "Active"}
@@ -4258,7 +4237,7 @@ export default function BreezyPositionRecordsBrowser({
                   </div>
 
                   {!editing && !detailsLoading && details && !canEdit ? (
-                    <div className="mt-3 text-[11px] text-slate-500">
+                    <div className="mt-3 text-[11px] text-muted-foreground">
                       Editing is disabled:{" "}
                       {isPositionsTableMissing
                         ? "apply `supabase/breezy_positions.sql` in Supabase to enable caching/overrides."
@@ -4273,11 +4252,11 @@ export default function BreezyPositionRecordsBrowser({
           footer={
             <>
               {editing ? (
-                <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white/95 px-6 py-4 backdrop-blur">
+                <div className="sticky bottom-0 z-10 border-t border-border bg-card/95 px-6 py-4 backdrop-blur">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <button
                       type="button"
-                      className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-800 transition hover:bg-rose-100 disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-full border border-destructive/25 bg-danger-muted px-4 py-2 text-xs font-semibold text-destructive transition hover:bg-danger-muted disabled:opacity-60"
                       onClick={() => void resetEdits()}
                       disabled={savingEdits}
                     >
@@ -4287,7 +4266,7 @@ export default function BreezyPositionRecordsBrowser({
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       <button
                         type="button"
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                        className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-muted disabled:opacity-60"
                         onClick={() => {
                           setEditing(false);
                           setInlineEditField(null);
@@ -4304,7 +4283,7 @@ export default function BreezyPositionRecordsBrowser({
                       </button>
                       <button
                         type="button"
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-950 bg-slate-950 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                        className="inline-flex items-center gap-2 rounded-full border border-input bg-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary disabled:opacity-60"
                         onClick={() => void saveEdits()}
                         disabled={savingEdits || detailsLoading}
                       >
@@ -4317,17 +4296,17 @@ export default function BreezyPositionRecordsBrowser({
 
               {priorityTypesModalOpen ? (
                 <div
-                  className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
+                  className="absolute inset-0 z-40 flex items-center justify-center bg-overlay p-4 backdrop-blur-sm"
                   onClick={() => setPriorityTypesModalOpen(false)}
                 >
                   <div
-                    className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl"
+                    className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-panel border border-border bg-card p-5 shadow-2xl"
                     onClick={(event) => event.stopPropagation()}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="text-sm font-semibold text-slate-900">Priority types</div>
-                        <div className="mt-1 text-xs text-slate-500">
+                        <div className="text-sm font-semibold text-foreground">Priority types</div>
+                        <div className="mt-1 text-xs text-muted-foreground">
                           Use the arrows to reorder types on the jobs page. Order changes save automatically.
                         </div>
                       </div>
@@ -4335,13 +4314,13 @@ export default function BreezyPositionRecordsBrowser({
                     </div>
 
                     <div className="mt-4 grid gap-3">
-                      {error ? <p role="alert" className="text-sm text-rose-600">{error}</p> : null}
+                      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
                       {availablePriorityTypes.map((type, index) => {
                         const key = normalizePriorityKey(type.key);
                         return (
                           <div
                             key={key}
-                            className="grid gap-2 rounded-2xl border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
+                            className="grid gap-2 rounded-panel border border-border p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
                           >
                             <OpeningTypeOrderControls
                               label={type.label}
@@ -4351,7 +4330,7 @@ export default function BreezyPositionRecordsBrowser({
                               onMove={(direction) => void moveOpeningType(index, direction)}
                             />
                             <input
-                              className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
+                              className="h-11 w-full rounded-panel border border-border bg-card px-4 text-sm text-foreground outline-none focus:border-success/25 focus:ring-2 focus:ring-success/25 disabled:opacity-60"
                               value={priorityDrafts[key] ?? type.label}
                               disabled={prioritySaving}
                               onChange={(event) =>
@@ -4364,10 +4343,10 @@ export default function BreezyPositionRecordsBrowser({
                             <button
                               type="button"
                               className={[
-                                "inline-flex h-11 items-center justify-center gap-2 rounded-2xl border px-4 text-xs font-semibold transition disabled:opacity-60",
+                                "inline-flex h-11 items-center justify-center gap-2 rounded-panel border px-4 text-xs font-semibold transition disabled:opacity-60",
                                 type.showOnFrontpage
-                                  ? "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100"
-                                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                                  ? "border-input bg-accent text-foreground hover:bg-accent"
+                                  : "border-border bg-card text-muted-foreground hover:bg-muted",
                               ].join(" ")}
                               onClick={() => void updatePriorityType(key, !type.showOnFrontpage)}
                               aria-pressed={type.showOnFrontpage}
@@ -4383,7 +4362,7 @@ export default function BreezyPositionRecordsBrowser({
                             </button>
                             <button
                               type="button"
-                              className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                              className="h-11 rounded-panel border border-border bg-card px-4 text-xs font-semibold text-foreground transition hover:bg-muted disabled:opacity-60"
                               onClick={() => void updatePriorityType(key)}
                               disabled={prioritySaving || !(priorityDrafts[key] ?? type.label).trim()}
                             >
@@ -4391,17 +4370,17 @@ export default function BreezyPositionRecordsBrowser({
                             </button>
                             <button
                               type="button"
-                              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                              className="inline-flex h-11 items-center justify-center gap-2 rounded-panel border border-destructive/25 bg-danger-muted px-4 text-xs font-semibold text-destructive transition hover:bg-danger-muted disabled:opacity-60"
                               onClick={() => void deletePriorityType(key)}
                               disabled={prioritySaving}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                               Delete
                             </button>
-                      <label className="grid gap-1 text-xs font-medium text-slate-600 sm:col-span-4">
+                      <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-4">
                         Tooltip explanation
                         <textarea
-                          className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
+                          className="w-full rounded-md border border-border bg-card p-3 text-sm text-foreground focus:border-input focus:outline-none"
                           value={tooltipDrafts[key] ?? getPriorityTooltip(type)}
                           onChange={event => setTooltipDrafts(prev => ({ ...prev, [key]: event.target.value }))}
                           maxLength={500}
@@ -4414,9 +4393,9 @@ export default function BreezyPositionRecordsBrowser({
                         );
                       })}
 
-                      <div className="grid gap-2 rounded-2xl border border-dashed border-slate-300 p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                      <div className="grid gap-2 rounded-panel border border-dashed border-input p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
                         <input
-                          className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
+                          className="h-11 w-full rounded-panel border border-border bg-card px-4 text-sm text-foreground outline-none focus:border-success/25 focus:ring-2 focus:ring-success/25 disabled:opacity-60"
                           placeholder="New type label"
                           value={newPriorityLabel}
                           disabled={prioritySaving}
@@ -4424,7 +4403,7 @@ export default function BreezyPositionRecordsBrowser({
                         />
                         <button
                           type="button"
-                          className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-950 bg-slate-950 px-4 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                          className="inline-flex h-11 items-center justify-center gap-2 rounded-panel border border-input bg-primary px-4 text-xs font-semibold text-primary-foreground transition hover:bg-primary disabled:opacity-60"
                           onClick={() => void createPriorityType()}
                           disabled={prioritySaving || !newPriorityLabel.trim()}
                         >
@@ -4439,7 +4418,7 @@ export default function BreezyPositionRecordsBrowser({
 
               {companyPickerOpen || departmentPickerOpen ? (
                 <div
-                  className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
+                  className="absolute inset-0 z-20 flex items-center justify-center bg-overlay p-4 backdrop-blur-sm"
                   onClick={() => {
                     setCompanyPickerOpen(false);
                     setDepartmentPickerOpen(false);
@@ -4447,15 +4426,15 @@ export default function BreezyPositionRecordsBrowser({
                   }}
                 >
                   <div
-                    className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl"
+                    className="w-full max-w-lg rounded-panel border border-border bg-card p-5 shadow-2xl"
                     onClick={(event) => event.stopPropagation()}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="text-sm font-semibold text-slate-900">
+                        <div className="text-sm font-semibold text-foreground">
                           {companyPickerOpen ? "Companies" : "Departments"}
                         </div>
-                        <div className="mt-1 text-xs text-slate-500">
+                        <div className="mt-1 text-xs text-muted-foreground">
                           {companyPickerOpen
                             ? "Pick one or more companies for this job."
                             : departmentPickerCompany
@@ -4474,16 +4453,16 @@ export default function BreezyPositionRecordsBrowser({
 
                     <div className="mt-4">
                       <div className="relative">
-                        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <input
-                          className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                          className="h-11 w-full rounded-panel border border-border bg-card pl-11 pr-4 text-sm text-foreground outline-none focus:border-success/25 focus:ring-2 focus:ring-success/25"
                           value={pickerQuery}
                           onChange={(event) => setPickerQuery(event.target.value)}
                           placeholder={`Search ${companyPickerOpen ? "companies" : "departments"}...`}
                         />
                       </div>
 
-                      <div className="mt-4 max-h-[320px] overflow-auto rounded-2xl border border-slate-200">
+                      <div className="mt-4 max-h-[320px] overflow-auto rounded-panel border border-border">
                         {filteredPickerOptions.length > 0 ? (
                           <div className="divide-y divide-slate-100">
                             {filteredPickerOptions.map((label) => {
@@ -4501,8 +4480,8 @@ export default function BreezyPositionRecordsBrowser({
                                   className={[
                                     "flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold transition",
                                     selected && companyPickerOpen
-                                      ? "bg-emerald-50 text-emerald-800"
-                                      : "text-slate-800 hover:bg-slate-50",
+                                      ? "bg-success-muted text-success"
+                                      : "text-foreground hover:bg-muted",
                                   ].join(" ")}
                                   onClick={() => {
                                     if (companyPickerOpen) {
@@ -4536,7 +4515,7 @@ export default function BreezyPositionRecordsBrowser({
                                 >
                                   <span className="flex min-w-0 items-center gap-3">
                                     {companyPickerOpen ? (
-                                      <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white text-xs font-bold text-slate-500 ring-1 ring-slate-200">
+                                      <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-xs font-bold text-muted-foreground ring-1 ring-ring">
                                         {companyLogoUrl ? (
                                           // eslint-disable-next-line @next/next/no-img-element
                                           <img
@@ -4553,26 +4532,26 @@ export default function BreezyPositionRecordsBrowser({
                                     <span className="min-w-0 truncate">{label}</span>
                                   </span>
                                   {companyPickerOpen && selected ? (
-                                    <span className="inline-flex items-center gap-1 text-emerald-700">
+                                    <span className="inline-flex items-center gap-1 text-success">
                                       <Check className="h-4 w-4" />
                                       Selected
                                     </span>
                                   ) : (
-                                    <span className="text-slate-400">Select</span>
+                                    <span className="text-muted-foreground">Select</span>
                                   )}
                                 </button>
                               );
                             })}
                           </div>
                         ) : (
-                          <div className="px-4 py-6 text-sm text-slate-500">No matches found.</div>
+                          <div className="px-4 py-6 text-sm text-muted-foreground">No matches found.</div>
                         )}
                       </div>
 
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
                         <button
                           type="button"
-                          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                          className="rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-muted"
                           onClick={() => {
                             if (companyPickerOpen) {
                               setEditForm((prev) => ({ ...prev, company: "", companies: [] }));
@@ -4590,7 +4569,7 @@ export default function BreezyPositionRecordsBrowser({
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                            className="rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-muted"
                             onClick={() => {
                               setCompanyPickerOpen(false);
                               setDepartmentPickerOpen(false);
@@ -4602,7 +4581,7 @@ export default function BreezyPositionRecordsBrowser({
                           {companyPickerOpen ? (
                             <button
                               type="button"
-                              className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                              className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition hover:bg-primary disabled:opacity-60"
                               onClick={() => {
                                 const selectedCompanies = editForm.companies;
                                 const primary = selectedCompanies[0] ?? "";
@@ -4658,17 +4637,17 @@ export default function BreezyPositionRecordsBrowser({
 
               {statusPickerOpen ? (
                 <div
-                  className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
+                  className="absolute inset-0 z-20 flex items-center justify-center bg-overlay p-4 backdrop-blur-sm"
                   onClick={() => setStatusPickerOpen(false)}
                 >
                   <div
-                    className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl"
+                    className="w-full max-w-md rounded-panel border border-border bg-card p-5 shadow-2xl"
                     onClick={(event) => event.stopPropagation()}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="text-sm font-semibold text-slate-900">Opening status</div>
-                        <div className="mt-1 text-xs text-slate-500">
+                        <div className="text-sm font-semibold text-foreground">Opening status</div>
+                        <div className="mt-1 text-xs text-muted-foreground">
                           Active openings are visible on the public jobs page.
                         </div>
                       </div>
@@ -4679,8 +4658,8 @@ export default function BreezyPositionRecordsBrowser({
                       <button
                         type="button"
                         className={[
-                          "flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition hover:bg-slate-50 disabled:opacity-60",
-                          !isHidden ? "border-emerald-200 bg-emerald-50/60" : "border-slate-200",
+                          "flex w-full items-center justify-between gap-3 rounded-panel border px-4 py-3 text-left text-sm font-semibold transition hover:bg-muted disabled:opacity-60",
+                          !isHidden ? "border-success/25 bg-success-muted" : "border-border",
                         ].join(" ")}
                         onClick={() => {
                           void setHiddenOverride(false);
@@ -4689,16 +4668,16 @@ export default function BreezyPositionRecordsBrowser({
                         disabled={visibilitySaving || detailsLoading}
                       >
                         <span className="flex items-center gap-2">
-                          <Eye className="h-4 w-4 text-emerald-600" />
+                          <Eye className="h-4 w-4 text-success" />
                           Active
                         </span>
-                        {!isHidden ? <span className="text-emerald-700">Selected</span> : null}
+                        {!isHidden ? <span className="text-success">Selected</span> : null}
                       </button>
                       <button
                         type="button"
                         className={[
-                          "flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition hover:bg-slate-50 disabled:opacity-60",
-                          isHidden ? "border-rose-200 bg-rose-50/60" : "border-slate-200",
+                          "flex w-full items-center justify-between gap-3 rounded-panel border px-4 py-3 text-left text-sm font-semibold transition hover:bg-muted disabled:opacity-60",
+                          isHidden ? "border-destructive/25 bg-danger-muted" : "border-border",
                         ].join(" ")}
                         onClick={() => {
                           void setHiddenOverride(true);
@@ -4707,10 +4686,10 @@ export default function BreezyPositionRecordsBrowser({
                         disabled={visibilitySaving || detailsLoading}
                       >
                         <span className="flex items-center gap-2">
-                          <EyeOff className="h-4 w-4 text-rose-600" />
+                          <EyeOff className="h-4 w-4 text-destructive" />
                           Not active
                         </span>
-                        {isHidden ? <span className="text-rose-700">Selected</span> : null}
+                        {isHidden ? <span className="text-destructive">Selected</span> : null}
                       </button>
                     </div>
                   </div>
@@ -4719,17 +4698,17 @@ export default function BreezyPositionRecordsBrowser({
 
               {ismiraWebPickerOpen ? (
                 <div
-                  className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
+                  className="absolute inset-0 z-20 flex items-center justify-center bg-overlay p-4 backdrop-blur-sm"
                   onClick={() => setIsmiraWebPickerOpen(false)}
                 >
                   <div
-                    className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl"
+                    className="w-full max-w-md rounded-panel border border-border bg-card p-5 shadow-2xl"
                     onClick={(event) => event.stopPropagation()}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="text-sm font-semibold text-slate-900">Ismira Web</div>
-                        <div className="mt-1 text-xs text-slate-500">
+                        <div className="text-sm font-semibold text-foreground">Ismira Web</div>
+                        <div className="mt-1 text-xs text-muted-foreground">
                           Manually choose if this opening appears in the Ismira website interviews section.
                         </div>
                       </div>
@@ -4740,10 +4719,10 @@ export default function BreezyPositionRecordsBrowser({
                       <button
                         type="button"
                         className={[
-                          "flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition hover:bg-slate-50 disabled:opacity-60",
+                          "flex w-full items-center justify-between gap-3 rounded-panel border px-4 py-3 text-left transition hover:bg-muted disabled:opacity-60",
                           editForm.show_on_ismira_web
-                            ? "border-cyan-200 bg-cyan-50/70"
-                            : "border-slate-200 bg-white",
+                            ? "border-input bg-accent/70"
+                            : "border-border bg-card",
                         ].join(" ")}
                         onClick={() => {
                           const next = !editForm.show_on_ismira_web;
@@ -4761,23 +4740,23 @@ export default function BreezyPositionRecordsBrowser({
                         disabled={savingEdits || detailsLoading}
                       >
                         <span>
-                          <span className="block text-sm font-semibold text-slate-900">
+                          <span className="block text-sm font-semibold text-foreground">
                             Show on Ismira website
                           </span>
-                          <span className="mt-1 block text-xs text-slate-500">
+                          <span className="mt-1 block text-xs text-muted-foreground">
                             Adds this JD below urgent jobs.
                           </span>
                         </span>
                         <span
                           className={[
                             "relative h-7 w-12 rounded-full transition",
-                            editForm.show_on_ismira_web ? "bg-cyan-500" : "bg-slate-200",
+                            editForm.show_on_ismira_web ? "bg-cyan-500" : "bg-accent",
                           ].join(" ")}
                           aria-hidden="true"
                         >
                           <span
                             className={[
-                              "absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition",
+                              "absolute top-1 h-5 w-5 rounded-full bg-card shadow-sm transition",
                               editForm.show_on_ismira_web ? "left-6" : "left-1",
                             ].join(" ")}
                           />
@@ -4785,11 +4764,11 @@ export default function BreezyPositionRecordsBrowser({
                       </button>
 
                       <label className="grid gap-2">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                           Public section title
                         </span>
                         <input
-                          className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 disabled:opacity-60"
+                          className="h-11 w-full rounded-panel border border-border bg-card px-4 text-sm text-foreground outline-none focus:border-input focus:ring-2 focus:ring-ring disabled:opacity-60"
                           value={editForm.ismira_web_title}
                           disabled={savingEdits || detailsLoading}
                           onChange={(event) => {
@@ -4814,17 +4793,17 @@ export default function BreezyPositionRecordsBrowser({
 
                   {openingTypePickerOpen ? (
                 <div
-                  className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
+                  className="absolute inset-0 z-20 flex items-center justify-center bg-overlay p-4 backdrop-blur-sm"
                   onClick={() => setOpeningTypePickerOpen(false)}
                 >
                   <div
-                    className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl"
+                    className="w-full max-w-lg rounded-panel border border-border bg-card p-5 shadow-2xl"
                     onClick={(event) => event.stopPropagation()}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="text-sm font-semibold text-slate-900">Opening type</div>
-                        <div className="mt-1 text-xs text-slate-500">
+                        <div className="text-sm font-semibold text-foreground">Opening type</div>
+                        <div className="mt-1 text-xs text-muted-foreground">
                           Choose a label for this opening, or create a new one.
                         </div>
                       </div>
@@ -4873,7 +4852,7 @@ export default function BreezyPositionRecordsBrowser({
 
                       return (
                         <>
-                          <div className="mt-4 max-h-[320px] overflow-auto rounded-2xl border border-slate-200">
+                          <div className="mt-4 max-h-[320px] overflow-auto rounded-panel border border-border">
                             <div className="divide-y divide-slate-100">
                               {options.map((opt) => {
                                 const selected = opt.key === activeKey;
@@ -4882,8 +4861,8 @@ export default function BreezyPositionRecordsBrowser({
                                     key={opt.key}
                                     type="button"
                                     className={[
-                                      "flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold transition hover:bg-slate-50 disabled:opacity-60",
-                                      selected ? "bg-sky-50" : "bg-white",
+                                      "flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold transition hover:bg-muted disabled:opacity-60",
+                                      selected ? "bg-accent" : "bg-card",
                                     ].join(" ")}
                                     onClick={() => {
                                       const nextPriority =
@@ -4904,7 +4883,7 @@ export default function BreezyPositionRecordsBrowser({
                                   >
                                     <span className="min-w-0 truncate">{opt.label}</span>
                                     {selected ? (
-                                      <span className="text-sky-700">Selected</span>
+                                      <span className="text-foreground">Selected</span>
                                     ) : null}
                                   </button>
                                 );
@@ -4915,7 +4894,7 @@ export default function BreezyPositionRecordsBrowser({
                           <div className="mt-4 flex flex-wrap items-center gap-2">
                             <button
                               type="button"
-                              className="inline-flex items-center gap-2 rounded-full border border-sky-400 bg-gradient-to-r from-[#00b4ff] via-[#1594f5] to-[#006fe6] px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-300/50 transition hover:from-[#16c8ff] hover:via-[#1aa2ff] hover:to-[#075fe0] disabled:opacity-60"
+                              className="inline-flex items-center gap-2 rounded-full border border-border bg-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground shadow-lg transition disabled:opacity-60"
                               onClick={() => { setOpeningTypePickerOpen(false); setPriorityTypesModalOpen(true); }}
                               disabled={savingEdits || detailsLoading}
                             >
@@ -4959,16 +4938,16 @@ export default function BreezyPositionRecordsBrowser({
                       return (
                         <div className="grid gap-4">
                           <div className="grid gap-3">
-                            <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+                            <div className="grid gap-3 rounded-panel border border-border bg-muted/60 p-3">
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div>
-                                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                     Company benefits
                                   </div>
                                 </div>
-                                <button
+                                <UiButton variant="secondary" size="sm"
                                   type="button"
-                                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+                                  className="transition disabled:opacity-60"
                                   disabled={savingEdits}
                                   onClick={() =>
                                     setEditForm((prev) => ({
@@ -4981,7 +4960,7 @@ export default function BreezyPositionRecordsBrowser({
                                   }
                                 >
                                   Use company defaults
-                                </button>
+                                </UiButton>
                               </div>
                               <div className="grid gap-2 sm:grid-cols-2">
                                 {benefitOptions.map((option) => {
@@ -4994,10 +4973,10 @@ export default function BreezyPositionRecordsBrowser({
                                       key={tag}
                                       type="button"
                                       className={[
-                                        "flex items-center gap-3 rounded-2xl border px-3 py-2 text-left text-sm transition disabled:opacity-60",
+                                        "flex items-center gap-3 rounded-panel border px-3 py-2 text-left text-sm transition disabled:opacity-60",
                                         selected
-                                          ? "border-sky-400 bg-sky-50 text-sky-950 shadow-sm ring-2 ring-sky-100"
-                                          : "border-slate-200 bg-white/70 text-slate-500 hover:border-slate-300 hover:bg-white",
+                                          ? "border-input bg-accent text-foreground shadow-sm ring-2 ring-ring"
+                                          : "border-border bg-card/70 text-muted-foreground hover:border-input hover:bg-card",
                                       ].join(" ")}
                                       disabled={savingEdits}
                                       onClick={() =>
@@ -5015,8 +4994,8 @@ export default function BreezyPositionRecordsBrowser({
                                         className={[
                                           "grid h-9 w-9 shrink-0 place-items-center rounded-full border",
                                           selected
-                                            ? "border-sky-300 bg-sky-600 text-white"
-                                            : "border-slate-200 bg-slate-50 text-slate-500",
+                                            ? "border-input bg-sky-600 text-white"
+                                            : "border-border bg-muted text-muted-foreground",
                                         ].join(" ")}
                                       >
                                         <Icon className="h-4 w-4" />
@@ -5035,14 +5014,14 @@ export default function BreezyPositionRecordsBrowser({
                               </div>
                             </div>
 
-                            <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+                            <div className="grid gap-3 rounded-panel border border-border bg-card p-3">
                               <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                   Nationalities we process
                                 </div>
-                                <button
+                                <UiButton variant="secondary" size="sm"
                                   type="button"
-                                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+                                  className="transition disabled:opacity-60"
                                   disabled={savingEdits}
                                   onClick={() =>
                                     setEditForm((prev) => ({
@@ -5057,7 +5036,7 @@ export default function BreezyPositionRecordsBrowser({
                                   {allEditableCountriesSelected
                                     ? "Clear all"
                                     : "Select all"}
-                                </button>
+                                </UiButton>
                               </div>
                               <div className="flex flex-wrap gap-2">
                                 {editableCountries.map((country) => {
@@ -5070,8 +5049,8 @@ export default function BreezyPositionRecordsBrowser({
                                       className={[
                                         "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60",
                                         selected
-                                          ? "border-sky-600 bg-sky-600 text-white shadow-sm"
-                                          : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50",
+                                          ? "border-input bg-sky-600 text-white shadow-sm"
+                                          : "border-border bg-card text-muted-foreground hover:border-input hover:bg-muted",
                                       ].join(" ")}
                                       disabled={savingEdits}
                                       onClick={() =>
@@ -5101,11 +5080,11 @@ export default function BreezyPositionRecordsBrowser({
                             />
 
                             <div className="grid gap-1">
-                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Summary
                               </div>
-                              <textarea
-                                className="min-h-[90px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
+                              <UiTextarea
+                                className="min-h-[90px] w-full disabled:opacity-60"
                                 value={editForm.summary}
                                 disabled={savingEdits}
                                 onChange={(event) =>
@@ -5116,7 +5095,7 @@ export default function BreezyPositionRecordsBrowser({
                             </div>
 
                             <div className="grid gap-1">
-                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Description
                               </div>
                               <WysiwygEditor
@@ -5131,7 +5110,7 @@ export default function BreezyPositionRecordsBrowser({
                             </div>
 
                             <div className="grid gap-1">
-                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Responsibilities
                               </div>
                               <WysiwygEditor
@@ -5146,7 +5125,7 @@ export default function BreezyPositionRecordsBrowser({
                             </div>
 
                             <div className="grid gap-1">
-                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Requirements
                               </div>
                               <WysiwygEditor
@@ -5162,8 +5141,8 @@ export default function BreezyPositionRecordsBrowser({
                           </div>
 
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="text-xs text-slate-500">
-                              State: <span className="font-semibold text-slate-700">{state || "—"}</span>
+                            <div className="text-xs text-muted-foreground">
+                              State: <span className="font-semibold text-foreground">{state || "—"}</span>
                             </div>
                           </div>
                         </div>
@@ -5179,8 +5158,8 @@ export default function BreezyPositionRecordsBrowser({
                           if (selectedBenefits.length === 0) return null;
 
                           return (
-                            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <div className="rounded-panel border border-border bg-card p-4">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Company benefits
                               </div>
                               <div className="mt-2">
@@ -5212,8 +5191,8 @@ export default function BreezyPositionRecordsBrowser({
                           });
 
                           return (
-                            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <div className="rounded-panel border border-border bg-card p-4">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Nationalities we process
                               </div>
                               <div className="mt-2">
@@ -5224,15 +5203,15 @@ export default function BreezyPositionRecordsBrowser({
                         })()}
 
                         {description ? (
-                          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 xl:p-8">
-                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <div className="rounded-panel border border-border bg-card p-4 sm:p-6 xl:p-8">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                               Description
                             </div>
                             <div className="mt-4">
                               {modalDescription.bodyHtml ? (
                                 <RichText content={modalDescription.bodyHtml} />
                               ) : (
-                                <div className="whitespace-pre-wrap text-[15px] leading-7 text-slate-800">
+                                <div className="whitespace-pre-wrap text-[15px] leading-7 text-foreground">
                                   {modalDescription.bodyText || description}
                                 </div>
                               )}
@@ -5241,8 +5220,8 @@ export default function BreezyPositionRecordsBrowser({
                         ) : null}
 
                         {responsibilities ? (
-                          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <div className="rounded-panel border border-border bg-card p-4">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                               Responsibilities
                             </div>
                             <div className="mt-2">
@@ -5252,8 +5231,8 @@ export default function BreezyPositionRecordsBrowser({
                         ) : null}
 
                         {requirements ? (
-                          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <div className="rounded-panel border border-border bg-card p-4">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                               Requirements
                             </div>
                             <div className="mt-2">
@@ -5263,7 +5242,7 @@ export default function BreezyPositionRecordsBrowser({
                         ) : null}
 
                         {!description && !responsibilities && !requirements && details.jd_content_missing === true ? (
-                          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                          <div className="rounded-panel border border-warning/25 bg-warning-muted p-4 text-sm leading-6 text-warning">
                             JD content is not saved in Supabase for this opening.
                           </div>
                         ) : null}
@@ -5273,7 +5252,7 @@ export default function BreezyPositionRecordsBrowser({
 
                 </div>
               ) : (
-                <div className="text-sm text-slate-500">No details returned.</div>
+                <div className="text-sm text-muted-foreground">No details returned.</div>
               )}
 
 	        </DetailsModalShell>
@@ -5281,7 +5260,7 @@ export default function BreezyPositionRecordsBrowser({
 
       {createOpeningOpen ? (
         <div
-          className="fixed inset-0 z-[12000] flex items-end justify-center bg-slate-950/50 p-4 backdrop-blur-sm sm:items-center"
+          className="fixed inset-0 z-[12000] flex items-end justify-center bg-overlay p-4 backdrop-blur-sm sm:items-center"
           role="dialog"
           aria-modal="true"
           aria-label="Create job opening"
@@ -5291,13 +5270,13 @@ export default function BreezyPositionRecordsBrowser({
           }}
         >
           <div
-            className="flex max-h-[calc(100svh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+            className="flex max-h-[calc(100svh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-panel border border-border bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4">
               <div>
-                <div className="text-sm font-semibold text-slate-900">Create job opening</div>
-                <div className="mt-1 text-xs text-slate-500">
+                <div className="text-sm font-semibold text-foreground">Create job opening</div>
+                <div className="mt-1 text-xs text-muted-foreground">
                   This creates a new position in Supabase for the selected company.
                 </div>
               </div>
@@ -5309,11 +5288,11 @@ export default function BreezyPositionRecordsBrowser({
 
             <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto px-5 py-4">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Job title
                 </div>
-                <input
-                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+                <UiInput
+                  className="mt-2 h-11 w-full disabled:opacity-60"
                   value={createOpeningDraft.name}
                   onChange={(event) =>
                     setCreateOpeningDraft((prev) => ({ ...prev, name: event.target.value }))
@@ -5326,13 +5305,13 @@ export default function BreezyPositionRecordsBrowser({
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Company
                   </div>
                   <div className="relative mt-2">
                     <button
                       type="button"
-                      className="flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-left text-sm text-slate-800 shadow-sm outline-none transition hover:bg-slate-50 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+                      className="flex h-11 w-full items-center justify-between gap-3 rounded-panel border border-border bg-card px-3 text-left text-sm text-foreground shadow-sm outline-none transition hover:bg-muted focus:border-input focus:ring-2 focus:ring-ring disabled:opacity-60"
                       onClick={() => setCreateCompanyPickerOpen((open) => !open)}
                       disabled={createOpeningSaving}
                       aria-haspopup="listbox"
@@ -5344,14 +5323,14 @@ export default function BreezyPositionRecordsBrowser({
                           <img
                             src={selectedCreateCompany.logoUrl}
                             alt=""
-                            className="h-7 w-7 shrink-0 rounded-full border border-slate-200 bg-white object-contain"
+                            className="h-7 w-7 shrink-0 rounded-full border border-border bg-card object-contain"
                           />
                         ) : (
-                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-slate-200 bg-slate-50 text-xs font-bold text-slate-600">
+                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border bg-muted text-xs font-bold text-muted-foreground">
                             {createOpeningDraft.company.trim() ? (
                               createOpeningDraft.company.trim().slice(0, 1).toUpperCase()
                             ) : (
-                              <Building2 className="h-4 w-4 text-slate-500" />
+                              <Building2 className="h-4 w-4 text-muted-foreground" />
                             )}
                           </span>
                         )}
@@ -5359,22 +5338,22 @@ export default function BreezyPositionRecordsBrowser({
                           className={
                             createOpeningDraft.company.trim()
                               ? "min-w-0 truncate font-semibold"
-                              : "min-w-0 truncate text-slate-400"
+                              : "min-w-0 truncate text-muted-foreground"
                           }
                         >
                           {createOpeningDraft.company.trim() || "Select company..."}
                         </span>
                       </span>
-                      <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </button>
 
                     {createCompanyPickerOpen ? (
-                      <div className="absolute left-0 right-0 top-full z-[13000] mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                        <div className="border-b border-slate-200 p-3">
-                          <div className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3">
-                            <Search className="h-4 w-4 shrink-0 text-slate-400" />
-                            <input
-                              className="h-full min-w-0 flex-1 border-none bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+                      <div className="absolute left-0 right-0 top-full z-[13000] mt-2 overflow-hidden rounded-panel border border-border bg-card shadow-2xl">
+                        <div className="border-b border-border p-3">
+                          <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-card px-3">
+                            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            <UiInput
+                              className="h-full min-w-0 flex-1"
                               value={createCompanyQuery}
                               onChange={(event) => setCreateCompanyQuery(event.target.value)}
                               placeholder="Search companies..."
@@ -5394,10 +5373,10 @@ export default function BreezyPositionRecordsBrowser({
                                   key={item.name}
                                   type="button"
                                   className={[
-                                    "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition",
+                                    "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition",
                                     active
-                                      ? "bg-sky-50 text-sky-950"
-                                      : "text-slate-800 hover:bg-slate-50",
+                                      ? "bg-accent text-foreground"
+                                      : "text-foreground hover:bg-muted",
                                   ].join(" ")}
                                   role="option"
                                   aria-selected={active}
@@ -5424,11 +5403,11 @@ export default function BreezyPositionRecordsBrowser({
                                     <img
                                       src={item.logoUrl}
                                       alt=""
-                                      className="h-9 w-9 shrink-0 rounded-full border border-slate-200 bg-white object-contain shadow-sm"
+                                      className="h-9 w-9 shrink-0 rounded-full border border-border bg-card object-contain shadow-sm"
                                       loading="lazy"
                                     />
                                   ) : (
-                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-200 bg-slate-50 text-xs font-bold text-slate-600">
+                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border bg-muted text-xs font-bold text-muted-foreground">
                                       {initial}
                                     </span>
                                   )}
@@ -5436,7 +5415,7 @@ export default function BreezyPositionRecordsBrowser({
                                     {item.name}
                                   </span>
                                   {typeof item.count === "number" && item.count > 0 ? (
-                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                                       {item.count}
                                     </span>
                                   ) : null}
@@ -5444,7 +5423,7 @@ export default function BreezyPositionRecordsBrowser({
                               );
                             })
                           ) : (
-                            <div className="px-3 py-6 text-center text-sm text-slate-500">
+                            <div className="px-3 py-6 text-center text-sm text-muted-foreground">
                               No companies found.
                             </div>
                           )}
@@ -5454,13 +5433,13 @@ export default function BreezyPositionRecordsBrowser({
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Department
                   </div>
                   <div className="relative mt-2">
                     <button
                       type="button"
-                      className="flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-left text-sm text-slate-800 shadow-sm outline-none transition hover:bg-slate-50 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+                      className="flex h-11 w-full items-center justify-between gap-3 rounded-panel border border-border bg-card px-3 text-left text-sm text-foreground shadow-sm outline-none transition hover:bg-muted focus:border-input focus:ring-2 focus:ring-ring disabled:opacity-60"
                       onClick={() => {
                         setCreateDepartmentPickerOpen((open) => !open);
                         setCreateCompanyPickerOpen(false);
@@ -5471,29 +5450,29 @@ export default function BreezyPositionRecordsBrowser({
                       aria-expanded={createDepartmentPickerOpen}
                     >
                       <span className="flex min-w-0 items-center gap-2">
-                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-sky-100 bg-sky-50 text-sky-700">
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-input bg-accent text-foreground">
                           <Layers className="h-4 w-4" />
                         </span>
                         <span
                           className={
                             createOpeningDraft.department.trim()
                               ? "min-w-0 truncate font-semibold"
-                              : "min-w-0 truncate text-slate-400"
+                              : "min-w-0 truncate text-muted-foreground"
                           }
                         >
                           {createOpeningDraft.department.trim() || "Select department..."}
                         </span>
                       </span>
-                      <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </button>
 
                     {createDepartmentPickerOpen ? (
-                      <div className="absolute left-0 right-0 top-full z-[13000] mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                        <div className="border-b border-slate-200 p-3">
-                          <div className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3">
-                            <Search className="h-4 w-4 shrink-0 text-slate-400" />
-                            <input
-                              className="h-full min-w-0 flex-1 border-none bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+                      <div className="absolute left-0 right-0 top-full z-[13000] mt-2 overflow-hidden rounded-panel border border-border bg-card shadow-2xl">
+                        <div className="border-b border-border p-3">
+                          <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-card px-3">
+                            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            <UiInput
+                              className="h-full min-w-0 flex-1"
                               value={createDepartmentQuery}
                               onChange={(event) => setCreateDepartmentQuery(event.target.value)}
                               placeholder="Search departments..."
@@ -5519,10 +5498,10 @@ export default function BreezyPositionRecordsBrowser({
                                   key={label}
                                   type="button"
                                   className={[
-                                    "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition",
+                                    "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition",
                                     active
-                                      ? "bg-sky-50 text-sky-950"
-                                      : "text-slate-800 hover:bg-slate-50",
+                                      ? "bg-accent text-foreground"
+                                      : "text-foreground hover:bg-muted",
                                   ].join(" ")}
                                   role="option"
                                   aria-selected={active}
@@ -5535,7 +5514,7 @@ export default function BreezyPositionRecordsBrowser({
                                     setCreateDepartmentPickerOpen(false);
                                   }}
                                 >
-                                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-sky-100 bg-sky-50 text-sky-700">
+                                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-input bg-accent text-foreground">
                                     <Layers className="h-4 w-4" />
                                   </span>
                                   <span className="min-w-0 flex-1 truncate font-semibold">
@@ -5545,7 +5524,7 @@ export default function BreezyPositionRecordsBrowser({
                               );
                             })
                           ) : (
-                            <div className="px-3 py-6 text-center text-sm text-slate-500">
+                            <div className="px-3 py-6 text-center text-sm text-muted-foreground">
                               No departments found.
                             </div>
                           )}
@@ -5558,11 +5537,11 @@ export default function BreezyPositionRecordsBrowser({
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Location
                   </div>
-                  <input
-                    className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+                  <UiInput
+                    className="mt-2 h-11 w-full disabled:opacity-60"
                     value={createOpeningDraft.location_name}
                     onChange={(event) =>
                       setCreateOpeningDraft((prev) => ({
@@ -5575,36 +5554,36 @@ export default function BreezyPositionRecordsBrowser({
                   />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Opening type
                   </div>
                   <div className="relative mt-2">
                     <button
                       type="button"
-                      className="flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 text-left text-sm text-slate-800 shadow-sm outline-none transition hover:bg-slate-50 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+                      className="flex h-11 w-full items-center justify-between gap-3 rounded-panel border border-border bg-card px-3 text-left text-sm text-foreground shadow-sm outline-none transition hover:bg-muted focus:border-input focus:ring-2 focus:ring-ring disabled:opacity-60"
                       onClick={() => setCreatePriorityPickerOpen((open) => !open)}
                       disabled={createOpeningSaving}
                       aria-haspopup="listbox"
                       aria-expanded={createPriorityPickerOpen}
                     >
                       <span className="flex min-w-0 items-center gap-2">
-                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-sky-100 bg-sky-50 text-sky-700">
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-input bg-accent text-foreground">
                           <FolderKanban className="h-4 w-4" />
                         </span>
                         <span className="min-w-0 truncate font-semibold">
                           {selectedCreatePriorityLabel}
                         </span>
                       </span>
-                      <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </button>
 
                     {createPriorityPickerOpen ? (
-                      <div className="absolute left-0 right-0 top-full z-[13000] mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                        <div className="border-b border-slate-200 p-3">
-                          <div className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3">
-                            <Search className="h-4 w-4 shrink-0 text-slate-400" />
-                            <input
-                              className="h-full min-w-0 flex-1 border-none bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+                      <div className="absolute left-0 right-0 top-full z-[13000] mt-2 overflow-hidden rounded-panel border border-border bg-card shadow-2xl">
+                        <div className="border-b border-border p-3">
+                          <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-card px-3">
+                            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            <UiInput
+                              className="h-full min-w-0 flex-1"
                               value={createPriorityQuery}
                               onChange={(event) => setCreatePriorityQuery(event.target.value)}
                               placeholder="Search opening types..."
@@ -5625,10 +5604,10 @@ export default function BreezyPositionRecordsBrowser({
                                 key={type.key || "none"}
                                 type="button"
                                 className={[
-                                  "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition",
+                                  "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition",
                                   active
-                                    ? "bg-sky-50 text-sky-950"
-                                    : "text-slate-800 hover:bg-slate-50",
+                                    ? "bg-accent text-foreground"
+                                    : "text-foreground hover:bg-muted",
                                 ].join(" ")}
                                 role="option"
                                 aria-selected={active}
@@ -5641,7 +5620,7 @@ export default function BreezyPositionRecordsBrowser({
                                   setCreatePriorityPickerOpen(false);
                                 }}
                               >
-                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-sky-100 bg-sky-50 text-sky-700">
+                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-input bg-accent text-foreground">
                                   <FolderKanban className="h-4 w-4" />
                                 </span>
                                 <span className="min-w-0 flex-1 truncate font-semibold">
@@ -5657,19 +5636,19 @@ export default function BreezyPositionRecordsBrowser({
                 </div>
               </div>
 
-              <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+              <div className="grid gap-3 rounded-panel border border-border bg-muted/60 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Company benefits
                     </div>
-                    <div className="mt-1 text-xs text-slate-500">
+                    <div className="mt-1 text-xs text-muted-foreground">
                       Select the cards that should appear in the job modal.
                     </div>
                   </div>
-                  <button
+                  <UiButton variant="secondary" size="sm"
                     type="button"
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+                    className="transition disabled:opacity-60"
                     disabled={createOpeningSaving}
                     onClick={() =>
                       setCreateOpeningDraft((prev) => ({
@@ -5682,7 +5661,7 @@ export default function BreezyPositionRecordsBrowser({
                     }
                   >
                     Use company defaults
-                  </button>
+                  </UiButton>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {benefitOptions.map((option) => {
@@ -5695,10 +5674,10 @@ export default function BreezyPositionRecordsBrowser({
                         key={tag}
                         type="button"
                         className={[
-                          "flex items-center gap-3 rounded-2xl border px-3 py-2 text-left text-sm transition disabled:opacity-60",
+                          "flex items-center gap-3 rounded-panel border px-3 py-2 text-left text-sm transition disabled:opacity-60",
                           selected
-                            ? "border-sky-400 bg-sky-50 text-sky-950 shadow-sm ring-2 ring-sky-100"
-                            : "border-slate-200 bg-white/70 text-slate-500 hover:border-slate-300 hover:bg-white",
+                            ? "border-input bg-accent text-foreground shadow-sm ring-2 ring-ring"
+                            : "border-border bg-card/70 text-muted-foreground hover:border-input hover:bg-card",
                         ].join(" ")}
                         disabled={createOpeningSaving}
                         onClick={() =>
@@ -5716,8 +5695,8 @@ export default function BreezyPositionRecordsBrowser({
                           className={[
                             "grid h-9 w-9 shrink-0 place-items-center rounded-full border",
                             selected
-                              ? "border-sky-300 bg-sky-600 text-white"
-                              : "border-slate-200 bg-slate-50 text-slate-500",
+                              ? "border-input bg-sky-600 text-white"
+                              : "border-border bg-muted text-muted-foreground",
                           ].join(" ")}
                         >
                           <Icon className="h-4 w-4" />
@@ -5736,19 +5715,19 @@ export default function BreezyPositionRecordsBrowser({
                 </div>
               </div>
 
-              <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+              <div className="grid gap-3 rounded-panel border border-border bg-card p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Nationalities we process
                     </div>
-                    <div className="mt-1 text-xs text-slate-500">
+                    <div className="mt-1 text-xs text-muted-foreground">
                       These chips appear above the description in the public job modal.
                     </div>
                   </div>
-                  <button
+                  <UiButton variant="secondary" size="sm"
                     type="button"
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+                    className="transition disabled:opacity-60"
                     disabled={createOpeningSaving}
                     onClick={() =>
                       setCreateOpeningDraft((prev) => ({
@@ -5765,7 +5744,7 @@ export default function BreezyPositionRecordsBrowser({
                     processableCountryCodes.length
                       ? "Clear all"
                       : "Select all"}
-                  </button>
+                  </UiButton>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {processableCountries.map((country) => {
@@ -5779,8 +5758,8 @@ export default function BreezyPositionRecordsBrowser({
                         className={[
                           "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60",
                           selected
-                            ? "border-sky-600 bg-sky-600 text-white shadow-sm"
-                            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50",
+                            ? "border-input bg-sky-600 text-white shadow-sm"
+                            : "border-border bg-card text-muted-foreground hover:border-input hover:bg-muted",
                         ].join(" ")}
                         disabled={createOpeningSaving}
                         onClick={() =>
@@ -5810,14 +5789,14 @@ export default function BreezyPositionRecordsBrowser({
               />
 
               <div className="grid gap-1">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Hero image (optional)
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-3">
                   <input
                     type="file"
                     accept="image/*"
-                    className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-2xl file:border file:border-slate-200 file:bg-white file:px-4 file:py-2 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-50 disabled:opacity-60 sm:w-auto"
+                    className="block w-full text-sm text-foreground file:mr-3 file:rounded-panel file:border file:border-border file:bg-card file:px-4 file:py-2 file:text-xs file:font-semibold file:text-foreground hover:file:bg-muted disabled:opacity-60 sm:w-auto"
                     disabled={createOpeningSaving || createOpeningUploadingHero}
                     onChange={(event) => {
                       const file = event.target.files?.[0];
@@ -5827,7 +5806,7 @@ export default function BreezyPositionRecordsBrowser({
                     }}
                   />
                   {createOpeningUploadingHero ? (
-                    <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <span className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                       <RefreshCw className="h-4 w-4 animate-spin" />
                       Uploading…
                     </span>
@@ -5836,12 +5815,12 @@ export default function BreezyPositionRecordsBrowser({
                       href={createOpeningDraft.hero_image_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xs font-semibold text-sky-700 underline underline-offset-2"
+                      className="text-xs font-semibold text-foreground underline underline-offset-2"
                     >
                       View uploaded image
                     </a>
                   ) : (
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-muted-foreground">
                       Uploads to a public bucket and will be shown at the top of the description.
                     </span>
                   )}
@@ -5849,11 +5828,11 @@ export default function BreezyPositionRecordsBrowser({
               </div>
 
               <div className="grid gap-1">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Summary
                 </div>
-                <textarea
-                  className="min-h-[90px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+                <UiTextarea
+                  className="min-h-[90px] w-full disabled:opacity-60"
                   value={createOpeningDraft.summary}
                   disabled={createOpeningSaving}
                   onChange={(event) =>
@@ -5864,7 +5843,7 @@ export default function BreezyPositionRecordsBrowser({
               </div>
 
               <div className="grid gap-1">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Description
                 </div>
                 <WysiwygEditor
@@ -5879,7 +5858,7 @@ export default function BreezyPositionRecordsBrowser({
               </div>
 
               <div className="grid gap-1">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Responsibilities
                 </div>
                 <WysiwygEditor
@@ -5894,7 +5873,7 @@ export default function BreezyPositionRecordsBrowser({
               </div>
 
               <div className="grid gap-1">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Requirements
                 </div>
                 <WysiwygEditor
@@ -5908,15 +5887,15 @@ export default function BreezyPositionRecordsBrowser({
                 />
               </div>
 
-              <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <span className="text-sm font-semibold text-slate-900">Active</span>
+              <label className="flex items-center justify-between gap-3 rounded-panel border border-border bg-muted px-4 py-3">
+                <span className="text-sm font-semibold text-foreground">Active</span>
                 <button
                   type="button"
                   className={[
                     "inline-flex h-10 items-center rounded-full border px-4 text-xs font-semibold transition",
                     createOpeningDraft.hidden
-                      ? "border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100"
-                      : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100",
+                      ? "border-destructive/25 bg-danger-muted text-destructive hover:bg-danger-muted"
+                      : "border-success/25 bg-success-muted text-success hover:bg-success-muted",
                   ].join(" ")}
                   onClick={() =>
                     setCreateOpeningDraft((prev) => ({ ...prev, hidden: !prev.hidden }))
@@ -5929,24 +5908,24 @@ export default function BreezyPositionRecordsBrowser({
               </label>
 
               {createOpeningError ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <div className="rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
                   {createOpeningError}
                 </div>
               ) : null}
             </div>
 
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-4">
-              <button
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-card px-5 py-4">
+              <UiButton variant="secondary" size="sm"
                 type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                className="inline-flex items-center gap-2 transition disabled:opacity-60"
                 onClick={() => setCreateOpeningOpen(false)}
                 disabled={createOpeningSaving}
               >
                 Cancel
-              </button>
-              <button
+              </UiButton>
+              <UiButton variant="primary" size="sm"
                 type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-slate-950 bg-slate-950 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                className="inline-flex items-center gap-2 transition disabled:opacity-60"
                 onClick={() => void createOpening()}
                 disabled={createOpeningSaving || !companyId.trim()}
               >
@@ -5956,7 +5935,7 @@ export default function BreezyPositionRecordsBrowser({
                   <Plus className="h-4 w-4" />
                 )}
                 {createOpeningSaving ? "Creating…" : "Create"}
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>

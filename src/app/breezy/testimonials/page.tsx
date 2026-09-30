@@ -1,5 +1,9 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { NativeSelect as UiSelect } from "@/components/ui/select";
+import { Textarea as UiTextarea } from "@/components/ui/textarea";
 import { useEffect, useMemo, useState } from "react";
 import {
   Check,
@@ -230,69 +234,69 @@ export default function BreezyTestimonialsPage() {
     <div className="mx-auto w-full">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Testimonials
           </h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-600">
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             Manage candidate testimonials shown on the public jobs page.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
+          <UiButton variant="secondary" size="md"
             type="button"
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex items-center gap-2 transition disabled:opacity-60"
             onClick={() => void load()}
             disabled={loading}
           >
             <RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
             Refresh
-          </button>
-          <button
+          </UiButton>
+          <UiButton variant="primary" size="md"
             type="button"
-            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-black disabled:opacity-60"
+            className="inline-flex items-center gap-2 transition disabled:opacity-60"
             onClick={() => void handleAdd()}
             disabled={savingId !== null}
           >
             {savingId === "new" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             Add testimonial
-          </button>
+          </UiButton>
         </div>
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total</div>
-          <div className="mt-2 text-3xl font-semibold text-slate-900">{items.length}</div>
+        <div className="rounded-panel border border-border bg-card p-5 shadow-sm">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</div>
+          <div className="mt-2 text-3xl font-semibold text-foreground">{items.length}</div>
         </div>
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active</div>
-          <div className="mt-2 text-3xl font-semibold text-emerald-700">{activeCount}</div>
+        <div className="rounded-panel border border-border bg-card p-5 shadow-sm">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Active</div>
+          <div className="mt-2 text-3xl font-semibold text-success">{activeCount}</div>
         </div>
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Placement</div>
-          <div className="mt-2 text-sm font-semibold leading-6 text-slate-900">
+        <div className="rounded-panel border border-border bg-card p-5 shadow-sm">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Placement</div>
+          <div className="mt-2 text-sm font-semibold leading-6 text-foreground">
             Top proof strip + inline jobs list rotation
           </div>
         </div>
       </div>
 
       {error ? (
-        <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="mt-5 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       ) : null}
 
       <div className="mt-6 grid gap-4">
         {loading ? (
-          <div className="rounded-3xl border border-slate-200 bg-white px-4 py-12 text-center text-sm text-slate-500 shadow-sm">
+          <div className="rounded-panel border border-border bg-card px-4 py-12 text-center text-sm text-muted-foreground shadow-sm">
             Loading testimonials...
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-3xl border border-slate-200 bg-white px-6 py-12 text-center shadow-sm">
-            <MessageSquareQuote className="mx-auto h-8 w-8 text-slate-300" />
-            <div className="mt-3 text-sm font-semibold text-slate-900">No testimonials yet</div>
-            <div className="mt-1 text-sm text-slate-500">
+          <div className="rounded-panel border border-border bg-card px-6 py-12 text-center shadow-sm">
+            <MessageSquareQuote className="mx-auto h-8 w-8 text-muted-foreground" />
+            <div className="mt-3 text-sm font-semibold text-foreground">No testimonials yet</div>
+            <div className="mt-1 text-sm text-muted-foreground">
               Add the first candidate quote to show social proof on the public jobs page.
             </div>
           </div>
@@ -305,11 +309,11 @@ export default function BreezyTestimonialsPage() {
             return (
               <div
                 key={item.id}
-                className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+                className="rounded-panel border border-border bg-card p-5 shadow-sm"
               >
                 <div className="grid gap-5 xl:grid-cols-[220px_minmax(0,1fr)]">
                   <div>
-                    <div className="relative h-44 w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                    <div className="relative h-44 w-full overflow-hidden rounded-panel border border-border bg-muted">
                       {item.imageUrl && !removing ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -320,7 +324,7 @@ export default function BreezyTestimonialsPage() {
                           decoding="async"
                         />
                       ) : (
-                        <div className="grid h-full place-items-center text-slate-400">
+                        <div className="grid h-full place-items-center text-muted-foreground">
                           <ImagePlus className="h-8 w-8" />
                         </div>
                       )}
@@ -331,7 +335,7 @@ export default function BreezyTestimonialsPage() {
                       <input
                         type="file"
                         accept="image/*"
-                        className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-black"
+                        className="block w-full text-xs text-muted-foreground file:mr-3 file:rounded-full file:border-0 file:bg-primary file:px-3 file:py-2 file:text-xs file:font-semibold file:text-primary-foreground hover:file:bg-primary/90"
                         onChange={(event) => {
                           const next = event.target.files?.[0] ?? null;
                           setFiles((prev) => ({ ...prev, [item.id]: next }));
@@ -342,42 +346,42 @@ export default function BreezyTestimonialsPage() {
                       />
                     </label>
                     {file ? (
-                      <div className="mt-2 text-xs font-semibold text-slate-500">
+                      <div className="mt-2 text-xs font-semibold text-muted-foreground">
                         Selected: {file.name}
                       </div>
                     ) : null}
                     {item.imageUrl ? (
-                      <button
+                      <UiButton variant="secondary" size="sm"
                         type="button"
-                        className="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        className="mt-2 inline-flex items-center gap-2"
                         onClick={() =>
                           setRemoveImage((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
                         }
                       >
                         {removing ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
                         {removing ? "Image will be removed" : "Remove image"}
-                      </button>
+                      </UiButton>
                     ) : null}
                   </div>
 
                   <div className="min-w-0">
                     <div className="grid gap-4 md:grid-cols-2">
                       <label>
-                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                           Name
                         </span>
-                        <input
-                          className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none focus:border-emerald-300"
+                        <UiInput
+                          className="mt-2 h-11 w-full"
                           value={draft.name}
                           onChange={(event) => updateDraft(item.id, { name: event.target.value })}
                         />
                       </label>
                       <label>
-                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                           Country
                         </span>
-                        <select
-                          className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none focus:border-emerald-300"
+                        <UiSelect
+                          className="mt-2 h-11 w-full"
                           value={draft.country}
                           onChange={(event) => updateDraft(item.id, { country: event.target.value })}
                         >
@@ -387,41 +391,41 @@ export default function BreezyTestimonialsPage() {
                               {toFlagEmoji(country.code)} {country.name}
                             </option>
                           ))}
-                        </select>
+                        </UiSelect>
                       </label>
                       <label>
-                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                           Role
                         </span>
-                        <input
-                          className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none focus:border-emerald-300"
+                        <UiInput
+                          className="mt-2 h-11 w-full"
                           value={draft.role}
                           onChange={(event) => updateDraft(item.id, { role: event.target.value })}
                         />
                       </label>
                       <label>
-                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                           Placement after job #
                         </span>
-                        <input
+                        <UiInput
                           type="number"
                           min="0"
-                          className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none focus:border-emerald-300"
+                          className="mt-2 h-11 w-full"
                           value={draft.sortOrder}
                           onChange={(event) => updateDraft(item.id, { sortOrder: event.target.value })}
                         />
-                        <span className="mt-1 block text-xs font-medium text-slate-500">
+                        <span className="mt-1 block text-xs font-medium text-muted-foreground">
                           Leave blank for automatic every 5 jobs. Use 0 for top placement.
                         </span>
                       </label>
                     </div>
 
                     <label className="mt-4 block">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Quote
                       </span>
-                      <textarea
-                        className="mt-2 min-h-28 w-full resize-y rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none focus:border-emerald-300"
+                      <UiTextarea
+                        className="mt-2 min-h-28 w-full resize-y leading-6"
                         maxLength={500}
                         value={draft.quote}
                         onChange={(event) => updateDraft(item.id, { quote: event.target.value })}
@@ -429,10 +433,10 @@ export default function BreezyTestimonialsPage() {
                     </label>
 
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                      <label className="inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700">
+                      <label className="inline-flex items-center gap-3 rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
+                          className="h-4 w-4 rounded border-input text-success focus:ring-success/25"
                           checked={draft.isActive}
                           onChange={(event) =>
                             updateDraft(item.id, { isActive: event.target.checked })
@@ -442,18 +446,18 @@ export default function BreezyTestimonialsPage() {
                       </label>
 
                       <div className="flex flex-wrap items-center gap-2">
-                        <button
+                        <UiButton variant="secondary" size="md"
                           type="button"
-                          className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 shadow-sm transition hover:bg-rose-50 disabled:opacity-60"
+                          className="inline-flex items-center gap-2 text-destructive transition disabled:opacity-60"
                           onClick={() => void handleDelete(item.id, draft.name)}
                           disabled={busy || savingId !== null}
                         >
                           <Trash2 className="h-4 w-4" />
                           Delete
-                        </button>
-                        <button
+                        </UiButton>
+                        <UiButton variant="primary" size="md"
                           type="button"
-                          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-black disabled:opacity-60"
+                          className="inline-flex items-center gap-2 transition disabled:opacity-60"
                           onClick={() => void handleSave(item.id)}
                           disabled={busy || savingId !== null}
                         >
@@ -465,7 +469,7 @@ export default function BreezyTestimonialsPage() {
                             <Save className="h-4 w-4" />
                           )}
                           {savedId === item.id ? "Saved" : "Save"}
-                        </button>
+                        </UiButton>
                       </div>
                     </div>
                   </div>

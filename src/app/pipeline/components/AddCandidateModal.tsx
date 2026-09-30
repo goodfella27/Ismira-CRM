@@ -1,3 +1,6 @@
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { NativeSelect as UiSelect } from "@/components/ui/select";
 import { useState, type FormEvent } from "react";
 import { Pool } from "../types";
 
@@ -50,19 +53,19 @@ export default function AddCandidateModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+      <div className="w-full max-w-lg rounded-panel border border-border bg-card shadow-xl">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-lg font-semibold text-foreground">
               Add Candidates
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Create a new candidate in the first stage.
             </p>
           </div>
           <button
             type="button"
-            className="text-sm text-slate-500 hover:text-slate-800"
+            className="text-sm text-muted-foreground hover:text-foreground"
             onClick={onClose}
           >
             Close
@@ -71,9 +74,9 @@ export default function AddCandidateModal({
 
         <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
           <div className="grid gap-2">
-            <label className="text-xs font-semibold text-slate-600">Name</label>
-            <input
-              className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+            <label className="text-xs font-semibold text-muted-foreground">Name</label>
+            <UiInput
+              className="h-10"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="e.g. Kateryna Kovalenko"
@@ -81,9 +84,9 @@ export default function AddCandidateModal({
             />
           </div>
           <div className="grid gap-2">
-            <label className="text-xs font-semibold text-slate-600">Email</label>
-            <input
-              className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+            <label className="text-xs font-semibold text-muted-foreground">Email</label>
+            <UiInput
+              className="h-10"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="email@example.com"
@@ -92,27 +95,27 @@ export default function AddCandidateModal({
             />
           </div>
           <div className="grid gap-2">
-            <label className="text-xs font-semibold text-slate-600">Phone</label>
-            <input
-              className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+            <label className="text-xs font-semibold text-muted-foreground">Phone</label>
+            <UiInput
+              className="h-10"
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
               placeholder="+370 ..."
             />
           </div>
           <div className="grid gap-2">
-            <label className="text-xs font-semibold text-slate-600">Country</label>
-            <input
-              className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+            <label className="text-xs font-semibold text-muted-foreground">Country</label>
+            <UiInput
+              className="h-10"
               value={country}
               onChange={(event) => setCountry(event.target.value)}
               placeholder="e.g. Portugal"
             />
           </div>
           <div className="grid gap-2">
-            <label className="text-xs font-semibold text-slate-600">Pool</label>
-            <select
-              className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+            <label className="text-xs font-semibold text-muted-foreground">Pool</label>
+            <UiSelect
+              className="h-10"
               value={poolId}
               onChange={(event) => setPoolId(event.target.value)}
             >
@@ -121,22 +124,22 @@ export default function AddCandidateModal({
                   {pool.name}
                 </option>
               ))}
-            </select>
+            </UiSelect>
           </div>
           <div className="flex items-center justify-end gap-2 pt-2">
-            <button
+            <UiButton variant="secondary" size="md"
               type="button"
-              className="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600"
+              className=""
               onClick={onClose}
             >
               Cancel
-            </button>
-            <button
+            </UiButton>
+            <UiButton variant="primary" size="md"
               type="submit"
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500"
+              className=""
             >
               Add candidate
-            </button>
+            </UiButton>
           </div>
         </form>
       </div>

@@ -1,5 +1,8 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { Textarea as UiTextarea } from "@/components/ui/textarea";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getCountryDisplay } from "@/lib/country";
 import {
@@ -1138,42 +1141,42 @@ export default function IntakePage() {
               <label className="text-sm font-medium" htmlFor="transcript">
                 Transcript
               </label>
-              <textarea
+              <UiTextarea
                 id="transcript"
-                className="mt-3 min-h-[260px] flex-1 rounded-md border border-input bg-background p-3 text-sm"
+                className="mt-3 min-h-[260px] flex-1"
                 value={transcript}
                 onChange={(event) => setTranscript(event.target.value)}
                 placeholder="Paste transcript text here..."
               />
 
               {error ? (
-                <div className="mt-4 rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-700">
+                <div className="mt-4 rounded-md border border-destructive/25 bg-destructive px-4 py-3 text-sm text-destructive">
                   {error}
                 </div>
               ) : null}
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
-                <button
+                <UiButton variant="primary" size="md"
                   type="button"
-                  className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+                  className="h-10"
                   onClick={runExtraction}
                   disabled={loading || transcript.trim().length === 0}
                 >
                   {loading ? "Creating..." : "Create Profile"}
-                </button>
+                </UiButton>
               </div>
             </div>
           ) : (
             <div className="flex h-full flex-col rounded-lg border border-border bg-card p-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Extracted Profile</h2>
-                <button
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="rounded-md border border-input px-3 py-1 text-xs"
+                  className=""
                   onClick={() => setShowRawJson((prev) => !prev)}
                 >
                   {showRawJson ? "Hide Raw JSON" : "Show Raw JSON"}
-                </button>
+                </UiButton>
               </div>
 
               <div className="mt-4 flex-1 space-y-4 overflow-y-auto pr-1">
@@ -1361,11 +1364,11 @@ export default function IntakePage() {
                       </div>
 
                       <div className="mt-4 grid gap-4 md:grid-cols-2">
-                        <div className="rounded-md border border-emerald-100 bg-emerald-50 px-3 py-3">
-                          <div className="text-xs font-semibold uppercase text-emerald-700">
+                        <div className="rounded-md border border-success/25 bg-success-muted px-3 py-3">
+                          <div className="text-xs font-semibold uppercase text-success">
                             Top Strengths
                           </div>
-                          <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-emerald-800">
+                          <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-success">
                             {Array.isArray(
                               (profile?.fields as Record<string, unknown> | undefined)
                                 ?.strengths
@@ -1382,11 +1385,11 @@ export default function IntakePage() {
                             )}
                           </ul>
                         </div>
-                        <div className="rounded-md border border-rose-100 bg-rose-50 px-3 py-3">
-                          <div className="text-xs font-semibold uppercase text-rose-700">
+                        <div className="rounded-md border border-destructive/25 bg-danger-muted px-3 py-3">
+                          <div className="text-xs font-semibold uppercase text-destructive">
                             Top Concerns
                           </div>
-                          <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-rose-800">
+                          <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-destructive">
                             {Array.isArray(
                               (profile?.fields as Record<string, unknown> | undefined)
                                 ?.concerns
@@ -1491,9 +1494,9 @@ export default function IntakePage() {
                       MP3, M4A, WAV, or video audio.
                     </div>
                   </div>
-                  <button
+                  <UiButton variant="primary" size="md"
                     type="button"
-                    className="mt-2 flex h-10 items-center gap-2 rounded-md bg-black px-4 text-sm font-semibold text-white shadow-sm hover:bg-black/90"
+                    className="mt-2 flex h-10 items-center gap-2"
                     onClick={handlePickAudio}
                   >
                     <Image
@@ -1502,7 +1505,7 @@ export default function IntakePage() {
                       className="h-4 w-4 brightness-0 invert"
                     />
                     Upload file
-                  </button>
+                  </UiButton>
                 </div>
 
                 {activeUploads.length > 0 ? (
@@ -1531,7 +1534,7 @@ export default function IntakePage() {
                               </>
                             ) : upload.status === "uploaded" ? (
                               <>
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                                 <span>Uploaded</span>
                               </>
                             ) : (
@@ -1559,17 +1562,17 @@ export default function IntakePage() {
                         ) : null}
                         {upload.status === "uploaded" ? (
                           <div className="mt-2 flex justify-end">
-                            <button
+                            <UiButton variant="primary" size="sm"
                               type="button"
-                              className="h-9 rounded-md bg-black px-4 text-xs font-semibold text-white shadow-sm hover:bg-black/90"
+                              className="h-9"
                               onClick={() => handleTranscribeUpload(upload)}
                             >
                               Transcribe
-                            </button>
+                            </UiButton>
                           </div>
                         ) : null}
                         {upload.status === "error" && upload.error ? (
-                          <div className="mt-2 text-xs text-rose-600">
+                          <div className="mt-2 text-xs text-destructive">
                             {upload.error}
                           </div>
                         ) : null}
@@ -1582,33 +1585,33 @@ export default function IntakePage() {
                   </div>
                 )}
                 {uploadError ? (
-                  <div className="mt-2 text-xs text-red-600">{uploadError}</div>
+                  <div className="mt-2 text-xs text-destructive">{uploadError}</div>
                 ) : null}
                 {transcribeError ? (
-                  <div className="mt-2 text-xs text-red-600">{transcribeError}</div>
+                  <div className="mt-2 text-xs text-destructive">{transcribeError}</div>
                 ) : null}
               </div>
             ) : (
               <div className="mt-4 min-h-[190px] rounded-lg border border-dashed border-border bg-background/60 p-6">
                 <div className="text-sm font-medium">Video link</div>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <input
-                    className="h-10 w-full flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                  <UiInput
+                    className="h-10 w-full flex-1"
                     placeholder="Paste YouTube, Vimeo, or other video link..."
                     value={youtubeUrl}
                     onChange={(event) => setYoutubeUrl(event.target.value)}
                   />
-                  <button
+                  <UiButton variant="secondary" size="md"
                     type="button"
-                    className="h-10 rounded-md border border-input bg-background px-4 text-sm font-medium text-foreground shadow-sm hover:bg-accent"
+                    className="h-10"
                     onClick={handleTranscribeYouTube}
                     disabled={youtubeLoading || !youtubeUrl.trim()}
                   >
                     {youtubeLoading ? "Transcribing..." : "Transcribe link"}
-                  </button>
+                  </UiButton>
                 </div>
                 {youtubeError ? (
-                  <div className="mt-2 text-xs text-red-600">{youtubeError}</div>
+                  <div className="mt-2 text-xs text-destructive">{youtubeError}</div>
                 ) : (
                   <div className="mt-2 text-xs text-muted-foreground">
                     Powered by yt-dlp + Whisper. Supports YouTube, Vimeo, and more.
@@ -1618,10 +1621,10 @@ export default function IntakePage() {
             )}
           </div>
 
-          <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
+          <section className="rounded-md border border-border bg-card p-6 shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-md bg-muted">
                           <FileAudio className="h-5 w-5 text-muted-foreground" />
                         </div>
                         <div>
@@ -1694,13 +1697,13 @@ export default function IntakePage() {
                                   <td className="py-3 pr-4">
                                     <div className="flex items-center gap-2 text-xs">
                                       {upload.status === "done" ? (
-                                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                        <CheckCircle2 className="h-4 w-4 text-success" />
                                       ) : upload.status === "error" ? (
-                                        <XCircle className="h-4 w-4 text-rose-500" />
+                                        <XCircle className="h-4 w-4 text-destructive" />
                                       ) : upload.status === "uploaded" ? (
-                                        <UploadCloud className="h-4 w-4 text-slate-500" />
+                                        <UploadCloud className="h-4 w-4 text-muted-foreground" />
                                       ) : (
-                                        <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
+                                        <Loader2 className="h-4 w-4 animate-spin text-warning" />
                                       )}
                                       <span className="text-muted-foreground">
                                         {statusLabel}
@@ -1717,16 +1720,16 @@ export default function IntakePage() {
                                       </div>
                                     ) : null}
                                     {upload.status === "error" && upload.error ? (
-                                      <div className="mt-1 text-[11px] text-rose-600">
+                                      <div className="mt-1 text-[11px] text-destructive">
                                         {upload.error}
                                       </div>
                                     ) : null}
                                   </td>
                                   <td className="py-3 pr-2 text-right">
                                     <div className="flex items-center justify-end gap-2 text-xs">
-                                      <button
+                                      <UiButton variant="secondary" size="sm"
                                         type="button"
-                                        className="rounded-md border border-input px-3 py-1 text-xs"
+                                        className=""
                                         disabled={!upload.transcript}
                                         onClick={() => {
                                           if (upload.transcript) {
@@ -1738,14 +1741,14 @@ export default function IntakePage() {
                                         }}
                                       >
                                         Open
-                                      </button>
-                                      <button
+                                      </UiButton>
+                                      <UiButton variant="secondary" size="sm"
                                         type="button"
-                                        className="rounded-md border border-input px-3 py-1 text-xs"
+                                        className=""
                                         onClick={() => removeUpload(upload.id)}
                                       >
                                         Delete
-                                      </button>
+                                      </UiButton>
                                     </div>
                                   </td>
                                 </tr>
@@ -1758,7 +1761,7 @@ export default function IntakePage() {
                   </section>
 
           {candidates.length > 0 ? (
-            <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <section className="rounded-md border border-border bg-card p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-semibold">Saved Candidates</h2>
@@ -1766,13 +1769,13 @@ export default function IntakePage() {
                     Extracted profiles ready to review.
                   </div>
                 </div>
-                <button
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="rounded-md border border-input px-3 py-1.5 text-xs"
+                  className=""
                   onClick={() => persistCandidates([])}
                 >
                   Clear history
-                </button>
+                </UiButton>
               </div>
 
               <div className="mt-4 overflow-x-auto">
@@ -1822,20 +1825,20 @@ export default function IntakePage() {
                           </td>
                     <td className="py-3 pr-4">
                         {inPipeline ? (
-                          <span className="inline-flex whitespace-nowrap rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-700">
+                          <span className="inline-flex whitespace-nowrap rounded-full bg-success-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-success">
                             In Pipeline
                           </span>
                         ) : (
-                          <span className="inline-flex whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-500">
+                          <span className="inline-flex whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
                             Draft
                           </span>
                         )}
                           </td>
                           <td className="py-3 pr-2 text-right">
                             <div className="flex items-center justify-end gap-2 text-xs">
-                              <button
+                              <UiButton variant="secondary" size="sm"
                                 type="button"
-                                className="rounded-md border border-input px-3 py-1 text-xs"
+                                className=""
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   setSelectedCandidateId(candidate.id);
@@ -1844,17 +1847,17 @@ export default function IntakePage() {
                                 }}
                               >
                                 Open
-                              </button>
-                              <button
+                              </UiButton>
+                              <UiButton variant="secondary" size="sm"
                                 type="button"
-                                className="rounded-md border border-input px-3 py-1 text-xs"
+                                className=""
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   removeCandidate(candidate.id);
                                 }}
                               >
                                 Delete
-                              </button>
+                              </UiButton>
                             </div>
                           </td>
                         </tr>
@@ -1866,7 +1869,7 @@ export default function IntakePage() {
 
               {selectedCandidate && showCandidateModal ? (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                  <div className="w-full max-w-4xl rounded-xl border border-border bg-card shadow-lg">
+                  <div className="w-full max-w-4xl rounded-md border border-border bg-card shadow-lg">
                     <div className="flex items-center justify-between border-b border-border px-6 py-4">
                       <div>
                         <h2 className="text-lg font-semibold">Candidate details</h2>
@@ -1896,7 +1899,7 @@ export default function IntakePage() {
                               type="button"
                               className={`rounded-md border px-3 py-1.5 text-xs ${
                                 inPipeline
-                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                  ? "border-success/25 bg-success-muted text-success"
                                   : "border-input"
                               }`}
                               onClick={() => {
@@ -1912,26 +1915,26 @@ export default function IntakePage() {
                             </button>
                           );
                         })()}
-                        <button
+                        <UiButton variant="secondary" size="sm"
                           type="button"
-                          className="rounded-md border border-input px-3 py-1.5 text-xs"
+                          className=""
                           onClick={saveDraftToProfile}
                         >
                           Save edits
-                        </button>
-                        <button
+                        </UiButton>
+                        <UiButton variant="secondary" size="sm"
                           type="button"
-                          className="rounded-md border border-input px-3 py-1.5 text-xs"
+                          className=""
                           onClick={() => setShowCandidateModal(false)}
                         >
                           Close
-                        </button>
+                        </UiButton>
                       </div>
                     </div>
 
                     <div className="max-h-[75vh] overflow-y-auto px-6 py-4 text-sm">
                       {pipelineMessage ? (
-                        <div className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                        <div className="mb-3 rounded-md border border-success/25 bg-success-muted px-3 py-2 text-xs text-success">
                           {pipelineMessage}
                         </div>
                       ) : null}
@@ -2234,14 +2237,14 @@ export default function IntakePage() {
                       <div className="mt-4">
                         <div className="flex items-center justify-between text-xs uppercase text-muted-foreground">
                           <span>Tags</span>
-                          <button
+                          <UiButton variant="secondary" size="md"
                             type="button"
-                            className="flex h-6 w-6 items-center justify-center rounded-md border border-input text-[14px] text-muted-foreground hover:text-foreground"
+                            className="flex h-6 w-6 items-center justify-center"
                             onClick={() => setShowTagInput((prev) => !prev)}
                             aria-label="Add tag"
                           >
                             +
-                          </button>
+                          </UiButton>
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {(editDraft?.tags ?? []).length > 0 ? (
@@ -2269,8 +2272,8 @@ export default function IntakePage() {
                         </div>
                         {showTagInput ? (
                           <div className="mt-3 flex flex-wrap items-center gap-2">
-                            <input
-                              className="h-9 w-48 rounded-md border border-input bg-background px-3 text-xs"
+                            <UiInput
+                              className="h-9 w-48"
                               placeholder="Add tag..."
                               value={tagDraft}
                               onChange={(event) => setTagDraft(event.target.value)}
@@ -2281,13 +2284,13 @@ export default function IntakePage() {
                                 }
                               }}
                             />
-                            <button
+                            <UiButton variant="secondary" size="sm"
                               type="button"
-                              className="h-9 rounded-md border border-input px-3 text-xs text-foreground"
+                              className="h-9"
                               onClick={handleAddTag}
                             >
                               Add
-                            </button>
+                            </UiButton>
                           </div>
                         ) : null}
                       </div>
@@ -2313,8 +2316,8 @@ export default function IntakePage() {
                           <div className="text-xs uppercase text-muted-foreground">
                             Experience
                           </div>
-                          <textarea
-                            className="mt-2 min-h-[90px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          <UiTextarea
+                            className="mt-2 min-h-[90px] w-full"
                             value={editDraft?.experience_summary ?? ""}
                             onChange={(event) =>
                               setEditDraft((prev) => ({
@@ -2329,8 +2332,8 @@ export default function IntakePage() {
                           <div className="text-xs uppercase text-muted-foreground">
                             Education
                           </div>
-                          <textarea
-                            className="mt-2 min-h-[90px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          <UiTextarea
+                            className="mt-2 min-h-[90px] w-full"
                             value={editDraft?.education ?? ""}
                             onChange={(event) =>
                               setEditDraft((prev) => ({
@@ -2344,11 +2347,11 @@ export default function IntakePage() {
                       </div>
 
                       <div className="mt-4 grid gap-4 md:grid-cols-2">
-                        <div className="rounded-md border border-emerald-100 bg-emerald-50 px-3 py-3">
-                          <div className="text-xs font-semibold uppercase text-emerald-700">
+                        <div className="rounded-md border border-success/25 bg-success-muted px-3 py-3">
+                          <div className="text-xs font-semibold uppercase text-success">
                             Top Strengths
                           </div>
-                          <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-emerald-800">
+                          <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-success">
                             {Array.isArray(
                               (selectedCandidate.profile.fields as Record<string, unknown>)
                                 ?.strengths
@@ -2368,11 +2371,11 @@ export default function IntakePage() {
                             )}
                           </ul>
                         </div>
-                        <div className="rounded-md border border-rose-100 bg-rose-50 px-3 py-3">
-                          <div className="text-xs font-semibold uppercase text-rose-700">
+                        <div className="rounded-md border border-destructive/25 bg-danger-muted px-3 py-3">
+                          <div className="text-xs font-semibold uppercase text-destructive">
                             Top Concerns
                           </div>
-                          <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-rose-800">
+                          <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-destructive">
                             {Array.isArray(
                               (selectedCandidate.profile.fields as Record<string, unknown>)
                                 ?.concerns
@@ -2400,13 +2403,13 @@ export default function IntakePage() {
                         <div className="text-xs uppercase text-muted-foreground">
                           Raw JSON
                         </div>
-                        <button
+                        <UiButton variant="secondary" size="sm"
                           type="button"
-                          className="rounded-md border border-input px-3 py-1 text-xs"
+                          className=""
                           onClick={() => setShowCandidateJson((prev) => !prev)}
                         >
                           {showCandidateJson ? "Hide" : "Show"}
-                        </button>
+                        </UiButton>
                       </div>
                       {showCandidateJson ? (
                         <pre className="mt-3 whitespace-pre-wrap text-xs text-foreground">

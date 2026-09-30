@@ -1,5 +1,8 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { NativeSelect as UiSelect } from "@/components/ui/select";
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Check, RefreshCw, Search } from "lucide-react";
 
@@ -419,18 +422,18 @@ export default function BreezyQuestionnairesPage() {
     <div className="mx-auto w-full">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Questionnaires
           </h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-muted-foreground">
             Browse Breezy questionnaires (API-only; not stored in the database).
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
+          <UiButton variant="secondary" size="md"
             type="button"
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex items-center gap-2 transition disabled:opacity-60"
             onClick={() => void loadCompanies()}
             disabled={loadingCompanies}
           >
@@ -438,20 +441,20 @@ export default function BreezyQuestionnairesPage() {
               className={loadingCompanies ? "h-4 w-4 animate-spin" : "h-4 w-4"}
             />
             Refresh companies
-          </button>
+          </UiButton>
         </div>
       </div>
 
-      <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mt-8 rounded-panel border border-border bg-card p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Company
             </div>
             <div className="mt-2 flex gap-2">
               {companies.length > 0 ? (
-                <select
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                <UiSelect
+                  className="h-11 w-full"
                   value={companyId}
                   onChange={(event) => setCompanyId(event.target.value)}
                 >
@@ -466,18 +469,18 @@ export default function BreezyQuestionnairesPage() {
                       </option>
                     );
                   })}
-                </select>
+                </UiSelect>
               ) : (
-                <input
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                <UiInput
+                  className="h-11 w-full"
                   value={companyId}
                   onChange={(event) => setCompanyId(event.target.value)}
                   placeholder="Paste Breezy Company ID…"
                 />
               )}
-              <button
+              <UiButton variant="secondary" size="lg"
                 type="button"
-                className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                className="inline-flex h-11 shrink-0 items-center justify-center transition disabled:opacity-60"
                 onClick={() => void loadList()}
                 disabled={loadingList || !companyId.trim()}
                 title="Reload questionnaires"
@@ -485,18 +488,18 @@ export default function BreezyQuestionnairesPage() {
                 <RefreshCw
                   className={loadingList ? "h-4 w-4 animate-spin" : "h-4 w-4"}
                 />
-              </button>
+              </UiButton>
             </div>
           </div>
 
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Filter questionnaires
             </div>
-            <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                className="h-11 w-full border-none bg-transparent text-sm text-slate-800 outline-none"
+            <div className="mt-2 flex items-center gap-2 rounded-panel border border-border bg-card px-4">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <UiInput
+                className="h-11 w-full"
                 placeholder="Search by name, id…"
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
@@ -506,13 +509,13 @@ export default function BreezyQuestionnairesPage() {
         </div>
 
         {error ? (
-          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="mt-4 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         ) : null}
 
-        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
-          <div className="grid grid-cols-12 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <div className="mt-6 overflow-hidden rounded-panel border border-border">
+          <div className="grid grid-cols-12 bg-muted px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <div className="col-span-6">Questionnaire</div>
             <div className="col-span-3">Questions</div>
             <div className="col-span-2">ID</div>
@@ -520,11 +523,11 @@ export default function BreezyQuestionnairesPage() {
           </div>
 
           {loadingList ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-500">
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               Loading questionnaires…
             </div>
           ) : filtered.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-500">
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               No questionnaires found.
             </div>
           ) : (
@@ -543,24 +546,24 @@ export default function BreezyQuestionnairesPage() {
                     key={id || `${name}-${index}`}
                     className={[
                       "grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm transition",
-                      id ? "cursor-pointer hover:bg-slate-50" : "",
-                      active ? "bg-emerald-50/70" : "",
+                      id ? "cursor-pointer hover:bg-muted" : "",
+                      active ? "bg-success-muted" : "",
                     ].join(" ")}
                     onClick={() => (id ? void loadDetails(id) : undefined)}
                   >
                     <div className="col-span-6">
-                      <div className="font-semibold text-slate-900">{name}</div>
+                      <div className="font-semibold text-foreground">{name}</div>
                     </div>
-                    <div className="col-span-3 text-xs text-slate-600">
+                    <div className="col-span-3 text-xs text-muted-foreground">
                       {count ? `${count} question${count === 1 ? "" : "s"}` : "—"}
                     </div>
-                    <div className="col-span-2 font-mono text-xs text-slate-700">
+                    <div className="col-span-2 font-mono text-xs text-foreground">
                       {id || "—"}
                     </div>
                     <div className="col-span-1 flex justify-end">
-                      <button
+                      <UiButton variant="secondary" size="sm"
                         type="button"
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                        className="inline-flex items-center gap-2 transition"
                         onClick={(event) => {
                           event.stopPropagation();
                           if (id) void copy(id);
@@ -573,7 +576,7 @@ export default function BreezyQuestionnairesPage() {
                         ) : (
                           <Copy className="h-3.5 w-3.5" />
                         )}
-                      </button>
+                      </UiButton>
                     </div>
                   </div>
                 );
@@ -595,19 +598,19 @@ export default function BreezyQuestionnairesPage() {
             setShowRaw(false);
           }}
         >
-          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-overlay backdrop-blur-sm" />
           <div
-            className="relative z-10 w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_30px_80px_-50px_rgba(15,23,42,0.6)]"
+            className="relative z-10 w-full max-w-4xl overflow-hidden rounded-panel border border-border bg-card shadow-overlay"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex flex-col gap-3 border-b border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 border-b border-border bg-card px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Questionnaire
                 </div>
                 <div
                   id="breezy-questionnaire-modal-title"
-                  className="mt-1 text-sm font-semibold text-slate-900"
+                  className="mt-1 text-sm font-semibold text-foreground"
                 >
                   {detailsLoading
                     ? "Loading…"
@@ -617,9 +620,9 @@ export default function BreezyQuestionnairesPage() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 transition disabled:opacity-60"
                   onClick={() => void loadDetails(selectedId)}
                   disabled={detailsLoading}
                 >
@@ -629,10 +632,10 @@ export default function BreezyQuestionnairesPage() {
                     }
                   />
                   Refresh
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 transition disabled:opacity-60"
                   onClick={() =>
                     details ? void copyJson(details) : undefined
                   }
@@ -640,10 +643,10 @@ export default function BreezyQuestionnairesPage() {
                   title="Copy JSON to clipboard"
                 >
                   Copy JSON
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 transition disabled:opacity-60"
                   onClick={() =>
                     details
                       ? downloadJson(
@@ -656,17 +659,17 @@ export default function BreezyQuestionnairesPage() {
                   title="Download JSON"
                 >
                   Download
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 transition"
                   onClick={() => setShowRaw((v) => !v)}
                 >
                   {showRaw ? "Hide raw" : "Show raw"}
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 transition"
                   onClick={() => {
                     setSelectedId(null);
                     setDetails(null);
@@ -674,41 +677,41 @@ export default function BreezyQuestionnairesPage() {
                   }}
                 >
                   Close
-                </button>
+                </UiButton>
               </div>
             </div>
 
             <div className="max-h-[75vh] overflow-auto px-5 py-5">
               {detailsLoading ? (
-                <div className="text-sm text-slate-500">Fetching Breezy data…</div>
+                <div className="text-sm text-muted-foreground">Fetching Breezy data…</div>
               ) : details ? (
                 <div className="grid gap-4">
                   {(() => {
                     const questions = getFlatQuestions(details);
                     return (
                       <>
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm">
+                        <div className="rounded-panel border border-border bg-muted/60 p-4 text-sm">
                           <div className="grid gap-3 sm:grid-cols-2">
                             <div>
-                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Name
                               </div>
-                              <div className="mt-1 font-semibold text-slate-900">
+                              <div className="mt-1 font-semibold text-foreground">
                                 {asString(details.name).trim() ||
                                   asString(details.title).trim() ||
                                   "—"}
                               </div>
                             </div>
                             <div>
-                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 ID
                               </div>
-                              <div className="mt-1 font-mono text-xs text-slate-800">
+                              <div className="mt-1 font-mono text-xs text-foreground">
                                 {getId(details) || "—"}
                               </div>
                             </div>
                           </div>
-                          <div className="mt-3 text-xs text-slate-600">
+                          <div className="mt-3 text-xs text-muted-foreground">
                             {questions.length
                               ? `${questions.length} question${questions.length === 1 ? "" : "s"}`
                               : "No questions detected in the payload."}
@@ -716,8 +719,8 @@ export default function BreezyQuestionnairesPage() {
                         </div>
 
                         {questions.length ? (
-                          <div className="overflow-hidden rounded-2xl border border-slate-200">
-                            <div className="grid grid-cols-12 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <div className="overflow-hidden rounded-panel border border-border">
+                            <div className="grid grid-cols-12 bg-muted px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                               <div className="col-span-5">Question</div>
                               <div className="col-span-3">Type</div>
                               <div className="col-span-2">Options</div>
@@ -730,20 +733,20 @@ export default function BreezyQuestionnairesPage() {
                                   key={`${q.id || q.text}-${index}`}
                                   className="grid grid-cols-12 items-start gap-2 px-4 py-3 text-sm"
                                 >
-                                  <div className="col-span-5 text-slate-900">
+                                  <div className="col-span-5 text-foreground">
                                     <div className="font-semibold">
                                       {q.text || "—"}
                                     </div>
                                     {q.id ? (
-                                      <div className="mt-1 font-mono text-xs text-slate-500">
+                                      <div className="mt-1 font-mono text-xs text-muted-foreground">
                                         {q.id}
                                       </div>
                                     ) : null}
                                   </div>
-                                  <div className="col-span-3 text-xs text-slate-700">
+                                  <div className="col-span-3 text-xs text-foreground">
                                     {q.type || "—"}
                                   </div>
-                                  <div className="col-span-2 text-xs text-slate-700">
+                                  <div className="col-span-2 text-xs text-foreground">
                                     {q.options.length > 0
                                       ? q.options.slice(0, 3).join(", ") +
                                         (q.options.length > 3
@@ -751,10 +754,10 @@ export default function BreezyQuestionnairesPage() {
                                           : "")
                                       : "—"}
                                   </div>
-                                  <div className="col-span-1 text-xs text-slate-700">
+                                  <div className="col-span-1 text-xs text-foreground">
                                     {q.section || "—"}
                                   </div>
-                                  <div className="col-span-1 text-right text-xs text-slate-700">
+                                  <div className="col-span-1 text-right text-xs text-foreground">
                                     {q.required ? "Yes" : "No"}
                                   </div>
                                 </div>
@@ -767,15 +770,15 @@ export default function BreezyQuestionnairesPage() {
                   })()}
 
                   {showRaw ? (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-950 p-4">
-                      <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap text-xs text-slate-100">
+                    <div className="rounded-panel border border-border bg-primary p-4">
+                      <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">
                         {JSON.stringify(details, null, 2)}
                       </pre>
                     </div>
                   ) : null}
                 </div>
               ) : (
-                <div className="text-sm text-slate-500">No details returned.</div>
+                <div className="text-sm text-muted-foreground">No details returned.</div>
               )}
             </div>
           </div>

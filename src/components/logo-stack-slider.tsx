@@ -152,7 +152,7 @@ export function LogoStackSlider({
             key={item.id}
             className={cn(
               "absolute left-0 bottom-0 grid place-items-center",
-              "overflow-hidden rounded-[28px] ring-1 ring-black/5 shadow-[0_26px_60px_-30px_rgba(0,0,0,0.45)]",
+              "overflow-hidden rounded-dialog ring-1 ring-black/5 shadow-overlay",
               "transition-[transform,opacity,filter] ease-out will-change-[transform,opacity,filter]",
               prefersReducedMotion && "transition-none",
             )}

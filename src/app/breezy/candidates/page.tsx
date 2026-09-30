@@ -1,5 +1,8 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { NativeSelect as UiSelect } from "@/components/ui/select";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
@@ -593,25 +596,25 @@ export default function BreezyCandidatesPage() {
   }, [items]);
 
   return (
-    <div className="min-h-screen bg-slate-50 px-2 py-10 text-slate-900 sm:px-4 lg:px-6">
+    <div className="min-h-screen bg-muted px-2 py-10 text-foreground sm:px-4 lg:px-6">
       <div className="mx-auto w-full max-w-6xl">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-400">
+            <div className="text-xs font-semibold uppercase tracking-[0.22em] text-success">
               Breezy
             </div>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
               Candidates with attachments
             </h1>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm text-muted-foreground">
               Shows 10 Breezy candidates for the selected position that have at least{" "}
-              <span className="font-semibold text-slate-900">{minDocs}</span> documents, and lets you add them to the internal pipeline.
+              <span className="font-semibold text-foreground">{minDocs}</span> documents, and lets you add them to the internal pipeline.
             </p>
           </div>
 
-          <button
+          <UiButton variant="primary" size="md"
             type="button"
-            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-black disabled:opacity-60"
+            className="inline-flex items-center gap-2 transition disabled:opacity-60"
             onClick={async () => {
               setSyncing(true);
               try {
@@ -624,39 +627,39 @@ export default function BreezyCandidatesPage() {
           >
             <RefreshCw className={loading || syncing ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
             Refresh
-          </button>
+          </UiButton>
         </div>
 
         {error ? (
-          <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="mt-6 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         ) : null}
 
         <div className="mt-6 grid gap-4">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-panel border border-border bg-card p-5 shadow-sm">
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="sm:col-span-1">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Breezy companyId
                 </div>
-                <input
+                <UiInput
                   value={breezyCompanyId}
                   onChange={(event) => {
                     const value = event.target.value;
                     setBreezyCompanyId(value);
                     if (value.trim()) saveBreezyCompanyId(value);
                   }}
-                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none"
+                  className="mt-2 h-11 w-full"
                   placeholder="e.g. 5f0..."
                 />
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Min docs
                     </div>
-                    <select
-                      className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none"
+                    <UiSelect
+                      className="mt-2 h-11 w-full"
                       value={String(minDocs)}
                       onChange={(event) =>
                         setMinDocs(Math.max(1, Math.min(10, Number(event.target.value) || 2)))
@@ -666,28 +669,28 @@ export default function BreezyCandidatesPage() {
                       <option value="2">2+</option>
                       <option value="3">3+</option>
                       <option value="4">4+</option>
-                    </select>
+                    </UiSelect>
                   </div>
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Scan
                     </div>
-                    <input
+                    <UiInput
                       value={String(scan)}
                       onChange={(event) =>
                         setScan(Math.max(10, Math.min(300, Number(event.target.value) || 120)))
                       }
-                      className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none"
+                      className="mt-2 h-11 w-full"
                       inputMode="numeric"
                     />
                   </div>
                 </div>
                 <div className="mt-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Import pipeline
                   </div>
-                  <select
-                    className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none"
+                  <UiSelect
+                    className="mt-2 h-11 w-full"
                     value={pipelineId}
                     onChange={(event) => setPipelineId(event.target.value)}
                   >
@@ -700,17 +703,17 @@ export default function BreezyCandidatesPage() {
                         </option>
                       ))
                     )}
-                  </select>
+                  </UiSelect>
                 </div>
               </div>
 
               <div className="sm:col-span-2">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Position
                 </div>
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <select
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none"
+                  <UiSelect
+                    className="h-11 w-full"
                     value={positionId}
                     onChange={(event) => {
                       const next = event.target.value;
@@ -730,10 +733,10 @@ export default function BreezyCandidatesPage() {
                           : ""}
                       </option>
                     ))}
-                  </select>
-                  <button
+                  </UiSelect>
+                  <UiButton variant="secondary" size="lg"
                     type="button"
-                    className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                    className="inline-flex h-11 shrink-0 items-center justify-center disabled:opacity-60"
                     disabled={!breezyCompanyId.trim()}
                     onClick={async () => {
                       setSyncing(true);
@@ -750,10 +753,10 @@ export default function BreezyCandidatesPage() {
                     }}
                   >
                     Load positions
-                  </button>
-                  <button
+                  </UiButton>
+                  <UiButton variant="primary" size="lg"
                     type="button"
-                    className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-black disabled:opacity-60"
+                    className="inline-flex h-11 shrink-0 items-center justify-center transition disabled:opacity-60"
                     disabled={
                       !breezyCompanyId.trim() ||
                       positions.length === 0 ||
@@ -767,80 +770,80 @@ export default function BreezyCandidatesPage() {
                     }
                   >
                     {positionCountsMeta?.loading ? "Counting..." : `Count docs≥${minDocs}`}
-                  </button>
+                  </UiButton>
                 </div>
                 {positionsWarning ? (
-                  <div className="mt-2 text-xs text-amber-600">{positionsWarning}</div>
+                  <div className="mt-2 text-xs text-warning">{positionsWarning}</div>
                 ) : null}
                 {positions.length > 0 && Object.keys(positionDocCounts).length === 0 && !positionCountsMeta ? (
-                  <div className="mt-2 text-xs text-slate-500">
+                  <div className="mt-2 text-xs text-muted-foreground">
                     Tip: click{" "}
-                    <span className="font-semibold text-slate-900">Count docs≥{minDocs}</span>{" "}
+                    <span className="font-semibold text-foreground">Count docs≥{minDocs}</span>{" "}
                     to show Breezy (scanned) counts next to each position.
                   </div>
                 ) : null}
                 {positionCountsMeta ? (
-                  <div className="mt-2 text-xs text-slate-600">
+                  <div className="mt-2 text-xs text-muted-foreground">
                     Breezy counts (docs≥{minDocs}):{" "}
-                    <span className="font-semibold text-slate-900">{positionCountsMeta.done}</span>{" "}
-                    / <span className="font-semibold text-slate-900">{positionCountsMeta.total}</span>
+                    <span className="font-semibold text-foreground">{positionCountsMeta.done}</span>{" "}
+                    / <span className="font-semibold text-foreground">{positionCountsMeta.total}</span>
                     {positionCountsMeta.loading ? " (loading…)" : ""}
                     {positionCountsMeta.error ? (
-                      <span className="ml-2 text-rose-600">{positionCountsMeta.error}</span>
+                      <span className="ml-2 text-destructive">{positionCountsMeta.error}</span>
                     ) : null}
                   </div>
                 ) : null}
                 {meta ? (
-                  <div className="mt-2 text-xs text-slate-600">
+                  <div className="mt-2 text-xs text-muted-foreground">
                     Breezy (selected position):{" "}
-                    <span className="font-semibold text-slate-900">{meta.withDocuments}</span>{" "}
+                    <span className="font-semibold text-foreground">{meta.withDocuments}</span>{" "}
                     candidates with docs≥{meta.minDocs ?? minDocs} (docs:{" "}
-                    <span className="font-semibold text-slate-900">{meta.documentsTotal}</span>, scanned{" "}
-                    <span className="font-semibold text-slate-900">{meta.scanned}</span> /{" "}
-                    <span className="font-semibold text-slate-900">{meta.candidatesTotal}</span>)
+                    <span className="font-semibold text-foreground">{meta.documentsTotal}</span>, scanned{" "}
+                    <span className="font-semibold text-foreground">{meta.scanned}</span> /{" "}
+                    <span className="font-semibold text-foreground">{meta.candidatesTotal}</span>)
                   </div>
                 ) : null}
                 {importedMeta ? (
-                  <div className="mt-1 text-xs text-slate-600">
+                  <div className="mt-1 text-xs text-muted-foreground">
                     In DB:{" "}
-                    <span className="font-semibold text-slate-900">
+                    <span className="font-semibold text-foreground">
                       {importedMeta.withDocuments}
                     </span>{" "}
                     candidates with documents (2+ docs:{" "}
-                    <span className="font-semibold text-slate-900">
+                    <span className="font-semibold text-foreground">
                       {importedMeta.with2PlusDocuments}
                     </span>
                     , notes:{" "}
-                    <span className="font-semibold text-slate-900">
+                    <span className="font-semibold text-foreground">
                       {importedMeta.withNotes}
                     </span>
                     )
                   </div>
                 ) : null}
                 {meta?.note ? (
-                  <div className="mt-1 text-[11px] text-slate-500">{meta.note}</div>
+                  <div className="mt-1 text-[11px] text-muted-foreground">{meta.note}</div>
                 ) : null}
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="rounded-panel border border-border bg-card p-5 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Search candidate (Breezy)
             </div>
-            <div className="mt-1 text-sm text-slate-700">
+            <div className="mt-1 text-sm text-foreground">
               Search by email for the selected position and import to the pipeline.
             </div>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-              <input
+              <UiInput
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none"
+                className="h-11 w-full"
                 placeholder="email@example.com"
               />
-              <button
+              <UiButton variant="primary" size="lg"
                 type="button"
-                className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-black disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center transition disabled:opacity-60"
                 onClick={() => void handleSearch()}
                 disabled={
                   searchLoading ||
@@ -850,10 +853,10 @@ export default function BreezyCandidatesPage() {
                 }
               >
                 {searchLoading ? "Searching..." : "Search"}
-              </button>
+              </UiButton>
             </div>
             {searchError ? (
-              <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <div className="mt-3 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
                 {searchError}
               </div>
             ) : null}
@@ -866,45 +869,45 @@ export default function BreezyCandidatesPage() {
                   return (
                     <div
                       key={`search-${cand.id}`}
-                      className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4"
+                      className="rounded-panel border border-border bg-muted/50 p-4"
                     >
-                      <div className="truncate text-sm font-semibold text-slate-900">
+                      <div className="truncate text-sm font-semibold text-foreground">
                         {cand.name || cand.email || cand.id}
                       </div>
-                      <div className="mt-1 text-xs text-slate-600">
+                      <div className="mt-1 text-xs text-muted-foreground">
                         {cand.email ? cand.email : cand.id} · docs:{" "}
                         <span className="font-semibold">{cand.documentsCount}</span>
                         {!cand.meetsMinDocs ? (
-                          <span className="ml-2 text-amber-700">(below docs≥{minDocs})</span>
+                          <span className="ml-2 text-warning">(below docs≥{minDocs})</span>
                         ) : null}
                         {typeof cand.docsStatus === "number" && cand.docsStatus === 404 ? (
-                          <span className="ml-2 text-rose-700">
+                          <span className="ml-2 text-destructive">
                             (not in selected position)
                           </span>
                         ) : null}
                       </div>
                       {cand.located && cand.positionId ? (
-                        <div className="mt-1 text-xs text-slate-500">
+                        <div className="mt-1 text-xs text-muted-foreground">
                           Found in:{" "}
-                          <span className="font-mono text-slate-700">
+                          <span className="font-mono text-foreground">
                             {cand.positionName ? cand.positionName : cand.positionId}
                           </span>
                         </div>
                       ) : null}
                       {internalId ? (
-                        <div className="mt-2 text-xs text-emerald-600">
+                        <div className="mt-2 text-xs text-success">
                           Added to pipeline as: <span className="font-mono">{internalId}</span>
                         </div>
                       ) : null}
                       <div className="mt-3 flex items-center justify-end">
-                        <button
+                        <UiButton variant="ghost" size="sm"
                           type="button"
-                          className="inline-flex h-9 items-center justify-center rounded-full bg-indigo-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-60"
+                          className="inline-flex h-9 items-center justify-center transition disabled:opacity-60"
                           onClick={() => void handleImportFromSearch(cand)}
                           disabled={disabled}
                         >
                           {internalId ? "Added" : isAdding ? "Adding..." : "Add to pipeline"}
-                        </button>
+                        </UiButton>
                       </div>
                     </div>
                   );
@@ -914,13 +917,13 @@ export default function BreezyCandidatesPage() {
           </div>
 
           {importedCandidates.length > 0 ? (
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-panel border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Imported candidates (DB)
                   </div>
-                  <div className="mt-1 text-sm text-slate-700">
+                  <div className="mt-1 text-sm text-foreground">
                     Candidates already in the platform for this position.
                   </div>
                 </div>
@@ -929,17 +932,17 @@ export default function BreezyCandidatesPage() {
                 {importedCandidates.map((cand) => (
                   <div
                     key={`db-${cand.id}`}
-                    className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4"
+                    className="rounded-panel border border-border bg-muted/50 p-4"
                   >
-                    <div className="truncate text-sm font-semibold text-slate-900">
+                    <div className="truncate text-sm font-semibold text-foreground">
                       {cand.name || cand.id}
                     </div>
-                    <div className="mt-1 text-xs text-slate-600">
+                    <div className="mt-1 text-xs text-muted-foreground">
                       {cand.email ? cand.email : cand.id} · docs:{" "}
                       <span className="font-semibold">{cand.attachmentCount}</span> · notes:{" "}
                       <span className="font-semibold">{cand.noteCount}</span>
                     </div>
-                    <div className="mt-2 text-[11px] text-slate-500">
+                    <div className="mt-2 text-[11px] text-muted-foreground">
                       Pipeline: <span className="font-mono">{cand.pipeline_id ?? "—"}</span>
                       {cand.stage_id ? (
                         <>
@@ -955,11 +958,11 @@ export default function BreezyCandidatesPage() {
           ) : null}
 
           {loading ? (
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
+            <div className="rounded-panel border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
               Loading candidates…
             </div>
           ) : cards.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
+            <div className="rounded-panel border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
               No candidates with docs≥{minDocs} found (try increasing `scan`).
             </div>
           ) : (
@@ -969,39 +972,39 @@ export default function BreezyCandidatesPage() {
               return (
                 <div
                   key={item.id}
-                  className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+                  className="rounded-panel border border-border bg-card p-5 shadow-sm"
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-slate-900">
+                      <div className="truncate text-sm font-semibold text-foreground">
                         {item.__name}
                       </div>
-                      <div className="mt-1 text-xs text-slate-500">
+                      <div className="mt-1 text-xs text-muted-foreground">
                         {item.__email ? item.__email : item.id} · {item.__docsCount}{" "}
                         {item.__docsCount === 1 ? "document" : "documents"}
                       </div>
                       {internalId ? (
-                        <div className="mt-2 text-xs text-emerald-600">
+                        <div className="mt-2 text-xs text-success">
                           Added to pipeline as: <span className="font-mono">{internalId}</span>
                         </div>
                       ) : null}
                     </div>
 
-                    <button
+                    <UiButton variant="ghost" size="sm"
                       type="button"
-                      className="inline-flex h-9 items-center justify-center rounded-full bg-indigo-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-60"
+                      className="inline-flex h-9 items-center justify-center transition disabled:opacity-60"
                       onClick={() => void handleAdd(item)}
                       disabled={isAdding || !!internalId}
                     >
                       {internalId ? "Added" : isAdding ? "Adding..." : "Add to pipeline"}
-                    </button>
+                    </UiButton>
                   </div>
 
-                  <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
-                    <summary className="cursor-pointer text-xs font-semibold text-slate-700">
+                  <details className="mt-4 rounded-panel border border-border bg-muted/50 p-4">
+                    <summary className="cursor-pointer text-xs font-semibold text-foreground">
                       View all datapoints (JSON)
                     </summary>
-                    <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-slate-700">
+                    <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-foreground">
                       {JSON.stringify(
                         { id: item.id, summary: item.summary, details: item.details, documents: item.documents },
                         null,

@@ -1,5 +1,7 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
 import { useEffect, useMemo, useState } from "react";
 import { Ban, Copy, ExternalLink, Search } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -199,68 +201,68 @@ export default function CalendarPage() {
     <div className="flex min-h-full flex-col gap-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Task calendar</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold text-foreground">Task calendar</h1>
+          <p className="text-sm text-muted-foreground">
             Track interviews and upcoming meetings.
           </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              className="h-10 w-56 rounded-full border border-slate-200 bg-white pl-9 pr-4 text-sm outline-none focus:border-emerald-300"
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <UiInput
+              className="h-10 w-56 pl-9 pr-4"
               placeholder="Task search"
             />
           </div>
-          <button
+          <UiButton variant="secondary" size="md"
             type="button"
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+            className=""
           >
             By topic name
-          </button>
+          </UiButton>
         </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[2.2fr_1fr]">
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 text-sm font-semibold text-slate-700">
+          <div className="rounded-panel border border-border bg-card p-5 shadow-sm">
+            <div className="mb-4 text-sm font-semibold text-foreground">
               Employee performance analytics
             </div>
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div className="text-xs text-slate-500">Availability score</div>
-                <div className="mt-2 text-2xl font-semibold text-slate-900">
+              <div className="rounded-md border border-border bg-muted p-4">
+                <div className="text-xs text-muted-foreground">Availability score</div>
+                <div className="mt-2 text-2xl font-semibold text-foreground">
                   {Math.min(100, Math.round((analytics.total || 1) * 12))}%
                 </div>
-                <div className="mt-1 text-xs text-emerald-600">+4.8%</div>
+                <div className="mt-1 text-xs text-success">+4.8%</div>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div className="text-xs text-slate-500">Meetings this week</div>
-                <div className="mt-2 text-2xl font-semibold text-slate-900">
+              <div className="rounded-md border border-border bg-muted p-4">
+                <div className="text-xs text-muted-foreground">Meetings this week</div>
+                <div className="mt-2 text-2xl font-semibold text-foreground">
                   {analytics.weekCount}
                 </div>
-                <div className="mt-1 text-xs text-slate-500">Next 7 days</div>
+                <div className="mt-1 text-xs text-muted-foreground">Next 7 days</div>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div className="text-xs text-slate-500">Today</div>
-                <div className="mt-2 text-2xl font-semibold text-slate-900">
+              <div className="rounded-md border border-border bg-muted p-4">
+                <div className="text-xs text-muted-foreground">Today</div>
+                <div className="mt-2 text-2xl font-semibold text-foreground">
                   {analytics.todayCount}
                 </div>
-                <div className="mt-1 text-xs text-slate-500">Interviews</div>
+                <div className="mt-1 text-xs text-muted-foreground">Interviews</div>
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-panel border border-border bg-card p-5 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-slate-700">
+              <div className="text-sm font-semibold text-foreground">
                 {monthLabel(viewDate)}
               </div>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <button
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <UiButton variant="secondary" size="md"
                   type="button"
-                  className="rounded-full border border-slate-200 px-3 py-1.5"
+                  className=""
                   onClick={() =>
                     setViewDate(
                       new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1)
@@ -268,10 +270,10 @@ export default function CalendarPage() {
                   }
                 >
                   Prev
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="md"
                   type="button"
-                  className="rounded-full border border-slate-200 px-3 py-1.5"
+                  className=""
                   onClick={() =>
                     setViewDate(
                       new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1)
@@ -279,10 +281,10 @@ export default function CalendarPage() {
                   }
                 >
                   Next
-                </button>
+                </UiButton>
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-7 text-xs text-slate-400">
+            <div className="mt-4 grid grid-cols-7 text-xs text-muted-foreground">
               {dayNames.map((day) => (
                 <div key={day} className="px-2 py-2 text-center">
                   {day}
@@ -293,18 +295,18 @@ export default function CalendarPage() {
               {calendarDays.map((day) => (
                 <div
                   key={day.key}
-                  className={`min-h-[96px] rounded-xl border border-slate-200 p-2 text-xs ${
+                  className={`min-h-[96px] rounded-md border border-border p-2 text-xs ${
                     day.isCurrentMonth
-                      ? "bg-white"
-                      : "bg-slate-50 text-slate-400"
+                      ? "bg-card"
+                      : "bg-muted text-muted-foreground"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-slate-600">
+                    <span className="font-semibold text-muted-foreground">
                       {day.dayNumber}
                     </span>
                     {day.meetings.length > 0 ? (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                      <span className="rounded-full bg-success-muted px-2 py-0.5 text-[10px] font-semibold text-success">
                         {day.meetings.length}
                       </span>
                     ) : null}
@@ -315,14 +317,14 @@ export default function CalendarPage() {
                         key={`${day.key}-${meeting.candidateId}`}
                         type="button"
                         onClick={() => setSelectedMeeting(meeting)}
-                        className="w-full truncate rounded-md bg-emerald-50 px-2 py-1 text-left text-[10px] text-emerald-700 hover:bg-emerald-100"
+                        className="w-full truncate rounded-md bg-success-muted px-2 py-1 text-left text-[10px] text-success hover:bg-success-muted"
                         title={meeting.meetingTitle}
                       >
                         {meeting.meetingTitle || "Interview"}
                       </button>
                     ))}
                     {day.meetings.length > 2 ? (
-                      <div className="text-[10px] text-slate-400">
+                      <div className="text-[10px] text-muted-foreground">
                         +{day.meetings.length - 2} more
                       </div>
                     ) : null}
@@ -334,30 +336,30 @@ export default function CalendarPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="text-sm font-semibold text-slate-700">At work</div>
+          <div className="rounded-panel border border-border bg-card p-5 shadow-sm">
+            <div className="text-sm font-semibold text-foreground">At work</div>
             <div className="mt-4 space-y-3">
               {loading ? (
-                <div className="text-xs text-slate-500">Loading meetings...</div>
+                <div className="text-xs text-muted-foreground">Loading meetings...</div>
               ) : error ? (
-                <div className="text-xs text-rose-600">{error}</div>
+                <div className="text-xs text-destructive">{error}</div>
               ) : upcoming.length === 0 ? (
-                <div className="text-xs text-slate-400">No upcoming meetings.</div>
+                <div className="text-xs text-muted-foreground">No upcoming meetings.</div>
               ) : (
                 upcoming.slice(0, 4).map((item) => (
                   <div
                     key={item.candidateId}
-                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                    className="flex items-center justify-between rounded-md border border-border bg-muted px-3 py-3"
                   >
                     <div>
-                      <div className="text-xs font-semibold text-slate-700">
+                      <div className="text-xs font-semibold text-foreground">
                         {item.meetingTitle || "Interview"}
                       </div>
-                      <div className="text-[11px] text-slate-500">
+                      <div className="text-[11px] text-muted-foreground">
                         {item.candidateName}
                       </div>
                     </div>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-muted-foreground">
                       {formatTimestamp(item.meetingStart)}
                     </span>
                   </div>
@@ -366,11 +368,11 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="text-sm font-semibold text-slate-700">
+          <div className="rounded-panel border border-border bg-card p-5 shadow-sm">
+            <div className="text-sm font-semibold text-foreground">
               Interview details
             </div>
-            <div className="mt-3 space-y-3 text-xs text-slate-500">
+            <div className="mt-3 space-y-3 text-xs text-muted-foreground">
               <div>
                 Keep track of interviews across teams, departments, and onboarding
                 stages in one view.
@@ -382,7 +384,7 @@ export default function CalendarPage() {
               </ul>
               {items[0]?.meetingLink ? (
                 <a
-                  className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary"
                   href={items[0].meetingLink}
                   target="_blank"
                   rel="noreferrer"
@@ -401,23 +403,23 @@ export default function CalendarPage() {
           onClick={() => setSelectedMeeting(null)}
         >
           <div
-            className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+            className="w-full max-w-lg rounded-panel border border-border bg-card p-6 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between">
               <div>
-                <div className="text-lg font-semibold text-slate-900">
+                <div className="text-lg font-semibold text-foreground">
                   {selectedMeeting.meetingTitle || "Interview"}
                 </div>
-                <div className="mt-1 text-xs text-slate-500">
+                <div className="mt-1 text-xs text-muted-foreground">
                   Candidate: {selectedMeeting.candidateName}
                 </div>
                 {selectedMeeting.meetingInterviewers ? (
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-muted-foreground">
                     With: {selectedMeeting.meetingInterviewers}
                   </div>
                 ) : null}
-                <div className="mt-2 text-xs text-slate-500">
+                <div className="mt-2 text-xs text-muted-foreground">
                   {selectedMeeting.meetingStart
                     ? `Starts ${formatTimestamp(selectedMeeting.meetingStart)}`
                     : "Time not set"}
@@ -426,17 +428,17 @@ export default function CalendarPage() {
                     : ""}
                 </div>
               </div>
-              <button
+              <UiButton variant="secondary" size="sm"
                 type="button"
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-500 hover:bg-slate-50"
+                className=""
                 onClick={() => setSelectedMeeting(null)}
               >
                 Close
-              </button>
+              </UiButton>
             </div>
             <div className="mt-5 flex flex-wrap items-center gap-2">
               <a
-                className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary"
                 href={selectedMeeting.meetingLink}
                 target="_blank"
                 rel="noreferrer"
@@ -444,9 +446,9 @@ export default function CalendarPage() {
                 Join meeting
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
-              <button
+              <UiButton variant="secondary" size="sm"
                 type="button"
-                className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50"
+                className=""
                 onClick={() => {
                   navigator.clipboard.writeText(
                     selectedMeeting.meetingLink ?? ""
@@ -457,10 +459,10 @@ export default function CalendarPage() {
                   Copy link
                   <Copy className="h-3.5 w-3.5" />
                 </span>
-              </button>
-              <button
+              </UiButton>
+              <UiButton variant="secondary" size="sm"
                 type="button"
-                className="rounded-md border border-rose-200 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50"
+                className="text-destructive"
                 disabled={canceling}
                 onClick={async () => {
                   if (!selectedMeeting?.meetingLink) return;
@@ -521,7 +523,7 @@ export default function CalendarPage() {
                   {canceling ? "Canceling..." : "Cancel meeting"}
                   <Ban className="h-3.5 w-3.5" />
                 </span>
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>

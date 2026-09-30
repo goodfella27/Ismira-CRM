@@ -10,10 +10,10 @@ export default function IntakeLoading() {
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, index) => (
-            <Skeleton key={index} className="h-12 w-full rounded-xl" />
+            <Skeleton key={index} className="h-12 w-full rounded-md" />
           ))}
         </div>
-        <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
+        <div className="space-y-4 rounded-panel border border-border bg-card p-6">
           {Array.from({ length: 8 }).map((_, index) => (
             <Skeleton key={index} className="h-10 w-full rounded-md" />
           ))}

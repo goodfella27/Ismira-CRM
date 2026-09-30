@@ -1,6 +1,6 @@
 # Ismira UI design system
 
-Status: ready for design review; implementation has not started.
+Status: approved by the user on 2026-09-30; implementation plan prepared for review.
 Branch: `codex/ui-design-system`
 Baseline: `70b2ea6`, merged and pushed to `main`.
 

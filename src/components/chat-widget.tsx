@@ -1,5 +1,7 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { MessageCircle, Send as SendIcon, X } from "lucide-react";
@@ -310,12 +312,12 @@ const renderMentionedBody = (
       <span
         key={`mention-${index}`}
         className={`mx-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-          onDark ? "bg-cyan-300 text-slate-950" : "bg-cyan-100 text-cyan-900"
+          onDark ? "bg-accent text-foreground" : "bg-accent text-foreground"
         }`}
       >
         <span
           className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold ${
-            onDark ? "bg-cyan-500 text-white" : "bg-cyan-200 text-cyan-900"
+            onDark ? "bg-cyan-500 text-white" : "bg-accent text-foreground"
           }`}
         >
           @
@@ -344,13 +346,13 @@ function ProfileLinkPill({
 }) {
   const shellClass = compact
     ? theme
-      ? `mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200/60 pl-[8px] pr-[12px] py-[5px] text-slate-950 align-middle ${theme.bgClass}`
+      ? `mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/60 pl-[8px] pr-[12px] py-[5px] text-foreground align-middle ${theme.bgClass}`
       : onDark
-        ? "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-cyan-300/60 bg-cyan-300/95 pl-[8px] pr-[12px] py-[5px] text-slate-950 align-middle"
-        : "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-cyan-300/70 bg-cyan-100 pl-[8px] pr-[12px] py-[5px] text-cyan-950 align-middle"
+        ? "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-input/60 bg-accent/95 pl-[8px] pr-[12px] py-[5px] text-foreground align-middle"
+        : "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-input/70 bg-accent pl-[8px] pr-[12px] py-[5px] text-foreground align-middle"
     : theme
-      ? `my-1 inline-flex max-w-full items-center gap-2 rounded-2xl border border-slate-200/60 px-3 py-2 text-slate-950 shadow-sm ${theme.bgClass}`
-      : "my-1 inline-flex max-w-full items-center gap-2 rounded-2xl border border-cyan-300/70 bg-cyan-50 px-3 py-2 text-cyan-950 shadow-sm";
+      ? `my-1 inline-flex max-w-full items-center gap-2 rounded-panel border border-border/60 px-3 py-2 text-foreground shadow-sm ${theme.bgClass}`
+      : "my-1 inline-flex max-w-full items-center gap-2 rounded-panel border border-input/70 bg-accent px-3 py-2 text-foreground shadow-sm";
   const iconClass = compact
     ? onDark
       ? "inline-flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full bg-cyan-600 text-[8px] font-bold text-white"
@@ -361,8 +363,8 @@ function ProfileLinkPill({
     : "block truncate text-sm font-semibold";
   const themedIconClass = theme
     ? compact
-      ? `inline-flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full bg-white/80 text-[8px] font-bold ${theme.textClass}`
-      : `inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/80 text-[11px] font-bold ${theme.textClass}`
+      ? `inline-flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full bg-card/80 text-[8px] font-bold ${theme.textClass}`
+      : `inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-card/80 text-[11px] font-bold ${theme.textClass}`
     : null;
 
   return (
@@ -373,7 +375,7 @@ function ProfileLinkPill({
         event.preventDefault();
         onOpen(href, shareSlug);
       }}
-      className={`${shellClass} text-left transition hover:border-cyan-400 hover:bg-cyan-100`}
+      className={`${shellClass} text-left transition hover:border-input hover:bg-accent`}
     >
       <span className={themedIconClass ?? iconClass}>
         P
@@ -436,7 +438,7 @@ const renderComposerHighlight = (text: string, entities: ComposerProfileEntity[]
     nodes.push(
       <span
         key={`composer-entity-${entity.id}-${entity.start}`}
-        className="rounded-sm bg-cyan-100 text-cyan-900"
+        className="rounded-sm bg-accent text-foreground"
       >
         {text.slice(entity.start, entity.end)}
       </span>
@@ -477,7 +479,7 @@ function AvatarThumb({
   if (avatarUrl) {
     return (
       <div
-        className={`${classes} shrink-0 rounded-full border border-white/80 bg-slate-200 bg-cover bg-center shadow-sm`}
+        className={`${classes} shrink-0 rounded-full border border-white/80 bg-accent bg-cover bg-center shadow-sm`}
         style={{ backgroundImage: `url("${avatarUrl}")` }}
         aria-label={resolveDisplayName(member ?? { name: null, email: null })}
       />
@@ -486,7 +488,7 @@ function AvatarThumb({
 
   return (
     <div
-      className={`${classes} shrink-0 rounded-full border border-white/80 bg-slate-900 text-[11px] font-semibold text-white shadow-sm flex items-center justify-center`}
+      className={`${classes} shrink-0 rounded-full border border-white/80 bg-primary text-[11px] font-semibold text-primary-foreground shadow-sm flex items-center justify-center`}
       aria-label={resolveDisplayName(member ?? { name: null, email: null })}
     >
       {getInitials(member ?? { name: null, email: null })}
@@ -1470,8 +1472,8 @@ export function ChatWidget() {
   return (
     <div className="fixed bottom-6 right-10 z-50 flex flex-col items-end">
       {open && (
-        <div className="mb-4 flex h-[min(70vh,520px)] max-h-[calc(100vh-6rem)] w-[min(90vw,380px)] flex-col overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_30px_80px_-45px_rgba(15,23,42,0.8)]">
-          <div className="flex items-center justify-between border-b border-slate-200/70 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-5 py-4 text-white">
+        <div className="mb-4 flex h-[min(70vh,520px)] max-h-[calc(100vh-6rem)] w-[min(90vw,380px)] flex-col overflow-hidden rounded-panel border border-border/80 bg-card shadow-overlay">
+          <div className="flex items-center justify-between border-b border-border/70 bg-card px-5 py-4 text-foreground">
             {view === "messages" && activeThread ? (
               <div className="flex min-w-0 items-center gap-3">
                 <div className="shrink-0">
@@ -1496,54 +1498,54 @@ export function ChatWidget() {
                   <div className="truncate text-lg font-semibold">
                     {getThreadTitle(activeThread)}
                   </div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
+                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                     {getThreadSubtitle(activeThread)}
                   </div>
                 </div>
               </div>
             ) : (
               <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
+                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   Team chat
                 </div>
                 <div className="text-lg font-semibold">Stay in sync</div>
               </div>
             )}
             {view === "messages" && (
-              <button
-                className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-white/90 hover:bg-white/10"
+              <UiButton variant="secondary" size="sm"
+                className=""
                 onClick={() => setView("threads")}
                 type="button"
               >
                 Back
-              </button>
+              </UiButton>
             )}
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col">
             {loading ? (
-              <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
+              <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
                 Loading chat…
               </div>
             ) : error ? (
-              <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-rose-500">
+              <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-destructive">
                 {error}
               </div>
             ) : view === "threads" ? (
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex items-center justify-between border-b border-slate-200/70 px-5 py-3">
-                  <div className="text-sm font-semibold text-slate-700">Recent chats</div>
-                  <button
-                    className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+                <div className="flex items-center justify-between border-b border-border/70 px-5 py-3">
+                  <div className="text-sm font-semibold text-foreground">Recent chats</div>
+                  <UiButton variant="primary" size="sm"
+                    className=""
                     onClick={() => setView("new")}
                     type="button"
                   >
                     New chat
-                  </button>
+                  </UiButton>
                 </div>
                 <div className="flex-1 overflow-y-auto px-4 py-3">
                   {threads.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
+                    <div className="rounded-panel border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
                       Start a new conversation with your team.
                     </div>
                   ) : (
@@ -1553,7 +1555,7 @@ export function ChatWidget() {
                           key={thread.id}
                           onClick={() => handleOpenThread(thread.id)}
                           type="button"
-                          className="flex w-full items-start justify-between gap-3 rounded-2xl border border-slate-200/60 bg-white px-4 py-3 text-left transition hover:-translate-y-0.5 hover:shadow-md"
+                          className="flex w-full items-start justify-between gap-3 rounded-panel border border-border/60 bg-card px-4 py-3 text-left transition hover:-translate-y-0.5 hover:shadow-md"
                         >
                           <div className="flex min-w-0 items-center gap-3">
                             <div className="flex shrink-0 items-center">
@@ -1575,15 +1577,15 @@ export function ChatWidget() {
                               )}
                             </div>
                             <div className="min-w-0">
-                              <div className="truncate text-sm font-semibold text-slate-800">
+                              <div className="truncate text-sm font-semibold text-foreground">
                                 {getThreadTitle(thread)}
                               </div>
-                              <div className="truncate text-xs text-slate-500">
+                              <div className="truncate text-xs text-muted-foreground">
                                 {toThreadPreview(thread.last_message_preview)}
                               </div>
                             </div>
                           </div>
-                          <div className="text-xs text-slate-400">
+                          <div className="text-xs text-muted-foreground">
                             {thread.last_message_at ? formatDate(thread.last_message_at) : ""}
                           </div>
                         </button>
@@ -1594,21 +1596,21 @@ export function ChatWidget() {
               </div>
             ) : view === "new" ? (
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="border-b border-slate-200/70 px-5 py-3">
-                  <div className="text-sm font-semibold text-slate-700">Start a new chat</div>
-                  <div className="text-xs text-slate-500">Pick teammates to create a direct or group chat.</div>
+                <div className="border-b border-border/70 px-5 py-3">
+                  <div className="text-sm font-semibold text-foreground">Start a new chat</div>
+                  <div className="text-xs text-muted-foreground">Pick teammates to create a direct or group chat.</div>
                 </div>
                 <div className="flex-1 overflow-y-auto px-5 py-4">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Group name (optional)
                   </label>
-                  <input
-                    className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                  <UiInput
+                    className="mt-2 w-full"
                     placeholder="e.g. Hiring squad"
                     value={groupName}
                     onChange={(event) => setGroupName(event.target.value)}
                   />
-                  <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Members
                   </div>
                   <div className="mt-3 space-y-2">
@@ -1621,10 +1623,10 @@ export function ChatWidget() {
                             key={member.user_id}
                             type="button"
                             onClick={() => handleToggleMember(member.user_id)}
-                            className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                            className={`flex w-full items-center justify-between rounded-panel border px-4 py-3 text-left text-sm transition ${
                               selected
-                                ? "border-slate-900 bg-slate-900 text-white"
-                                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                                ? "border-input bg-primary text-primary-foreground"
+                                : "border-border bg-card text-foreground hover:border-input"
                             }`}
                           >
                             <span>{resolveDisplayName(member)}</span>
@@ -1634,22 +1636,22 @@ export function ChatWidget() {
                       })}
                   </div>
                 </div>
-                <div className="border-t border-slate-200/70 px-5 py-4">
+                <div className="border-t border-border/70 px-5 py-4">
                   <div className="flex gap-2">
-                    <button
-                      className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    <UiButton variant="secondary" size="sm"
+                      className="flex-1"
                       onClick={() => setView("threads")}
                       type="button"
                     >
                       Cancel
-                    </button>
-                    <button
-                      className="flex-1 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+                    </UiButton>
+                    <UiButton variant="primary" size="sm"
+                      className="flex-1"
                       onClick={handleCreateThread}
                       type="button"
                     >
                       Create chat
-                    </button>
+                    </UiButton>
                   </div>
                 </div>
               </div>
@@ -1660,7 +1662,7 @@ export function ChatWidget() {
 	                  className="hide-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-4"
 	                >
                   {messages.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
+                    <div className="rounded-panel border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
                       No messages yet. Say hello.
                     </div>
                   ) : (
@@ -1679,14 +1681,14 @@ export function ChatWidget() {
                             className={`flex ${isMine ? "justify-end" : "justify-start"}`}
                           >
                             <div
-                              className={`max-w-[80%] rounded-2xl px-4 py-3 text-[16px] leading-[1.35] shadow-sm ${
+                              className={`max-w-[80%] rounded-panel px-4 py-3 text-[16px] leading-[1.35] shadow-sm ${
                                 isMine
-                                  ? "bg-slate-900 text-white"
-                                  : "bg-slate-100 text-slate-700"
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted text-foreground"
                               }`}
                             >
                               {!isMine && (
-                                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                                   {senderName}
                                 </div>
                               )}
@@ -1698,7 +1700,7 @@ export function ChatWidget() {
                                   handleOpenProfileLink
                                 )}
                               </div>
-                              <div className={`mt-2 text-[10px] ${isMine ? "text-white/70" : "text-slate-400"}`}>
+                              <div className={`mt-2 text-[10px] ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                                 {formatTime(message.created_at)}
                               </div>
                             </div>
@@ -1709,7 +1711,7 @@ export function ChatWidget() {
                     </div>
                   )}
                 </div>
-                <div className="border-t border-slate-200/70 px-4 py-3">
+                <div className="border-t border-border/70 px-4 py-3">
                   {draftProfileLinks.length > 0 ? (
                     <div className="mb-2 flex flex-wrap gap-2">
                       {draftProfileLinks.map((link) => (
@@ -1722,23 +1724,23 @@ export function ChatWidget() {
                             theme={resolveCandidateThemeForShareSlug(link.shareSlug)}
                             onOpen={handleOpenProfileLink}
                           />
-                          <button
+                          <UiButton variant="secondary" size="md"
                             type="button"
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
+                            className="inline-flex h-7 w-7 items-center justify-center transition"
                             onClick={() => removeProfileFromDraft(link.shareSlug)}
                             aria-label="Remove profile"
                           >
                             <X className="h-4 w-4" />
-                          </button>
+                          </UiButton>
                         </div>
                       ))}
                     </div>
                   ) : null}
                   <div className="relative flex items-end gap-2">
                     {activeThread?.is_group && mentionOpen ? (
-                      <div className="absolute bottom-full left-0 z-20 mb-2 w-[min(320px,calc(100vw-6rem))] rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                      <div className="absolute bottom-full left-0 z-20 mb-2 w-[min(320px,calc(100vw-6rem))] rounded-panel border border-border bg-card p-2 shadow-xl">
                         {mentionOptions.length === 0 ? (
-                          <div className="px-3 py-2 text-xs text-slate-400">
+                          <div className="px-3 py-2 text-xs text-muted-foreground">
                             No matching members.
                           </div>
                         ) : (
@@ -1747,10 +1749,10 @@ export function ChatWidget() {
                               <button
                                 key={member.user_id}
                                 type="button"
-                                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left ${
+                                className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left ${
                                   index === activeMentionIndex
-                                    ? "bg-slate-100 text-slate-900"
-                                    : "text-slate-700 hover:bg-slate-50"
+                                    ? "bg-muted text-foreground"
+                                    : "text-foreground hover:bg-muted"
                                 }`}
                                 onMouseDown={(event) => {
                                   event.preventDefault();
@@ -1763,7 +1765,7 @@ export function ChatWidget() {
                                     {member.label}
                                   </div>
                                   {member.email ? (
-                                    <div className="truncate text-[11px] text-slate-400">
+                                    <div className="truncate text-[11px] text-muted-foreground">
                                       {member.email}
                                     </div>
                                   ) : null}
@@ -1775,18 +1777,18 @@ export function ChatWidget() {
                       </div>
                     ) : null}
                     <div className="relative flex-1">
-                      <div className="relative min-h-11 max-h-[140px] overflow-hidden rounded-3xl border border-slate-200 bg-white">
+                      <div className="relative min-h-11 max-h-[140px] overflow-hidden rounded-panel border border-border bg-card">
                         <div
                           ref={composerHighlightRef}
                           aria-hidden="true"
-                          className="pointer-events-none absolute inset-0 overflow-y-auto px-4 py-2 text-sm leading-6 text-slate-700 whitespace-pre-wrap break-words [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                          className="pointer-events-none absolute inset-0 overflow-y-auto px-4 py-2 text-sm leading-6 text-foreground whitespace-pre-wrap break-words [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                         >
                           {renderComposerHighlight(messageDraft, composerEntities)}
                         </div>
                         <textarea
                           ref={messageInputRef}
                           rows={1}
-                          className="relative block min-h-11 max-h-[140px] w-full resize-none overflow-y-auto bg-transparent px-4 py-2 text-sm leading-6 text-transparent caret-slate-700 outline-none placeholder:text-slate-400 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                          className="relative block min-h-11 max-h-[140px] w-full resize-none overflow-y-auto bg-transparent px-4 py-2 text-sm leading-6 text-transparent caret-foreground outline-none placeholder:text-muted-foreground [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                           placeholder={
                             activeThread?.is_group
                               ? "Write a message... Use @ to mention"
@@ -1925,14 +1927,14 @@ export function ChatWidget() {
                         />
                       </div>
                     </div>
-                    <button
-                      className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm transition hover:bg-slate-800"
+                    <UiButton variant="primary" size="lg"
+                      className="flex h-11 w-11 items-center justify-center transition"
                       onClick={handleSendMessage}
                       type="button"
                       aria-label="Send message"
                     >
                       <SendIcon className="h-5 w-5" />
-                    </button>
+                    </UiButton>
                   </div>
                 </div>
               </div>
@@ -1941,17 +1943,17 @@ export function ChatWidget() {
         </div>
       )}
 
-	      <button
+	      <UiButton variant="primary" size="md"
 	        type="button"
 	        onClick={() => {
 	          void ensureAudioContext().catch(() => null);
 	          setOpen((prev) => !prev);
 	        }}
-	        className="relative flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-full bg-slate-900 text-white shadow-[0_20px_40px_-20px_rgba(15,23,42,0.8)] transition hover:-translate-y-0.5 hover:bg-slate-800"
+	        className="relative flex h-14 w-14 flex-col items-center justify-center gap-0.5 transition hover:-translate-y-0.5"
 	        aria-label={open ? "Close chat" : "Open chat"}
 	      >
 	        {!open && unreadThreadCount > 0 ? (
-	          <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-slate-900" />
+	          <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-ring" />
 	        ) : null}
 	        {open ? (
 	          <X className="h-6 w-6" />
@@ -1961,7 +1963,7 @@ export function ChatWidget() {
             <span className="text-[11px] font-semibold leading-none">Chat</span>
           </>
         )}
-      </button>
+      </UiButton>
     </div>
   );
 }

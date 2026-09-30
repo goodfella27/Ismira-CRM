@@ -245,7 +245,7 @@ export function TaskNotificationBell({ className }: { className?: string }) {
     <div className={`relative ${className ?? ""}`}>
       <button
         type="button"
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm transition hover:bg-muted"
         onClick={() => {
           if (!open) {
             void loadNotifications();
@@ -256,26 +256,26 @@ export function TaskNotificationBell({ className }: { className?: string }) {
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 ? (
-          <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-semibold text-white">
+          <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-semibold text-destructive-foreground">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         ) : null}
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-50 mt-2 w-[min(92vw,420px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_60px_-40px_rgba(15,23,42,0.5)]">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+        <div className="absolute right-0 z-50 mt-2 w-[min(92vw,420px)] overflow-hidden rounded-panel border border-border bg-card shadow-overlay">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div>
-              <div className="text-sm font-semibold text-slate-900">
+              <div className="text-sm font-semibold text-foreground">
                 Notifications
               </div>
-              <div className="text-[11px] text-slate-500">
+              <div className="text-[11px] text-muted-foreground">
                 Task creations, assignments, and completions
               </div>
             </div>
             <button
               type="button"
-              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+              className="rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted disabled:opacity-60"
               onClick={markAllRead}
               disabled={unreadCount === 0}
             >
@@ -284,15 +284,15 @@ export function TaskNotificationBell({ className }: { className?: string }) {
           </div>
 
 	          {loading ? (
-	            <div className="px-4 py-4 text-xs text-slate-500">Loading…</div>
+	            <div className="px-4 py-4 text-xs text-muted-foreground">Loading…</div>
 	          ) : syncError ? (
-	            <div className="px-4 py-4 text-xs text-rose-600">{syncError}</div>
+	            <div className="px-4 py-4 text-xs text-destructive">{syncError}</div>
 	          ) : loadError ? (
-	            <div className="px-4 py-4 text-xs text-rose-600">
+	            <div className="px-4 py-4 text-xs text-destructive">
 	              {loadError}
 	            </div>
           ) : items.length === 0 ? (
-            <div className="px-4 py-6 text-center text-xs text-slate-400">
+            <div className="px-4 py-6 text-center text-xs text-muted-foreground">
               No notifications yet.
             </div>
           ) : (
@@ -324,8 +324,8 @@ export function TaskNotificationBell({ className }: { className?: string }) {
                   <button
                     key={item.id}
                     type="button"
-                    className={`w-full px-4 py-3 text-left transition hover:bg-slate-50 ${
-                      unread ? "bg-emerald-50/40" : ""
+                    className={`w-full px-4 py-3 text-left transition hover:bg-muted ${
+                      unread ? "bg-success-muted" : ""
                     }`}
                     onClick={async () => {
                       if (unread) {
@@ -348,15 +348,15 @@ export function TaskNotificationBell({ className }: { className?: string }) {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate text-xs font-semibold text-slate-900">
+                        <div className="truncate text-xs font-semibold text-foreground">
                           {item.task_title}
                         </div>
-                        <div className="mt-0.5 truncate text-[11px] text-slate-600">
+                        <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
                           {subtitle}
                         </div>
                       </div>
                       {when ? (
-                        <div className="shrink-0 text-[11px] text-slate-400">
+                        <div className="shrink-0 text-[11px] text-muted-foreground">
                           {when}
                         </div>
                       ) : null}

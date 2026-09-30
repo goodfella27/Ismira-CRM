@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { AppSidebar, MobileTopNav } from "@/components/app-sidebar";
 import { ChatWidget } from "@/components/chat-widget";
 import { TaskNotificationBell } from "@/components/task-notification-bell";
@@ -11,29 +12,29 @@ import { AppDialogsProvider } from "@/components/app-dialogs";
 import { hasSupabaseBrowserEnv } from "@/lib/supabase/client";
 import { isPublicShellRoute } from "@/lib/public-shell-routes";
 
-const CHAT_DISABLED_ROUTES = ["/breezy"];
+const CHAT_DISABLED_ROUTES = ["/breezy", "/design-system"];
 
 function SupabaseConfigNotice() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-16 text-slate-100">
-      <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur">
+    <main className="flex min-h-screen items-center justify-center bg-background px-6 py-16 text-foreground">
+      <div className="w-full max-w-2xl rounded-panel border border-border bg-card p-8 shadow-control">
         <BrandingTitleSync fallbackTitle="LinAs CRM" />
-        <div className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300">
+        <div className="text-xs font-semibold uppercase tracking-[0.22em] text-warning">
           Configuration required
         </div>
-        <h1 className="mt-3 text-3xl font-semibold text-white">
+        <h1 className="mt-3 text-3xl font-semibold text-foreground">
           Supabase environment variables are missing
         </h1>
-        <p className="mt-4 text-sm leading-6 text-slate-300">
+        <p className="mt-4 text-sm leading-6 text-muted-foreground">
           This deployment is running without the required Vercel environment variables, so
           authenticated CRM features cannot start.
         </p>
-        <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-200">
+        <div className="mt-6 rounded-panel border border-border bg-muted p-4 text-sm text-foreground">
           <div>`NEXT_PUBLIC_SUPABASE_URL`</div>
           <div className="mt-2">`NEXT_PUBLIC_SUPABASE_ANON_KEY`</div>
           <div className="mt-2">`SUPABASE_SERVICE_ROLE_KEY`</div>
         </div>
-        <p className="mt-6 text-sm text-slate-300">
+        <p className="mt-6 text-sm text-muted-foreground">
           Add them in Vercel Project Settings → Environment Variables, then redeploy the latest
           commit.
         </p>
@@ -78,17 +79,16 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <AppDialogsProvider>
-      <div className="flex min-h-screen w-full bg-slate-950">
-        <BrandingTitleSync fallbackTitle="LinAs CRM" />
+      <div className="flex min-h-screen w-full bg-background text-foreground">
+        <BrandingTitleSync fallbackTitle="Ismira CRM" />
         <AppSidebar isAdmin={isAdmin} />
-        <div className="flex min-h-screen min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
-          <div className="relative flex min-h-full w-full flex-col overflow-hidden rounded-3xl bg-white shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)] ring-1 ring-slate-200/70">
-            <MobileTopNav isAdmin={isAdmin} />
-            <div className="absolute right-4 top-4 z-30 hidden md:block">
-              <TaskNotificationBell />
-            </div>
-            <main className="flex-1">{children}</main>
-          </div>
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+          <MobileTopNav key={pathname} isAdmin={isAdmin} />
+          <header className="hidden h-16 shrink-0 items-center justify-between border-b border-border px-8 md:flex">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground"><span>Workspace</span><span className="text-border">/</span><span className="capitalize text-foreground">{pathname.split("/").filter(Boolean).at(-1)?.replaceAll("-", " ") || "Overview"}</span></div>
+            <div className="flex items-center gap-2"><ThemeToggle/><TaskNotificationBell/></div>
+          </header>
+          <main className="min-w-0 flex-1">{children}</main>
         </div>
         {!isChatDisabledRoute ? <ChatWidget /> : null}
       </div>

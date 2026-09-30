@@ -1,5 +1,6 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Building2, ExternalLink, Plus, RefreshCw } from "lucide-react";
 
@@ -734,18 +735,18 @@ export default function CompaniesPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-slate-200/70 px-6 py-5">
+      <div className="border-b border-border/70 px-6 py-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-6">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-panel bg-success-muted text-success">
                 <Building2 className="h-5 w-5" />
               </span>
               <div>
-                <h1 className="text-lg font-semibold text-slate-900">
+                <h1 className="text-lg font-semibold text-foreground">
                   Companies
                 </h1>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   Manage company profiles and activity.
                 </p>
               </div>
@@ -753,18 +754,18 @@ export default function CompaniesPage() {
           </div>
 
           <div className="flex shrink-0 items-center gap-2 md:mr-16">
-            <button
+            <UiButton variant="secondary" size="sm"
               type="button"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              className="inline-flex items-center gap-2 disabled:opacity-60"
               onClick={handleRefresh}
               disabled={refreshing || loading}
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
               Refresh
-            </button>
-            <button
+            </UiButton>
+            <UiButton variant="primary" size="sm"
               type="button"
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500"
+              className="inline-flex items-center gap-2"
               onClick={() => {
                 setAddModalOpen(true);
                 if (owners.length === 0) void loadOwners();
@@ -773,19 +774,19 @@ export default function CompaniesPage() {
             >
               <Plus className="h-4 w-4" />
               Add company
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto p-6">
         {error ? (
-          <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="mb-4 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         ) : null}
 
-	        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+	        <div className="overflow-hidden rounded-panel border border-border bg-card">
 	          <div className="overflow-auto">
 	            <table className="w-full min-w-[920px] table-fixed border-collapse">
 	              <colgroup>
@@ -796,8 +797,8 @@ export default function CompaniesPage() {
 	                <col className="w-[120px]" />
 	                <col className="w-[120px]" />
 	              </colgroup>
-	              <thead className="bg-slate-50">
-	                <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+	              <thead className="bg-muted">
+	                <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
 	                  <th className="px-4 py-3">Company name</th>
 	                  <th className="px-4 py-3">Assigned</th>
 	                  <th className="px-4 py-3">Create date</th>
@@ -834,7 +835,7 @@ export default function CompaniesPage() {
 	                  <tr>
 	                    <td
 	                      colSpan={6}
-	                      className="px-6 py-14 text-center text-sm text-slate-500"
+	                      className="px-6 py-14 text-center text-sm text-muted-foreground"
 	                    >
 	                      No companies yet. Click “Add company” to create one.
 	                    </td>
@@ -844,7 +845,7 @@ export default function CompaniesPage() {
 	                    const companyBadgeClass = getAvatarClass(company.name);
 	                    const assigned = assignedCounts[company.id];
 	                    return (
-	                      <tr key={company.id} className="text-sm text-slate-700">
+	                      <tr key={company.id} className="text-sm text-foreground">
 	                        <td className="px-4 py-3">
 	                          <button
 	                            type="button"
@@ -867,7 +868,7 @@ export default function CompaniesPage() {
                               )}
                             </span>
                             <span className="min-w-0 overflow-hidden">
-                              <span className="block truncate font-semibold text-emerald-700 group-hover:underline">
+                              <span className="block truncate font-semibold text-success group-hover:underline">
                                 {company.name || "Untitled company"}
                               </span>
                               {company.website_url ? (
@@ -875,7 +876,7 @@ export default function CompaniesPage() {
                                   href={toExternalHref(company.website_url) ?? undefined}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex max-w-full items-center gap-1 truncate text-sm text-slate-500 hover:text-emerald-700 hover:underline"
+                                  className="inline-flex max-w-full items-center gap-1 truncate text-sm text-muted-foreground hover:text-success hover:underline"
                                   onClick={(event) => event.stopPropagation()}
                                 >
                                   <span className="truncate">{company.website_url}</span>
@@ -890,24 +891,24 @@ export default function CompaniesPage() {
 	                            <span
 	                              className={`inline-flex min-w-[34px] justify-center rounded-full px-2 py-1 text-xs font-semibold ${
 	                                assigned > 0
-	                                  ? "bg-emerald-50 text-emerald-700"
-	                                  : "bg-slate-100 text-slate-500"
+	                                  ? "bg-success-muted text-success"
+	                                  : "bg-muted text-muted-foreground"
 	                              }`}
 	                            >
 	                              {assigned}
 	                            </span>
 	                          ) : (
-	                            <span className="text-slate-400">…</span>
+	                            <span className="text-muted-foreground">…</span>
 	                          )}
 	                        </td>
-	                        <td className="px-4 py-3 text-xs text-slate-500">
+	                        <td className="px-4 py-3 text-xs text-muted-foreground">
 	                          {formatDateTime(company.created_at)}
 	                        </td>
 	                        <td className="px-4 py-3">
 	                          {company.phone ? (
-                            <span className="text-emerald-700">{company.phone}</span>
+                            <span className="text-success">{company.phone}</span>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-muted-foreground">—</span>
                           )}
                         </td>
                         <td className="px-4 py-3">{company.city || "—"}</td>
@@ -923,15 +924,15 @@ export default function CompaniesPage() {
 
         {!loading && companies.length > 0 ? (
           <div className="mt-4 flex items-center justify-center gap-3">
-            <button
+            <UiButton variant="secondary" size="sm"
               type="button"
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              className="disabled:opacity-60"
               onClick={handleLoadMore}
               disabled={!hasMore || loadingMore || loading || refreshing}
             >
               {loadingMore ? "Loading…" : hasMore ? "Load more" : "All loaded"}
-            </button>
-            <span className="text-xs text-slate-400">Showing {companies.length}</span>
+            </UiButton>
+            <span className="text-xs text-muted-foreground">Showing {companies.length}</span>
           </div>
         ) : null}
       </div>

@@ -73,7 +73,7 @@ export default function Board({
       </div>
       <DragOverlay>
         {activeCandidate ? (
-          <div className="w-[260px] rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-lg">
+          <div className="w-[260px] rounded-lg border border-border bg-card px-3 py-3 shadow-lg">
             <div className="flex items-center gap-3">
               <div
                 className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold ${getAvatarClass(
@@ -83,11 +83,11 @@ export default function Board({
                 {previewInitials(activeCandidate.name)}
               </div>
               <div>
-                <div className="text-sm font-semibold text-slate-900">
+                <div className="text-sm font-semibold text-foreground">
                   {activeCandidate.name}
                 </div>
                 <div
-                  className="text-xs text-slate-500"
+                  className="text-xs text-muted-foreground"
                   title={activeCandidate.email || undefined}
                 >
                   {formatEmailShort(activeCandidate.email)}

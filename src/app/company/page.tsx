@@ -1,5 +1,9 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { NativeSelect as UiSelect } from "@/components/ui/select";
+import { Textarea as UiTextarea } from "@/components/ui/textarea";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bell,
@@ -1918,16 +1922,16 @@ export default function CompanyPage() {
 
   return (
     <div className="h-full">
-      <div className="border-b border-slate-200 px-8 py-6">
-        <div className="text-sm font-semibold text-slate-500">Company</div>
-        <div className="text-2xl font-semibold text-slate-900">
+      <div className="border-b border-border px-8 py-6">
+        <div className="text-sm font-semibold text-muted-foreground">Company</div>
+        <div className="text-2xl font-semibold text-foreground">
           Settings of the Company
         </div>
       </div>
 
       <div className="grid h-[calc(100%-76px)] grid-cols-[280px_1fr] gap-6 px-6 py-6">
-        <aside className="h-full overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4">
-          <div className="text-[11px] font-semibold uppercase text-slate-400">
+        <aside className="h-full overflow-y-auto rounded-panel border border-border bg-card p-4">
+          <div className="text-[11px] font-semibold uppercase text-muted-foreground">
             Sections
           </div>
           <div className="mt-4 space-y-2">
@@ -1939,15 +1943,15 @@ export default function CompanyPage() {
                   key={item.id}
                   type="button"
                   onClick={() => setActiveSection(item.id)}
-                  className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left text-sm ${
+                  className={`flex w-full items-center gap-3 rounded-panel border px-3 py-3 text-left text-sm ${
                     isActive
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-emerald-200"
+                      ? "border-success/25 bg-success-muted text-success"
+                      : "border-border bg-card text-foreground hover:border-success/25"
                   }`}
                 >
                   <span
-                    className={`flex h-9 w-9 items-center justify-center rounded-xl ${
-                      isActive ? "bg-emerald-100" : "bg-slate-100"
+                    className={`flex h-9 w-9 items-center justify-center rounded-md ${
+                      isActive ? "bg-success-muted" : "bg-muted"
                     }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -1956,7 +1960,7 @@ export default function CompanyPage() {
                     <span className="block truncate font-semibold">
                       {item.label}
                     </span>
-                    <span className="block truncate text-[11px] text-slate-500">
+                    <span className="block truncate text-[11px] text-muted-foreground">
                       {item.description}
                     </span>
                   </span>
@@ -1966,105 +1970,105 @@ export default function CompanyPage() {
           </div>
         </aside>
 
-        <section className="h-full overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6">
+        <section className="h-full overflow-y-auto rounded-panel border border-border bg-card p-6">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-sm font-semibold text-slate-500">
+              <div className="text-sm font-semibold text-muted-foreground">
                 {active?.label}
               </div>
-              <div className="text-xl font-semibold text-slate-900">
+              <div className="text-xl font-semibold text-foreground">
                 {active?.description}
               </div>
             </div>
             {activeSection === "users" ? (
-              <button
+              <UiButton variant="primary" size="sm"
                 type="button"
-                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                className="disabled:opacity-60"
                 onClick={() => setIsInviteModalOpen(true)}
                 disabled={inviteLoading}
               >
                 Invite user
-              </button>
+              </UiButton>
             ) : null}
             {activeSection === "questionnaires" ? (
-              <button
+              <UiButton variant="primary" size="sm"
                 type="button"
-                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+                className=""
                 onClick={handleOpenQuestionnaireModal}
               >
                 Create questionnaire
-              </button>
+              </UiButton>
             ) : null}
             {activeSection === "forms" ? (
-              <button className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white">
+              <UiButton variant="primary" size="sm" type="submit" className="">
                 Create form
-              </button>
+              </UiButton>
             ) : null}
           </div>
 
           {activeSection === "overview" ? (
             <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-slate-200 px-4 py-4">
+              <div className="rounded-panel border border-border px-4 py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">
+                    <div className="text-sm font-semibold text-foreground">
                       Branding
                     </div>
-                    <div className="mt-1 text-xs text-slate-500">
+                    <div className="mt-1 text-xs text-muted-foreground">
                       Update the app title and logo (used in sidebar + login page).
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {brandingLogoUrl ? (
-                      <button
+                      <UiButton variant="secondary" size="sm"
                         type="button"
-                        className="h-9 rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                        className="h-9 transition disabled:opacity-60"
                         onClick={handleRemoveLogo}
                         disabled={brandingSaving}
                       >
                         Remove logo
-                      </button>
+                      </UiButton>
                     ) : null}
-                    <button
+                    <UiButton variant="primary" size="sm"
                       type="button"
-                      className="h-9 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white disabled:opacity-60"
+                      className="h-9 disabled:opacity-60"
                       onClick={handleSaveBranding}
                       disabled={brandingSaving}
                     >
                       {brandingSaving ? "Saving..." : "Save branding"}
-                    </button>
+                    </UiButton>
                   </div>
                 </div>
 
                 {brandingError ? (
-                  <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-600">
+                  <div className="mt-3 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-xs text-destructive">
                     {brandingError}
                   </div>
                 ) : null}
 
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <div className="text-xs font-semibold uppercase text-slate-500">
+                    <div className="text-xs font-semibold uppercase text-muted-foreground">
                       App title
                     </div>
-                    <input
+                    <UiInput
                       value={brandingTitle}
                       onChange={(event) => setBrandingTitle(event.target.value)}
-                      className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                      className="h-11 w-full"
                       placeholder="ISMIRA CRM"
                       maxLength={80}
                     />
-                    <div className="text-xs text-slate-400">
+                    <div className="text-xs text-muted-foreground">
                       Example: Ismira CRM, LinaS CRM, etc.
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <div className="text-xs font-semibold uppercase text-slate-500">
+                    <div className="text-xs font-semibold uppercase text-muted-foreground">
                       Logo
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-panel border border-border bg-muted">
                         {brandingLogoDraftUrl || brandingLogoUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -2073,13 +2077,13 @@ export default function CompanyPage() {
                             className="h-full w-full object-contain"
                           />
                         ) : (
-                          <div className="text-xs font-semibold text-slate-400">
+                          <div className="text-xs font-semibold text-muted-foreground">
                             —
                           </div>
                         )}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <label className="inline-flex h-9 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+                        <label className="inline-flex h-9 cursor-pointer items-center justify-center rounded-full border border-border bg-card px-4 text-xs font-semibold text-foreground transition hover:bg-muted">
                           <input
                             type="file"
                             accept="image/*"
@@ -2092,17 +2096,17 @@ export default function CompanyPage() {
                           Upload logo
                         </label>
                         {brandingLogoFile ? (
-                          <button
+                          <UiButton variant="secondary" size="sm"
                             type="button"
-                            className="h-9 rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                            className="h-9 transition"
                             onClick={() => setBrandingLogoFile(null)}
                           >
                             Reset
-                          </button>
+                          </UiButton>
                         ) : null}
                       </div>
                     </div>
-                    <div className="text-xs text-slate-400">
+                    <div className="text-xs text-muted-foreground">
                       Recommended: PNG/SVG, max 2MB.
                     </div>
                   </div>
@@ -2118,28 +2122,28 @@ export default function CompanyPage() {
                   { label: "Website", placeholder: "https://ismira.com" },
                 ].map((field) => (
                   <div key={field.label} className="space-y-2">
-                    <div className="text-xs font-semibold uppercase text-slate-500">
+                    <div className="text-xs font-semibold uppercase text-muted-foreground">
                       {field.label}
                     </div>
-                    <input
-                      className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                    <UiInput
+                      className="h-11 w-full"
                       placeholder={field.placeholder}
                     />
                   </div>
                 ))}
                 <div className="space-y-2 sm:col-span-2">
-                  <div className="text-xs font-semibold uppercase text-slate-500">
+                  <div className="text-xs font-semibold uppercase text-muted-foreground">
                     Company description
                   </div>
-                  <textarea
-                    className="min-h-[120px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+                  <UiTextarea
+                    className="min-h-[120px] w-full"
                     placeholder="Add a short description about your company."
                   />
                 </div>
                 <div className="flex justify-end sm:col-span-2">
-                  <button className="rounded-full bg-slate-900 px-5 py-2 text-xs font-semibold text-white">
+                  <UiButton variant="primary" size="sm" type="submit" className="">
                     Save changes
-                  </button>
+                  </UiButton>
                 </div>
               </div>
             </div>
@@ -2147,55 +2151,55 @@ export default function CompanyPage() {
 
           {activeSection === "positions" ? (
             <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-slate-200 px-4 py-4 text-sm">
-                <div className="font-semibold text-slate-900">
+              <div className="rounded-panel border border-border px-4 py-4 text-sm">
+                <div className="font-semibold text-foreground">
                   Pipelines & Pools
                 </div>
-                <div className="mt-2 text-xs text-slate-500">
+                <div className="mt-2 text-xs text-muted-foreground">
                   Manage pipelines and pools in one place.
                 </div>
               </div>
               {pipelinesError ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-600">
+                <div className="rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-xs text-destructive">
                   {pipelinesError}
                 </div>
               ) : null}
               {pipelinesLoading ? (
-                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500">
+                <div className="rounded-panel border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
                   Loading pipelines...
                 </div>
               ) : null}
 
-              <div className="rounded-2xl border border-slate-200 px-4 py-4">
-                <div className="text-xs font-semibold uppercase text-slate-500">
+              <div className="rounded-panel border border-border px-4 py-4">
+                <div className="text-xs font-semibold uppercase text-muted-foreground">
                   Create pipeline
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <input
+                  <UiInput
                     value={pipelineName}
                     onChange={(event) => setPipelineName(event.target.value)}
                     placeholder="Pipeline name"
-                    className="h-10 flex-1 rounded-md border border-slate-200 px-3 text-sm"
+                    className="h-10 flex-1"
                   />
-                  <button
+                  <UiButton variant="primary" size="sm"
                     type="button"
-                    className="h-10 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-10 disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={handleCreatePipeline}
                     disabled={pipelinesLoading}
                   >
                     Create
-                  </button>
+                  </UiButton>
                 </div>
                 {pipelineError ? (
-                  <div className="mt-2 text-xs text-rose-600">
+                  <div className="mt-2 text-xs text-destructive">
                     {pipelineError}
                   </div>
                 ) : null}
               </div>
 
-              <div className="rounded-2xl border border-slate-200">
+              <div className="rounded-panel border border-border">
                 {pipelines.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-xs text-slate-400">
+                  <div className="px-4 py-6 text-center text-xs text-muted-foreground">
                     No pipelines yet. Create your first pipeline.
                   </div>
                 ) : (
@@ -2205,7 +2209,7 @@ export default function CompanyPage() {
                     return (
                       <div
                         key={pipeline.id}
-                        className="border-b border-slate-200 px-4 py-3 text-sm last:border-b-0"
+                        className="border-b border-border px-4 py-3 text-sm last:border-b-0"
                       >
                         <button
                           type="button"
@@ -2213,26 +2217,26 @@ export default function CompanyPage() {
                           onClick={() => handleTogglePipeline(pipeline.id)}
                         >
                           <div>
-                            <div className="font-semibold text-slate-900">
+                            <div className="font-semibold text-foreground">
                               {pipeline.name}
                             </div>
-                            <div className="text-xs text-slate-500">
+                            <div className="text-xs text-muted-foreground">
                               {pipeline.stages.length} stages
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
+                            <span className="rounded-full bg-success-muted px-3 py-1 text-[11px] font-semibold text-success">
                               Active
                             </span>
-                            <span className="text-slate-400">
+                            <span className="text-muted-foreground">
                               {isExpanded ? "▾" : "▸"}
                             </span>
                           </div>
                         </button>
 
                         {isExpanded ? (
-                          <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                            <div className="text-xs font-semibold uppercase text-slate-500">
+                          <div className="mt-4 space-y-3 rounded-md border border-border bg-muted p-3">
+                            <div className="text-xs font-semibold uppercase text-muted-foreground">
                               Stages
                             </div>
                             <div className="space-y-2">
@@ -2279,14 +2283,14 @@ export default function CompanyPage() {
                                         setDragOverStageId(null);
                                         setDraggingPipelineId(null);
                                       }}
-                                      className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs text-slate-700 ${
+                                      className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs text-foreground ${
                                         isOver
-                                          ? "border-emerald-300 bg-emerald-50"
-                                          : "border-slate-200 bg-white"
+                                          ? "border-success/25 bg-success-muted"
+                                          : "border-border bg-card"
                                       } ${isDragging ? "opacity-60" : ""}`}
                                     >
                                       <div className="flex items-center gap-3">
-                                        <span className="cursor-grab text-slate-400">
+                                        <span className="cursor-grab text-muted-foreground">
                                           ⋮⋮
                                         </span>
                                         <span className="font-semibold">
@@ -2295,7 +2299,7 @@ export default function CompanyPage() {
                                       </div>
                                       <button
                                         type="button"
-                                        className="text-rose-500 hover:text-rose-600"
+                                        className="text-destructive hover:text-destructive"
                                         onClick={(event) => {
                                           event.stopPropagation();
                                           handleRemoveStage(
@@ -2311,7 +2315,7 @@ export default function CompanyPage() {
                                 })}
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
-                              <input
+                              <UiInput
                                 value={stageDraft}
                                 onChange={(event) =>
                                   setStageDraftByPipeline((prev) => ({
@@ -2320,18 +2324,18 @@ export default function CompanyPage() {
                                   }))
                                 }
                                 placeholder="New stage name"
-                                className="h-9 flex-1 rounded-md border border-slate-200 px-3 text-xs"
+                                className="h-9 flex-1"
                               />
-                              <button
+                              <UiButton variant="primary" size="sm"
                                 type="button"
-                                className="h-9 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white"
+                                className="h-9"
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   handleAddStage(pipeline.id);
                                 }}
                               >
                                 Add stage
-                              </button>
+                              </UiButton>
                             </div>
                           </div>
                         ) : null}
@@ -2345,28 +2349,28 @@ export default function CompanyPage() {
 
           {activeSection === "users" ? (
             <div className="mt-6 space-y-4">
-              <input
-                className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+              <UiInput
+                className="h-11 w-full"
                 placeholder="Search users..."
                 value={userSearch}
                 onChange={(event) => setUserSearch(event.target.value)}
               />
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-muted-foreground">
                 New users must confirm their email. Admins can confirm accounts
                 manually.
               </div>
               {usersError ? (
-                <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                <div className="rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-xs text-destructive">
                   {usersError}
                 </div>
               ) : null}
-              <div className="rounded-2xl border border-slate-200">
+              <div className="rounded-panel border border-border">
                 {usersLoading ? (
-                  <div className="px-4 py-6 text-center text-xs text-slate-400">
+                  <div className="px-4 py-6 text-center text-xs text-muted-foreground">
                     Loading users...
                   </div>
                 ) : filteredUsers.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-xs text-slate-400">
+                  <div className="px-4 py-6 text-center text-xs text-muted-foreground">
                     {users.length === 0
                       ? "No users found."
                       : "No users match your search."}
@@ -2375,10 +2379,10 @@ export default function CompanyPage() {
                   filteredUsers.map((user) => (
                     <div
                       key={user.id}
-                      className="flex items-center justify-between border-b border-slate-200 px-4 py-3 text-sm last:border-b-0"
+                      className="flex items-center justify-between border-b border-border px-4 py-3 text-sm last:border-b-0"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-xs font-semibold text-slate-600">
+                        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-xs font-semibold text-muted-foreground">
                           {user.avatar_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -2396,17 +2400,17 @@ export default function CompanyPage() {
                           )}
                         </div>
                         <div>
-                          <div className="font-semibold text-slate-900">
+                          <div className="font-semibold text-foreground">
                             {user.name}
                           </div>
-                          <div className="text-xs text-slate-500">
+                          <div className="text-xs text-muted-foreground">
                             {user.email}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <select
-                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700"
+                        <UiSelect
+                          className=""
                           value={user.role}
                           onChange={(event) =>
                             handleRoleChange(user.id, event.target.value)
@@ -2417,23 +2421,23 @@ export default function CompanyPage() {
                           <option>Member Premium</option>
                           <option>Member Basic</option>
                           <option>Visitor</option>
-                        </select>
+                        </UiSelect>
                         {user.status === "pending" ? (
                           <>
-                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                            <span className="rounded-full bg-warning-muted px-2 py-0.5 text-[10px] font-semibold text-warning">
                               Pending confirmation
                             </span>
-                            <button
+                            <UiButton variant="primary" size="sm"
                               type="button"
-                              className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                              className="disabled:opacity-60"
                               onClick={() => handleConfirmUser(user.id)}
                               disabled={userActionId === user.id}
                             >
                               Confirm account
-                            </button>
+                            </UiButton>
                           </>
                         ) : (
-                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                          <span className="rounded-full bg-success-muted px-2 py-0.5 text-[10px] font-semibold text-success">
                             Active
                           </span>
                         )}
@@ -2448,31 +2452,31 @@ export default function CompanyPage() {
           {activeSection === "tasks" ? (
             <div className="mt-6 space-y-4">
               {taskWatchersError ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-600">
+                <div className="rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-xs text-destructive">
                   {taskWatchersError}
                 </div>
               ) : null}
-              <div className="rounded-2xl border border-slate-200 px-4 py-4">
-                <div className="text-xs font-semibold uppercase text-slate-500">
+              <div className="rounded-panel border border-border px-4 py-4">
+                <div className="text-xs font-semibold uppercase text-muted-foreground">
                   Watchers
                 </div>
-                <div className="mt-2 text-xs text-slate-500">
+                <div className="mt-2 text-xs text-muted-foreground">
                   Selected admins get an in-app notification when any task is created
                   or completed.
                 </div>
-                <input
-                  className="mt-4 h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                <UiInput
+                  className="mt-4 h-11 w-full"
                   placeholder="Search users..."
                   value={taskWatcherSearch}
                   onChange={(event) => setTaskWatcherSearch(event.target.value)}
                 />
-                <div className="mt-4 rounded-2xl border border-slate-200">
+                <div className="mt-4 rounded-panel border border-border">
                   {taskWatchersLoading ? (
-                    <div className="px-4 py-6 text-center text-xs text-slate-400">
+                    <div className="px-4 py-6 text-center text-xs text-muted-foreground">
                       Loading watchers...
                     </div>
                   ) : filteredAdminUsersForTaskWatchers.length === 0 ? (
-                    <div className="px-4 py-6 text-center text-xs text-slate-400">
+                    <div className="px-4 py-6 text-center text-xs text-muted-foreground">
                       {adminUsers.length === 0
                         ? "No admin users found."
                         : "No users match your search."}
@@ -2484,23 +2488,23 @@ export default function CompanyPage() {
                       return (
                         <label
                           key={`task-watcher-${user.id}`}
-                          className="flex cursor-pointer items-center justify-between border-b border-slate-200 px-4 py-3 text-sm last:border-b-0"
+                          className="flex cursor-pointer items-center justify-between border-b border-border px-4 py-3 text-sm last:border-b-0"
                         >
                           <span className="flex items-center gap-3">
                             <span
                               className={`flex h-5 w-5 items-center justify-center rounded border ${
                                 checked
-                                  ? "border-emerald-500 bg-emerald-500 text-white"
-                                  : "border-slate-300 text-transparent"
+                                  ? "border-success/25 bg-emerald-500 text-white"
+                                  : "border-input text-transparent"
                               }`}
                             >
                               ✓
                             </span>
                             <span className="min-w-0">
-                              <span className="block truncate font-semibold text-slate-900">
+                              <span className="block truncate font-semibold text-foreground">
                                 {user.name}
                               </span>
-                              <span className="block truncate text-xs text-slate-500">
+                              <span className="block truncate text-xs text-muted-foreground">
                                 {user.email}
                               </span>
                             </span>
@@ -2517,7 +2521,7 @@ export default function CompanyPage() {
                     })
                   )}
                 </div>
-                <div className="mt-3 text-[11px] text-slate-400">
+                <div className="mt-3 text-[11px] text-muted-foreground">
                   Admin only.
                 </div>
               </div>
@@ -2526,25 +2530,25 @@ export default function CompanyPage() {
 
           {activeSection === "questionnaires" ? (
             <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-slate-200">
+              <div className="rounded-panel border border-border">
                 {questionnaires.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-xs text-slate-400">
+                  <div className="px-4 py-6 text-center text-xs text-muted-foreground">
                     No questionnaires yet. Create one to get started.
                   </div>
                 ) : (
                   questionnaires.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between border-b border-slate-200 px-4 py-3 text-sm last:border-b-0"
+                      className="flex items-center justify-between border-b border-border px-4 py-3 text-sm last:border-b-0"
                     >
-                      <div className="font-semibold text-slate-900">
+                      <div className="font-semibold text-foreground">
                         {item.name}
                       </div>
                       <span
                         className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
                           item.status === "Active"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-slate-100 text-slate-600"
+                            ? "bg-success-muted text-success"
+                            : "bg-muted text-muted-foreground"
                         }`}
                       >
                         {item.status}
@@ -2553,7 +2557,7 @@ export default function CompanyPage() {
                   ))
                 )}
               </div>
-              <div className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-xs text-slate-400">
+              <div className="rounded-md border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
                 Questionnaire builder is coming next.
               </div>
             </div>
@@ -2561,23 +2565,23 @@ export default function CompanyPage() {
 
           {activeSection === "forms" ? (
             <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-slate-200">
+              <div className="rounded-panel border border-border">
                 {[
                   { name: "Candidate intake form", status: "Active" },
                   { name: "Document request form", status: "Active" },
                 ].map((item) => (
                   <div
                     key={item.name}
-                    className="flex items-center justify-between border-b border-slate-200 px-4 py-3 text-sm last:border-b-0"
+                    className="flex items-center justify-between border-b border-border px-4 py-3 text-sm last:border-b-0"
                   >
-                    <div className="font-semibold text-slate-900">{item.name}</div>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                    <div className="font-semibold text-foreground">{item.name}</div>
+                    <span className="rounded-full bg-muted px-3 py-1 text-[11px] font-semibold text-muted-foreground">
                       {item.status}
                     </span>
                   </div>
                 ))}
               </div>
-              <div className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-xs text-slate-400">
+              <div className="rounded-md border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
                 Form builder is coming next.
               </div>
             </div>
@@ -2593,10 +2597,10 @@ export default function CompanyPage() {
               ].map((item) => (
                 <div
                   key={item.role}
-                  className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+                  className="rounded-panel border border-border px-4 py-3 text-sm"
                 >
-                  <div className="font-semibold text-slate-900">{item.role}</div>
-                  <div className="text-xs text-slate-500">{item.desc}</div>
+                  <div className="font-semibold text-foreground">{item.role}</div>
+                  <div className="text-xs text-muted-foreground">{item.desc}</div>
                 </div>
               ))}
             </div>
@@ -2605,40 +2609,40 @@ export default function CompanyPage() {
           {activeSection === "integrations" ? (
             <div className="mt-6 space-y-4">
               {integrationsError ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <div className="rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
                   {integrationsError}
                 </div>
               ) : null}
               {integrationsWarning ? (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <div className="rounded-panel border border-warning/25 bg-warning-muted px-4 py-3 text-sm text-warning">
                   {integrationsWarning}
                 </div>
               ) : null}
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 px-4 py-4 text-sm">
+                <div className="rounded-panel border border-border px-4 py-4 text-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="font-semibold text-slate-900">MailerLite</div>
+                    <div className="font-semibold text-foreground">MailerLite</div>
                     <span
                       className={`rounded-full px-2 py-1 text-xs font-semibold ${
                         mailerliteConfigured
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-slate-100 text-slate-600"
+                          ? "bg-success-muted text-success"
+                          : "bg-muted text-muted-foreground"
                       }`}
                     >
                       {integrationsLoading ? "Loading…" : mailerliteConfigured ? "Configured" : "Not configured"}
                     </span>
                   </div>
-                  <div className="mt-2 text-xs text-slate-500">
+                  <div className="mt-2 text-xs text-muted-foreground">
                     Used for group subscribers, filtered lists, and automation triggers.
                   </div>
 
                   <div className="mt-4 space-y-2">
-                    <div className="text-xs font-semibold uppercase text-slate-500">
+                    <div className="text-xs font-semibold uppercase text-muted-foreground">
                       API Key
                     </div>
-                    <input
-                      className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                    <UiInput
+                      className="h-11 w-full"
                       type="password"
                       value={mailerliteDraftKey}
                       onChange={(event) => setMailerLiteDraftKey(event.target.value)}
@@ -2646,9 +2650,9 @@ export default function CompanyPage() {
                       disabled={!mailerliteCanEdit}
                     />
                     <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <button
+                      <UiButton variant="primary" size="sm"
                         type="button"
-                        className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                        className="disabled:opacity-50"
                         disabled={!mailerliteCanEdit || mailerliteSaving || integrationsLoading}
                         onClick={async () => {
                           setMailerLiteSaving(true);
@@ -2683,10 +2687,10 @@ export default function CompanyPage() {
                         }}
                       >
                         {mailerliteSaving ? "Saving…" : "Save"}
-                      </button>
-                      <button
+                      </UiButton>
+                      <UiButton variant="secondary" size="sm"
                         type="button"
-                        className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50"
+                        className="disabled:opacity-50"
                         disabled={!mailerliteCanEdit || mailerliteSaving || integrationsLoading}
                         onClick={async () => {
                           setMailerLiteSaving(true);
@@ -2718,12 +2722,12 @@ export default function CompanyPage() {
                         }}
                       >
                         Clear
-                      </button>
-                      <span className="text-[11px] text-slate-500">
+                      </UiButton>
+                      <span className="text-[11px] text-muted-foreground">
                         Source: {mailerliteSource.toUpperCase()}
                       </span>
                       {!mailerliteCanEdit ? (
-                        <span className="text-[11px] text-slate-500">
+                        <span className="text-[11px] text-muted-foreground">
                           {integrationsWarning ? "Database not configured." : "Admin only."}
                         </span>
                       ) : null}
@@ -2731,14 +2735,14 @@ export default function CompanyPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 px-4 py-4 text-sm">
+                <div className="rounded-panel border border-border px-4 py-4 text-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="font-semibold text-slate-900">Shared Inbox</div>
+                    <div className="font-semibold text-foreground">Shared Inbox</div>
                     <span
                       className={`rounded-full px-2 py-1 text-xs font-semibold ${
                         sharedInboxConfigured
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-slate-100 text-slate-600"
+                          ? "bg-success-muted text-success"
+                          : "bg-muted text-muted-foreground"
                       }`}
                     >
                       {integrationsLoading
@@ -2748,21 +2752,21 @@ export default function CompanyPage() {
                         : "Not connected"}
                     </span>
                   </div>
-                  <div className="mt-2 text-xs text-slate-500">
+                  <div className="mt-2 text-xs text-muted-foreground">
                     Connect a shared inbox so the Email tab can sync threads and send from the platform (with open/click tracking).
                   </div>
 
                   <div className="mt-4 space-y-4">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
-                      <div className="text-xs font-semibold text-slate-900">
+                    <div className="rounded-md border border-border bg-muted px-3 py-3">
+                      <div className="text-xs font-semibold text-foreground">
                         Google Workspace (Gmail) — Recommended
                       </div>
-                      <div className="mt-1 text-[11px] text-slate-500">
+                      <div className="mt-1 text-[11px] text-muted-foreground">
                         Best threading + fastest sync for the Email tab.
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <a
-                          className={`rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white ${
+                          className={`rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground ${
                             !sharedInboxCanEdit ? "pointer-events-none opacity-50" : ""
                           }`}
                           href="/api/email/google/oauth/start?next=/company"
@@ -2771,9 +2775,9 @@ export default function CompanyPage() {
                             ? "Reconnect Gmail"
                             : "Connect Gmail"}
                         </a>
-                        <button
+                        <UiButton variant="secondary" size="sm"
                           type="button"
-                          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50"
+                          className="disabled:opacity-50"
                           disabled={
                             !sharedInboxCanEdit ||
                             sharedInboxSaving ||
@@ -2827,19 +2831,19 @@ export default function CompanyPage() {
                           }}
                         >
                           Disconnect
-                        </button>
+                        </UiButton>
                         {!sharedInboxCanEdit ? (
-                          <span className="text-[11px] text-slate-500">Admin only.</span>
+                          <span className="text-[11px] text-muted-foreground">Admin only.</span>
                         ) : null}
                       </div>
                       {sharedInboxConfigured && sharedInboxEmail ? (
-                        <div className="mt-2 text-[11px] text-slate-600">
+                        <div className="mt-2 text-[11px] text-muted-foreground">
                           Connected mailbox:{" "}
-                          <span className="font-semibold text-slate-900">
+                          <span className="font-semibold text-foreground">
                             {sharedInboxEmail}
                           </span>
                           {sharedInboxProvider ? (
-                            <span className="ml-2 text-slate-500">
+                            <span className="ml-2 text-muted-foreground">
                               ({sharedInboxProvider})
                             </span>
                           ) : null}
@@ -2847,24 +2851,24 @@ export default function CompanyPage() {
                       ) : null}
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
-                      <div className="text-xs font-semibold text-slate-900">
+                    <div className="rounded-md border border-border bg-card px-3 py-3">
+                      <div className="text-xs font-semibold text-foreground">
                         Other providers (SMTP/IMAP)
                       </div>
-                      <div className="mt-1 text-[11px] text-slate-500">
+                      <div className="mt-1 text-[11px] text-muted-foreground">
                         Use this for non-Google inboxes. Outgoing emails will include open/click tracking. (Thread sync depends on provider support.)
                       </div>
 
                       <div className="mt-3 grid gap-2">
-                        <input
-                          className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                        <UiInput
+                          className="h-10 w-full"
                           placeholder="From email address"
                           value={sharedInboxEmailDraft}
                           onChange={(e) => setSharedInboxEmailDraft(e.target.value)}
                           disabled={!sharedInboxCanEdit}
                         />
-                        <input
-                          className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                        <UiInput
+                          className="h-10 w-full"
                           placeholder="From name (optional)"
                           value={sharedInboxNameDraft}
                           onChange={(e) => setSharedInboxNameDraft(e.target.value)}
@@ -2872,29 +2876,29 @@ export default function CompanyPage() {
                         />
 
                         <div className="grid gap-2 sm:grid-cols-2">
-                          <input
-                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                          <UiInput
+                            className="h-10 w-full"
                             placeholder="IMAP host"
                             value={sharedInboxImapHost}
                             onChange={(e) => setSharedInboxImapHost(e.target.value)}
                             disabled={!sharedInboxCanEdit}
                           />
-                          <input
-                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                          <UiInput
+                            className="h-10 w-full"
                             placeholder="IMAP port"
                             value={sharedInboxImapPort}
                             onChange={(e) => setSharedInboxImapPort(e.target.value)}
                             disabled={!sharedInboxCanEdit}
                           />
-                          <input
-                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                          <UiInput
+                            className="h-10 w-full"
                             placeholder="IMAP username"
                             value={sharedInboxImapUser}
                             onChange={(e) => setSharedInboxImapUser(e.target.value)}
                             disabled={!sharedInboxCanEdit}
                           />
-                          <input
-                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                          <UiInput
+                            className="h-10 w-full"
                             placeholder="IMAP password (leave blank to keep)"
                             type="password"
                             value={sharedInboxImapPassword}
@@ -2904,29 +2908,29 @@ export default function CompanyPage() {
                         </div>
 
                         <div className="grid gap-2 sm:grid-cols-2">
-                          <input
-                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                          <UiInput
+                            className="h-10 w-full"
                             placeholder="SMTP host"
                             value={sharedInboxSmtpHost}
                             onChange={(e) => setSharedInboxSmtpHost(e.target.value)}
                             disabled={!sharedInboxCanEdit}
                           />
-                          <input
-                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                          <UiInput
+                            className="h-10 w-full"
                             placeholder="SMTP port"
                             value={sharedInboxSmtpPort}
                             onChange={(e) => setSharedInboxSmtpPort(e.target.value)}
                             disabled={!sharedInboxCanEdit}
                           />
-                          <input
-                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                          <UiInput
+                            className="h-10 w-full"
                             placeholder="SMTP username"
                             value={sharedInboxSmtpUser}
                             onChange={(e) => setSharedInboxSmtpUser(e.target.value)}
                             disabled={!sharedInboxCanEdit}
                           />
-                          <input
-                            className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                          <UiInput
+                            className="h-10 w-full"
                             placeholder="SMTP password (leave blank to keep)"
                             type="password"
                             value={sharedInboxSmtpPassword}
@@ -2936,9 +2940,9 @@ export default function CompanyPage() {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2 pt-1">
-                          <button
+                          <UiButton variant="primary" size="sm"
                             type="button"
-                            className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                            className="disabled:opacity-50"
                             disabled={!sharedInboxCanEdit || sharedInboxSaving || integrationsLoading}
                             onClick={async () => {
                               setSharedInboxSaving(true);
@@ -2999,9 +3003,9 @@ export default function CompanyPage() {
                             }}
                           >
                             {sharedInboxSaving ? "Saving…" : "Save"}
-                          </button>
+                          </UiButton>
                           {!sharedInboxCanEdit ? (
-                            <span className="text-[11px] text-slate-500">Admin only.</span>
+                            <span className="text-[11px] text-muted-foreground">Admin only.</span>
                           ) : null}
                         </div>
                       </div>
@@ -3009,27 +3013,27 @@ export default function CompanyPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 px-4 py-4 text-sm">
+                <div className="rounded-panel border border-border px-4 py-4 text-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="font-semibold text-slate-900">Supabase</div>
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
+                    <div className="font-semibold text-foreground">Supabase</div>
+                    <span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">
                       Read-only
                     </span>
                   </div>
-                  <div className="mt-2 text-xs text-slate-500">
+                  <div className="mt-2 text-xs text-muted-foreground">
                     These values are configured via environment variables at deploy time.
                   </div>
 
                   <div className="mt-4 space-y-3 text-xs">
                     <div>
-                      <div className="font-semibold text-slate-500">NEXT_PUBLIC_SUPABASE_URL</div>
-                      <div className="mt-1 flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <code className="block min-w-0 truncate text-[11px] text-slate-700">
+                      <div className="font-semibold text-muted-foreground">NEXT_PUBLIC_SUPABASE_URL</div>
+                      <div className="mt-1 flex items-center justify-between gap-2 rounded-md border border-border bg-muted px-3 py-2">
+                        <code className="block min-w-0 truncate text-[11px] text-foreground">
                           {process.env.NEXT_PUBLIC_SUPABASE_URL ?? "—"}
                         </code>
-                        <button
+                        <UiButton variant="secondary" size="sm"
                           type="button"
-                          className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700"
+                          className="shrink-0"
                           onClick={async () => {
                             const value = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
                             if (!value) return;
@@ -3037,20 +3041,20 @@ export default function CompanyPage() {
                           }}
                         >
                           Copy
-                        </button>
+                        </UiButton>
                       </div>
                     </div>
                     <div>
-                      <div className="font-semibold text-slate-500">NEXT_PUBLIC_SUPABASE_ANON_KEY</div>
-                      <div className="mt-1 flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <code className="block min-w-0 truncate text-[11px] text-slate-700">
+                      <div className="font-semibold text-muted-foreground">NEXT_PUBLIC_SUPABASE_ANON_KEY</div>
+                      <div className="mt-1 flex items-center justify-between gap-2 rounded-md border border-border bg-muted px-3 py-2">
+                        <code className="block min-w-0 truncate text-[11px] text-foreground">
                           {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
                             ? `${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.slice(0, 10)}…${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.slice(-6)}`
                             : "—"}
                         </code>
-                        <button
+                        <UiButton variant="secondary" size="sm"
                           type="button"
-                          className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700"
+                          className="shrink-0"
                           onClick={async () => {
                             const value = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
                             if (!value) return;
@@ -3058,48 +3062,48 @@ export default function CompanyPage() {
                           }}
                         >
                           Copy
-                        </button>
+                        </UiButton>
                       </div>
                     </div>
-                    <div className="text-[11px] text-slate-500">
+                    <div className="text-[11px] text-muted-foreground">
                       To change these, update `.env.local` and restart the dev server.
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 px-4 py-4">
+              <div className="rounded-panel border border-border px-4 py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">
+                    <div className="text-sm font-semibold text-foreground">
                       Jobs hero logos
                     </div>
-                    <div className="mt-1 text-xs text-slate-500">
+                    <div className="mt-1 text-xs text-muted-foreground">
                       Upload and reorder logos shown in the Jobs page hero slider.
                     </div>
                   </div>
-                  <button
+                  <UiButton variant="primary" size="sm"
                     type="button"
-                    className="h-9 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white disabled:opacity-60"
+                    className="h-9 disabled:opacity-60"
                     onClick={() => void handleAddJobsHeroLogo()}
                     disabled={jobsHeroLogosReordering || jobsHeroLogosActionId !== null}
                   >
                     Add logo
-                  </button>
+                  </UiButton>
                 </div>
 
                 {jobsHeroLogosError ? (
-                  <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-600">
+                  <div className="mt-3 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-xs text-destructive">
                     {jobsHeroLogosError}
                   </div>
                 ) : null}
 
                 {jobsHeroLogosLoading ? (
-                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                  <div className="mt-4 rounded-panel border border-border bg-muted px-4 py-6 text-sm text-muted-foreground">
                     Loading hero logos...
                   </div>
                 ) : jobsHeroLogos.length === 0 ? (
-                  <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                  <div className="mt-4 rounded-panel border border-dashed border-border bg-muted px-4 py-6 text-sm text-muted-foreground">
                     No hero logos yet. Click Add logo to create your first item, then upload an image.
                   </div>
                 ) : (
@@ -3112,10 +3116,10 @@ export default function CompanyPage() {
                       return (
                         <div
                           key={item.id}
-                          className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+                          className="flex flex-col gap-3 rounded-panel border border-border bg-card px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
                         >
                           <div className="flex min-w-0 items-center gap-3">
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-panel border border-border bg-muted">
                               {item.logoUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
@@ -3124,17 +3128,17 @@ export default function CompanyPage() {
                                   className="h-full w-full object-contain"
                                 />
                               ) : (
-                                <span className="text-sm font-semibold text-slate-400">
+                                <span className="text-sm font-semibold text-muted-foreground">
                                   {item.label ? item.label.slice(0, 1).toUpperCase() : "—"}
                                 </span>
                               )}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Label
                               </div>
-                              <input
-                                className="mt-1 h-9 w-full min-w-[220px] max-w-[420px] rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none"
+                              <UiInput
+                                className="mt-1 h-9 w-full min-w-[220px] max-w-[420px]"
                                 placeholder="e.g. Dropbox"
                                 value={item.label}
                                 disabled={isBusy}
@@ -3155,7 +3159,7 @@ export default function CompanyPage() {
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2">
-                            <label className="inline-flex h-9 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+                            <label className="inline-flex h-9 cursor-pointer items-center justify-center rounded-full border border-border bg-card px-4 text-xs font-semibold text-foreground transition hover:bg-muted">
                               <input
                                 type="file"
                                 accept="image/*"
@@ -3170,29 +3174,29 @@ export default function CompanyPage() {
                               {isBusy ? "Uploading..." : item.logoUrl ? "Replace" : "Upload"}
                             </label>
                             {item.logoUrl ? (
-                              <button
+                              <UiButton variant="secondary" size="sm"
                                 type="button"
-                                className="h-9 rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                                className="h-9 transition disabled:opacity-60"
                                 onClick={() =>
                                   void handleUpdateJobsHeroLogo(item.id, { removeLogo: true })
                                 }
                                 disabled={isBusy}
                               >
                                 Remove
-                              </button>
+                              </UiButton>
                             ) : null}
-                            <button
+                            <UiButton variant="secondary" size="sm"
                               type="button"
-                              className="h-9 rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                              className="h-9 transition disabled:opacity-60"
                               onClick={() => void handleDeleteJobsHeroLogo(item.id)}
                               disabled={isBusy}
                             >
                               Delete
-                            </button>
+                            </UiButton>
                             <div className="ml-1 flex items-center gap-1">
-                              <button
+                              <UiButton variant="secondary" size="sm"
                                 type="button"
-                                className="h-9 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                                className="h-9 transition disabled:opacity-50"
                                 disabled={!canMoveUp || isBusy}
                                 onClick={() => {
                                   const next = [...jobsHeroLogos];
@@ -3204,10 +3208,10 @@ export default function CompanyPage() {
                                 }}
                               >
                                 ↑
-                              </button>
-                              <button
+                              </UiButton>
+                              <UiButton variant="secondary" size="sm"
                                 type="button"
-                                className="h-9 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                                className="h-9 transition disabled:opacity-50"
                                 disabled={!canMoveDown || isBusy}
                                 onClick={() => {
                                   const next = [...jobsHeroLogos];
@@ -3219,7 +3223,7 @@ export default function CompanyPage() {
                                 }}
                               >
                                 ↓
-                              </button>
+                              </UiButton>
                             </div>
                           </div>
                         </div>
@@ -3232,38 +3236,38 @@ export default function CompanyPage() {
               <div>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">
+                    <div className="text-sm font-semibold text-foreground">
                       Job companies
                     </div>
-                    <div className="mt-1 text-xs text-slate-500">
+                    <div className="mt-1 text-xs text-muted-foreground">
                       Click a company to edit ship type, benefits, logo, and naming.
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {mergeHistoryItems.length > 0 ? (
-                      <button
+                      <UiButton variant="secondary" size="sm"
                         type="button"
-                        className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                        className="inline-flex h-9 items-center justify-center gap-2 transition"
                         onClick={() => setMergeHistoryOpen(true)}
                       >
                         <Undo2 className="h-4 w-4" />
                         Merge history
-                      </button>
+                      </UiButton>
                     ) : null}
-                    <button
+                    <UiButton variant="primary" size="sm"
                       type="button"
-                      className="h-9 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white disabled:opacity-60"
+                      className="h-9 disabled:opacity-60"
                       onClick={handleSyncJobCompanies}
                       disabled={jobCompaniesSyncing}
                     >
                       {jobCompaniesSyncing ? "Syncing..." : "Sync companies"}
-                    </button>
+                    </UiButton>
                   </div>
                 </div>
 
-                <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50/70 p-2">
+                <div className="mt-4 rounded-panel border border-border bg-muted/70 p-2">
                   <div className="flex flex-col gap-2 sm:flex-row">
-                    <input
+                    <UiInput
                       type="text"
                       value={newJobCompanyName}
                       onChange={(event) => setNewJobCompanyName(event.target.value)}
@@ -3273,32 +3277,32 @@ export default function CompanyPage() {
                         void handleAddJobCompany();
                       }}
                       placeholder="Add a company manually"
-                      className="h-11 min-w-0 flex-1 rounded-2xl border border-transparent bg-white px-4 text-sm font-semibold text-slate-900 outline-none shadow-sm shadow-slate-200/60 focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                      className="h-11 min-w-0 flex-1"
                     />
-                    <button
+                    <UiButton variant="primary" size="lg"
                       type="button"
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-5 text-sm font-bold text-white shadow-lg shadow-sky-200/70 transition hover:brightness-105 disabled:opacity-60"
+                      className="inline-flex h-11 items-center justify-center gap-2 transition hover:brightness-105 disabled:opacity-60"
                       onClick={() => void handleAddJobCompany()}
                       disabled={jobCompaniesActionId === "new"}
                     >
                       <Plus className="h-4 w-4" />
                       {jobCompaniesActionId === "new" ? "Adding..." : "Add company"}
-                    </button>
+                    </UiButton>
                   </div>
                 </div>
 
                 {jobCompaniesError ? (
-                  <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-600">
+                  <div className="mt-3 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-xs text-destructive">
                     {jobCompaniesError}
                   </div>
                 ) : null}
 
                 {jobCompaniesLoading ? (
-                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                  <div className="mt-4 rounded-panel border border-border bg-muted px-4 py-6 text-sm text-muted-foreground">
                     Loading companies...
                   </div>
                 ) : jobCompanies.length === 0 ? (
-                  <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                  <div className="mt-4 rounded-panel border border-dashed border-border bg-muted px-4 py-6 text-sm text-muted-foreground">
                     No extracted job companies yet. Run Sync companies after Breezy positions are cached.
                   </div>
                 ) : (
@@ -3337,15 +3341,15 @@ export default function CompanyPage() {
                         <div
                           key={item.id}
                           className={[
-                            "overflow-hidden rounded-3xl border bg-white transition",
+                            "overflow-hidden rounded-panel border bg-card transition",
                             isExpanded || hasChanges
-                              ? "border-sky-200 shadow-sm shadow-sky-100/70"
-                              : "border-slate-200 hover:border-slate-300",
+                              ? "border-input shadow-sm shadow-sky-100/70"
+                              : "border-border hover:border-input",
                           ].join(" ")}
                         >
                           <button
                             type="button"
-                            className="flex w-full items-center gap-4 px-4 py-4 text-left transition hover:bg-slate-50/70"
+                            className="flex w-full items-center gap-4 px-4 py-4 text-left transition hover:bg-muted/70"
                             onClick={() =>
                               setExpandedJobCompanyId((current) =>
                                 current === item.id ? null : item.id
@@ -3353,7 +3357,7 @@ export default function CompanyPage() {
                             }
                             aria-expanded={isExpanded}
                           >
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-panel border border-border bg-muted">
                               {item.logoUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
@@ -3362,62 +3366,62 @@ export default function CompanyPage() {
                                   className="h-full w-full object-contain"
                                 />
                               ) : (
-                                <span className="text-sm font-semibold text-slate-400">
+                                <span className="text-sm font-semibold text-muted-foreground">
                                   {item.name.slice(0, 1).toUpperCase()}
                                 </span>
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                <div className="truncate text-sm font-extrabold uppercase tracking-wide text-slate-950">
+                                <div className="truncate text-sm font-extrabold uppercase tracking-wide text-foreground">
                                   {draftName || item.name}
                                 </div>
                                 {hasChanges ? (
-                                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                                  <span className="rounded-full bg-warning-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning">
                                     Unsaved
                                   </span>
                                 ) : null}
                               </div>
-                              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-500">
-                                <span className="rounded-full bg-slate-100 px-2.5 py-1">
+                              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-muted-foreground">
+                                <span className="rounded-full bg-muted px-2.5 py-1">
                                   {item.positionsCount} {item.positionsCount === 1 ? "position" : "positions"}
                                 </span>
                                 {shipTypeLabels.map((label) => (
                                   <span
                                     key={label}
-                                    className="rounded-full bg-cyan-50 px-2.5 py-1 text-cyan-800"
+                                    className="rounded-full bg-accent px-2.5 py-1 text-foreground"
                                   >
                                     {label}
                                   </span>
                                 ))}
-                                <span className="rounded-full bg-sky-50 px-2.5 py-1 text-sky-800">
+                                <span className="rounded-full bg-accent px-2.5 py-1 text-foreground">
                                   {openingTypeLabel}
                                 </span>
-                                <span className="rounded-full bg-sky-50 px-2.5 py-1 text-sky-800">
+                                <span className="rounded-full bg-accent px-2.5 py-1 text-foreground">
                                   {draftBenefitTags.length} benefits
                                 </span>
-                                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800">
+                                <span className="rounded-full bg-success-muted px-2.5 py-1 text-success">
                                   {draftCountryCodes.length} countries
                                 </span>
                               </div>
                             </div>
                             <ChevronDown
                               className={[
-                                "h-5 w-5 shrink-0 text-slate-400 transition-transform",
+                                "h-5 w-5 shrink-0 text-muted-foreground transition-transform",
                                 isExpanded ? "rotate-180" : "",
                               ].join(" ")}
                             />
                           </button>
 
                           {isExpanded ? (
-                            <div className="border-t border-slate-100 bg-gradient-to-b from-slate-50/70 to-white px-4 pb-4 pt-4">
+                            <div className="border-t border-border bg-muted px-4 pb-4 pt-4">
                               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
                                 <div className="space-y-4">
                                   <div>
-                                    <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                                    <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                                       Company name
                                     </label>
-                                    <input
+                                    <UiInput
                                       type="text"
                                       value={draftName}
                                       disabled={isBusy}
@@ -3427,12 +3431,12 @@ export default function CompanyPage() {
                                           [item.id]: event.target.value,
                                         }))
                                       }
-                                      className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-extrabold uppercase tracking-wide text-slate-950 outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                                      className="mt-2 h-12 w-full uppercase tracking-wide"
                                     />
                                   </div>
 
                                   <div>
-                                    <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                                    <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                                       Ship type
                                     </div>
                                     <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -3448,8 +3452,8 @@ export default function CompanyPage() {
                                         className={[
                                           "rounded-full border px-4 py-2 text-xs font-bold transition",
                                           draftShipTypes.length === 0
-                                            ? "border-slate-950 bg-slate-950 text-white"
-                                            : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                            ? "border-input bg-primary text-primary-foreground"
+                                            : "border-border bg-card text-muted-foreground hover:bg-muted",
                                         ].join(" ")}
                                       >
                                         Auto / Unknown
@@ -3472,8 +3476,8 @@ export default function CompanyPage() {
                                             className={[
                                               "rounded-full border px-4 py-2 text-xs font-bold transition",
                                               active
-                                                ? "border-cyan-300 bg-cyan-50 text-cyan-900 ring-2 ring-cyan-100"
-                                                : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                                ? "border-input bg-accent text-foreground ring-2 ring-ring"
+                                                : "border-border bg-card text-muted-foreground hover:bg-muted",
                                             ].join(" ")}
                                           >
                                             {JOB_SHIP_TYPE_LABELS[shipType]}
@@ -3484,7 +3488,7 @@ export default function CompanyPage() {
                                   </div>
 
                                   <div>
-                                    <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                                    <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                                       Opening type
                                     </div>
                                     <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -3500,8 +3504,8 @@ export default function CompanyPage() {
                                         className={[
                                           "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold transition",
                                           !draftOpeningType
-                                            ? "border-slate-950 bg-slate-950 text-white"
-                                            : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                            ? "border-input bg-primary text-primary-foreground"
+                                            : "border-border bg-card text-muted-foreground hover:bg-muted",
                                         ].join(" ")}
                                       >
                                         <FolderKanban className="h-3.5 w-3.5" />
@@ -3525,8 +3529,8 @@ export default function CompanyPage() {
                                             className={[
                                               "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold transition",
                                               active
-                                                ? "border-sky-300 bg-sky-50 text-sky-900 ring-2 ring-sky-100"
-                                                : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                                ? "border-input bg-accent text-foreground ring-2 ring-ring"
+                                                : "border-border bg-card text-muted-foreground hover:bg-muted",
                                             ].join(" ")}
                                           >
                                             {active ? <Check className="h-3.5 w-3.5" /> : null}
@@ -3539,15 +3543,15 @@ export default function CompanyPage() {
 
                                   <div>
                                     <div className="flex items-center justify-between gap-3">
-                                      <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                                      <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                                         Benefits shown on cards
                                       </div>
-                                      <div className="text-xs font-semibold text-slate-500">
+                                      <div className="text-xs font-semibold text-muted-foreground">
                                         {draftBenefitTags.length} selected
                                       </div>
                                     </div>
-                                    <div className="mt-2 flex flex-col gap-2 rounded-2xl border border-sky-200 bg-sky-50/70 p-2 sm:flex-row">
-                                      <input
+                                    <div className="mt-2 flex flex-col gap-2 rounded-panel border border-input bg-accent/70 p-2 sm:flex-row">
+                                      <UiInput
                                         type="text"
                                         value={newJobBenefitLabel}
                                         onChange={(event) => setNewJobBenefitLabel(event.target.value)}
@@ -3557,17 +3561,17 @@ export default function CompanyPage() {
                                           handleAddJobBenefitOption(item.id);
                                         }}
                                         placeholder="Add new benefit here"
-                                        className="h-10 min-w-0 flex-1 rounded-xl border border-sky-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                                        className="h-10 min-w-0 flex-1"
                                       />
-                                      <button
+                                      <UiButton variant="primary" size="sm"
                                         type="button"
-                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-xs font-bold text-white transition hover:bg-sky-700 disabled:opacity-60"
+                                        className="inline-flex h-10 items-center justify-center gap-2 transition disabled:opacity-60"
                                         onClick={() => handleAddJobBenefitOption(item.id)}
                                         disabled={jobBenefitOptionsSaving || !newJobBenefitLabel.trim()}
                                       >
                                         <Plus className="h-4 w-4" />
                                         Add and select
-                                      </button>
+                                      </UiButton>
                                     </div>
                                     <div className="mt-2 flex flex-wrap gap-2">
                                       {jobBenefitOptionsDraft.map((option) => {
@@ -3590,8 +3594,8 @@ export default function CompanyPage() {
                                             className={[
                                               "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-bold transition",
                                               active
-                                                ? "border-sky-300 bg-sky-50 text-sky-800 ring-2 ring-sky-100"
-                                                : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                                ? "border-input bg-accent text-foreground ring-2 ring-ring"
+                                                : "border-border bg-card text-muted-foreground hover:bg-muted",
                                             ].join(" ")}
                                           >
                                             <span>{option.label || BENEFIT_TAG_LABELS[tag] || tag}</span>
@@ -3599,25 +3603,25 @@ export default function CompanyPage() {
                                           </button>
                                         );
                                       })}
-                                      <button
+                                      <UiButton variant="primary" size="sm"
                                         type="button"
-                                        className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-sky-400 bg-gradient-to-r from-[#00b4ff] via-[#1594f5] to-[#006fe6] px-4 text-xs font-bold text-white shadow-lg shadow-sky-300/50 transition hover:from-[#16c8ff] hover:via-[#1aa2ff] hover:to-[#075fe0]"
+                                        className="inline-flex h-9 items-center justify-center gap-2 transition"
                                         onClick={() => setBenefitOptionsModalOpen(true)}
                                       >
                                         <PencilLine className="h-3.5 w-3.5" />
                                         Add / manage benefits
-                                      </button>
+                                      </UiButton>
                                     </div>
                                   </div>
 
                                   <div>
                                     <div className="flex items-center justify-between gap-3">
-                                      <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                                      <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                                         Nationalities we process
                                       </div>
-                                      <button
+                                      <UiButton variant="secondary" size="sm"
                                         type="button"
-                                        className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+                                        className="transition disabled:opacity-60"
                                         disabled={isBusy}
                                         onClick={() =>
                                           setJobCompanyCountryDrafts((prev) => ({
@@ -3632,10 +3636,10 @@ export default function CompanyPage() {
                                         {draftCountryCodes.length === jobCountryOptionsDraft.length
                                           ? "Clear all"
                                           : "Select all"}
-                                      </button>
+                                      </UiButton>
                                     </div>
 
-                                    <div className="mt-2 rounded-2xl border border-slate-200 bg-white p-3">
+                                    <div className="mt-2 rounded-panel border border-border bg-card p-3">
                                       <div className="flex flex-wrap gap-2">
                                         {jobCountryOptionsDraft.map((option) => {
                                           const selected = draftCountryCodes.includes(option.code);
@@ -3660,8 +3664,8 @@ export default function CompanyPage() {
                                               className={[
                                                 "inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-bold transition",
                                                 selected
-                                                  ? "border-emerald-300 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-100"
-                                                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+                                                  ? "border-success/25 bg-success-muted text-success ring-2 ring-success/25"
+                                                  : "border-border bg-card text-muted-foreground hover:bg-muted",
                                               ].join(" ")}
                                             >
                                               <span aria-hidden="true">{toFlagEmoji(option.code)}</span>
@@ -3669,27 +3673,27 @@ export default function CompanyPage() {
                                             </button>
                                           );
                                         })}
-                                        <button
+                                        <UiButton variant="primary" size="sm"
                                           type="button"
-                                          className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-sky-400 bg-gradient-to-r from-[#00b4ff] via-[#1594f5] to-[#006fe6] px-4 text-xs font-bold text-white shadow-lg shadow-sky-300/50 transition hover:from-[#16c8ff] hover:via-[#1aa2ff] hover:to-[#075fe0]"
+                                          className="inline-flex h-9 items-center justify-center gap-2 transition"
                                           onClick={() => setCountryOptionsModalOpen(true)}
                                         >
                                           <PencilLine className="h-3.5 w-3.5" />
                                           Add / manage countries
-                                        </button>
+                                        </UiButton>
                                       </div>
                                     </div>
                                   </div>
                                 </div>
 
-                                <div className="space-y-2 rounded-3xl border border-slate-200 bg-white p-3">
+                                <div className="space-y-2 rounded-panel border border-border bg-card p-3">
                                   <button
                                     type="button"
                                     className={[
-                                      "inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-extrabold transition disabled:cursor-not-allowed",
+                                      "inline-flex h-12 w-full items-center justify-center gap-2 rounded-panel text-sm font-extrabold transition disabled:cursor-not-allowed",
                                       hasChanges
-                                        ? "bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] text-white shadow-lg shadow-sky-200/70 hover:brightness-105"
-                                        : "bg-slate-100 text-slate-400",
+                                        ? "bg-primary text-primary-foreground shadow-lg hover:brightness-105"
+                                        : "bg-muted text-muted-foreground",
                                     ].join(" ")}
                                     onClick={() => void handleRenameJobCompany(item.id)}
                                     disabled={isBusy || !hasChanges}
@@ -3698,11 +3702,11 @@ export default function CompanyPage() {
                                     {isBusy ? "Saving..." : hasChanges ? "Save changes" : "Saved"}
                                   </button>
                                   {hasChanges ? (
-                                    <div className="rounded-2xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+                                    <div className="rounded-panel bg-warning-muted px-3 py-2 text-xs font-semibold text-warning">
                                       Changes are local until you save.
                                     </div>
                                   ) : null}
-                                  <label className="inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 transition hover:bg-slate-50">
+                                  <label className="inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-panel border border-border bg-card px-4 text-xs font-bold text-foreground transition hover:bg-muted">
                                     <input
                                       type="file"
                                       accept="image/*"
@@ -3720,7 +3724,7 @@ export default function CompanyPage() {
                                   {item.logoUrl ? (
                                     <button
                                       type="button"
-                                      className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                                      className="h-11 w-full rounded-panel border border-border bg-card px-4 text-xs font-bold text-foreground transition hover:bg-muted disabled:opacity-60"
                                       onClick={() => void handleRemoveJobCompanyLogo(item.id)}
                                       disabled={isBusy}
                                     >
@@ -3728,12 +3732,12 @@ export default function CompanyPage() {
                                     </button>
                                   ) : null}
                                   {jobCompanies.length > 1 ? (
-                                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
-                                      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">
+                                    <div className="rounded-panel border border-warning/25 bg-warning-muted p-3">
+                                      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-warning">
                                         <GitMerge className="h-3.5 w-3.5" />
                                         Merge company
                                       </div>
-                                      <select
+                                      <UiSelect
                                         value={mergeTargetId}
                                         disabled={isBusy}
                                         onChange={(event) =>
@@ -3742,7 +3746,7 @@ export default function CompanyPage() {
                                             [item.id]: event.target.value,
                                           }))
                                         }
-                                        className="mt-2 h-10 w-full rounded-xl border border-amber-200 bg-white px-3 text-xs font-bold text-slate-800 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                                        className="mt-2 h-10 w-full"
                                       >
                                         {jobCompanies
                                           .filter((candidate) => candidate.id !== item.id)
@@ -3751,15 +3755,15 @@ export default function CompanyPage() {
                                               {candidate.name}
                                             </option>
                                           ))}
-                                      </select>
-                                      <div className="mt-2 text-[11px] font-semibold leading-5 text-amber-800">
+                                      </UiSelect>
+                                      <div className="mt-2 text-[11px] font-semibold leading-5 text-warning">
                                         Move {item.positionsCount} positions
                                         {mergeTarget ? ` into ${mergeTarget.name}` : ""}. Undo is available
                                         from Recent merges.
                                       </div>
                                       <button
                                         type="button"
-                                        className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-3 text-xs font-bold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
+                                        className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-warning/25 bg-card px-3 text-xs font-bold text-warning transition hover:bg-warning-muted disabled:opacity-60"
                                         onClick={() => void handleMergeJobCompany(item.id)}
                                         disabled={isBusy || !mergeTargetId}
                                       >
@@ -3770,7 +3774,7 @@ export default function CompanyPage() {
                                   ) : null}
                                   <button
                                     type="button"
-                                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 text-xs font-bold text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
+                                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-panel border border-destructive/25 bg-card px-4 text-xs font-bold text-destructive transition hover:bg-danger-muted disabled:opacity-60"
                                     onClick={() => void handleDeleteJobCompany(item.id, item.name)}
                                     disabled={isBusy}
                                   >
@@ -3799,9 +3803,9 @@ export default function CompanyPage() {
               ].map((item) => (
                 <label
                   key={item}
-                  className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+                  className="flex items-center justify-between rounded-panel border border-border px-4 py-3 text-sm"
                 >
-                  <span className="text-slate-700">{item}</span>
+                  <span className="text-foreground">{item}</span>
                   <input type="checkbox" className="h-4 w-4" />
                 </label>
               ))}
@@ -3810,21 +3814,21 @@ export default function CompanyPage() {
 
           {activeSection === "storage" ? (
             <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-slate-200 px-4 py-3 text-sm">
-                <div className="font-semibold text-slate-900">
+              <div className="rounded-panel border border-border px-4 py-3 text-sm">
+                <div className="font-semibold text-foreground">
                   Document retention
                 </div>
-                <div className="mt-2 text-xs text-slate-500">
+                <div className="mt-2 text-xs text-muted-foreground">
                   Configure how long files are stored.
                 </div>
-                <select className="mt-3 h-10 w-full rounded-md border border-slate-200 px-3 text-sm">
+                <UiSelect className="mt-3 h-10 w-full">
                   <option>1 year</option>
                   <option>2 years</option>
                   <option>3 years</option>
                   <option>Indefinite</option>
-                </select>
+                </UiSelect>
               </div>
-              <div className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-xs text-slate-400">
+              <div className="rounded-md border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
                 Storage settings will connect to Supabase later.
               </div>
             </div>
@@ -3837,29 +3841,29 @@ export default function CompanyPage() {
           onClick={() => setBenefitOptionsModalOpen(false)}
         >
           <div
-            className="flex max-h-[86vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="flex max-h-[86vh] w-full max-w-4xl flex-col overflow-hidden rounded-panel bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
               <div>
-                <div className="text-sm font-semibold text-slate-900">Manage benefits</div>
-                <div className="mt-1 text-xs text-slate-500">
+                <div className="text-sm font-semibold text-foreground">Manage benefits</div>
+                <div className="mt-1 text-xs text-muted-foreground">
                   Add, rename, or remove benefit options used on job company cards.
                 </div>
               </div>
-              <button
+              <UiButton variant="secondary" size="md"
                 type="button"
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center transition"
                 aria-label="Close benefits"
                 onClick={() => setBenefitOptionsModalOpen(false)}
               >
                 <X className="h-4 w-4" />
-              </button>
+              </UiButton>
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
-              <div className="flex flex-col gap-2 rounded-2xl border border-sky-200 bg-sky-50/70 p-2 sm:flex-row">
-                <input
+              <div className="flex flex-col gap-2 rounded-panel border border-input bg-accent/70 p-2 sm:flex-row">
+                <UiInput
                   type="text"
                   value={newJobBenefitLabel}
                   onChange={(event) => setNewJobBenefitLabel(event.target.value)}
@@ -3869,26 +3873,26 @@ export default function CompanyPage() {
                     handleAddJobBenefitOption();
                   }}
                   placeholder="Add new benefit"
-                  className="h-10 min-w-0 flex-1 rounded-xl border border-sky-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className="h-10 min-w-0 flex-1"
                 />
-                <button
+                <UiButton variant="primary" size="sm"
                   type="button"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-xs font-bold text-white transition hover:bg-sky-700 disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 transition disabled:opacity-60"
                   onClick={() => handleAddJobBenefitOption()}
                   disabled={jobBenefitOptionsSaving || !newJobBenefitLabel.trim()}
                 >
                   <Plus className="h-4 w-4" />
                   Add benefit
-                </button>
+                </UiButton>
               </div>
 
               <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {jobBenefitOptionsDraft.map((option) => (
                   <div
                     key={option.tag}
-                    className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5"
+                    className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-card p-1.5"
                   >
-                    <input
+                    <UiInput
                       type="text"
                       value={option.label}
                       disabled={jobBenefitOptionsSaving}
@@ -3901,11 +3905,11 @@ export default function CompanyPage() {
                           )
                         )
                       }
-                      className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                      className="h-8 min-w-0 flex-1"
                     />
-                    <button
+                    <UiButton variant="secondary" size="md"
                       type="button"
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-destructive transition disabled:opacity-50"
                       aria-label={`Remove ${option.label}`}
                       disabled={jobBenefitOptionsSaving || jobBenefitOptionsDraft.length <= 1}
                       onClick={() => {
@@ -3928,33 +3932,33 @@ export default function CompanyPage() {
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    </UiButton>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-5 py-3">
-              <div className="text-xs font-semibold text-slate-500">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-3">
+              <div className="text-xs font-semibold text-muted-foreground">
                 {benefitOptionsChanged ? "Benefit option changes are not saved yet." : "Benefit options are saved."}
               </div>
               <div className="flex items-center gap-2">
-                <button
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                  className="transition"
                   onClick={() => setBenefitOptionsModalOpen(false)}
                 >
                   Close
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="primary" size="sm"
                   type="button"
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-slate-900 px-4 text-xs font-bold text-white transition hover:bg-black disabled:opacity-60"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 transition disabled:opacity-60"
                   onClick={() => void handleSaveJobBenefitOptions()}
                   disabled={jobBenefitOptionsSaving || !benefitOptionsChanged}
                 >
                   <Save className="h-3.5 w-3.5" />
                   {jobBenefitOptionsSaving ? "Saving..." : "Save benefits"}
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>
@@ -3967,29 +3971,29 @@ export default function CompanyPage() {
           onClick={() => setCountryOptionsModalOpen(false)}
         >
           <div
-            className="flex max-h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="flex max-h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-panel bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
               <div>
-                <div className="text-sm font-semibold text-slate-900">Manage countries</div>
-                <div className="mt-1 text-xs text-slate-500">
+                <div className="text-sm font-semibold text-foreground">Manage countries</div>
+                <div className="mt-1 text-xs text-muted-foreground">
                   Add, rename, or remove country options used by company nationality filters.
                 </div>
               </div>
-              <button
+              <UiButton variant="secondary" size="md"
                 type="button"
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center transition"
                 aria-label="Close countries"
                 onClick={() => setCountryOptionsModalOpen(false)}
               >
                 <X className="h-4 w-4" />
-              </button>
+              </UiButton>
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
-              <div className="grid gap-2 rounded-2xl border border-sky-200 bg-sky-50/70 p-2 md:grid-cols-[92px_minmax(0,1fr)_auto]">
-                <input
+              <div className="grid gap-2 rounded-panel border border-input bg-accent/70 p-2 md:grid-cols-[92px_minmax(0,1fr)_auto]">
+                <UiInput
                   type="text"
                   value={newJobCountryCode}
                   onChange={(event) => setNewJobCountryCode(event.target.value.toUpperCase())}
@@ -4000,9 +4004,9 @@ export default function CompanyPage() {
                   }}
                   placeholder="Code"
                   maxLength={2}
-                  className="h-10 rounded-xl border border-sky-200 bg-white px-3 text-sm font-extrabold uppercase tracking-wide text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className="h-10 uppercase tracking-wide"
                 />
-                <input
+                <UiInput
                   type="text"
                   value={newJobCountryName}
                   onChange={(event) => setNewJobCountryName(event.target.value)}
@@ -4012,11 +4016,11 @@ export default function CompanyPage() {
                     handleAddJobCountryOption();
                   }}
                   placeholder="Country name"
-                  className="h-10 min-w-0 rounded-xl border border-sky-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  className="h-10 min-w-0"
                 />
-                <button
+                <UiButton variant="primary" size="sm"
                   type="button"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-xs font-bold text-white transition hover:bg-sky-700 disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 transition disabled:opacity-60"
                   onClick={handleAddJobCountryOption}
                   disabled={
                     jobCountryOptionsSaving ||
@@ -4026,19 +4030,19 @@ export default function CompanyPage() {
                 >
                   <Plus className="h-4 w-4" />
                   Add country
-                </button>
+                </UiButton>
               </div>
 
               <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {jobCountryOptionsDraft.map((option) => (
                   <div
                     key={option.code}
-                    className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5"
+                    className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-card p-1.5"
                   >
-                    <div className="flex h-8 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-lg">
+                    <div className="flex h-8 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-lg">
                       {toFlagEmoji(option.code) || option.code}
                     </div>
-                    <input
+                    <UiInput
                       type="text"
                       value={option.name}
                       disabled={jobCountryOptionsSaving}
@@ -4051,14 +4055,14 @@ export default function CompanyPage() {
                           )
                         )
                       }
-                      className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                      className="h-8 min-w-0 flex-1"
                     />
-                    <div className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-extrabold text-slate-500">
+                    <div className="shrink-0 rounded-lg bg-muted px-2 py-1 text-[10px] font-extrabold text-muted-foreground">
                       {option.code}
                     </div>
-                    <button
+                    <UiButton variant="secondary" size="md"
                       type="button"
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-destructive transition disabled:opacity-50"
                       aria-label={`Remove ${option.name}`}
                       disabled={jobCountryOptionsSaving || jobCountryOptionsDraft.length <= 1}
                       onClick={() => {
@@ -4081,33 +4085,33 @@ export default function CompanyPage() {
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    </UiButton>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-5 py-3">
-              <div className="text-xs font-semibold text-slate-500">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-3">
+              <div className="text-xs font-semibold text-muted-foreground">
                 {countryOptionsChanged ? "Country option changes are not saved yet." : "Country options are saved."}
               </div>
               <div className="flex items-center gap-2">
-                <button
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                  className="transition"
                   onClick={() => setCountryOptionsModalOpen(false)}
                 >
                   Close
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="primary" size="sm"
                   type="button"
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-slate-900 px-4 text-xs font-bold text-white transition hover:bg-black disabled:opacity-60"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 transition disabled:opacity-60"
                   onClick={() => void handleSaveJobCountryOptions()}
                   disabled={jobCountryOptionsSaving || !countryOptionsChanged}
                 >
                   <Save className="h-3.5 w-3.5" />
                   {jobCountryOptionsSaving ? "Saving..." : "Save countries"}
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>
@@ -4120,51 +4124,51 @@ export default function CompanyPage() {
           onClick={() => setMergeHistoryOpen(false)}
         >
           <div
-            className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-2xl overflow-hidden rounded-panel bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
               <div>
-                <div className="text-sm font-semibold text-slate-900">Merge history</div>
-                <div className="mt-1 text-xs text-slate-500">
+                <div className="text-sm font-semibold text-foreground">Merge history</div>
+                <div className="mt-1 text-xs text-muted-foreground">
                   Undo recent company merges from this list.
                 </div>
               </div>
-              <button
+              <UiButton variant="secondary" size="sm"
                 type="button"
-                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+                className=""
                 onClick={() => setMergeHistoryOpen(false)}
               >
                 Close
-              </button>
+              </UiButton>
             </div>
             <div className="max-h-[60vh] space-y-2 overflow-auto px-5 py-4">
               {mergeHistoryItems.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                <div className="rounded-panel border border-dashed border-border bg-muted px-4 py-8 text-center text-sm text-muted-foreground">
                   No recent merges.
                 </div>
               ) : (
                 mergeHistoryItems.map((merge) => (
                   <div
                     key={merge.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-border bg-muted px-4 py-3"
                   >
-                    <div className="min-w-0 text-xs font-semibold text-slate-700">
-                      <span className="font-bold text-slate-950">{merge.sourceName}</span>
+                    <div className="min-w-0 text-xs font-semibold text-foreground">
+                      <span className="font-bold text-foreground">{merge.sourceName}</span>
                       {" into "}
-                      <span className="font-bold text-slate-950">{merge.targetName}</span>
+                      <span className="font-bold text-foreground">{merge.targetName}</span>
                       {" · "}
                       {merge.positionsMoved} positions
                     </div>
-                    <button
+                    <UiButton variant="secondary" size="sm"
                       type="button"
-                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+                      className="inline-flex h-8 items-center justify-center gap-1.5 transition disabled:opacity-60"
                       onClick={() => void handleUndoJobCompanyMerge(merge.id)}
                       disabled={jobCompaniesActionId === `undo:${merge.id}`}
                     >
                       <Undo2 className="h-3.5 w-3.5" />
                       {jobCompaniesActionId === `undo:${merge.id}` ? "Undoing..." : "Undo"}
-                    </button>
+                    </UiButton>
                   </div>
                 ))
               )}
@@ -4178,24 +4182,24 @@ export default function CompanyPage() {
           onClick={handleCloseQuestionnaireModal}
         >
           <div
-            className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-lg overflow-hidden rounded-panel bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="border-b border-slate-200 px-5 py-4">
-              <div className="text-sm font-semibold text-slate-900">
+            <div className="border-b border-border px-5 py-4">
+              <div className="text-sm font-semibold text-foreground">
                 Create questionnaire
               </div>
-              <div className="mt-1 text-xs text-slate-500">
+              <div className="mt-1 text-xs text-muted-foreground">
                 Add a name and status for the questionnaire.
               </div>
             </div>
             <div className="space-y-4 px-5 py-4">
               <div>
-                <label className="text-xs font-semibold uppercase text-slate-500">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
                   Name
                 </label>
-                <input
-                  className="mt-2 h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                <UiInput
+                  className="mt-2 h-11 w-full"
                   placeholder="Questionnaire name"
                   value={questionnaireName}
                   onChange={(event) => {
@@ -4205,11 +4209,11 @@ export default function CompanyPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold uppercase text-slate-500">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
                   Status
                 </label>
-                <select
-                  className="mt-2 h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                <UiSelect
+                  className="mt-2 h-11 w-full"
                   value={questionnaireStatus}
                   onChange={(event) =>
                     setQuestionnaireStatus(
@@ -4219,29 +4223,29 @@ export default function CompanyPage() {
                 >
                   <option value="Active">Active</option>
                   <option value="Draft">Draft</option>
-                </select>
+                </UiSelect>
               </div>
               {questionnaireError ? (
-                <div className="text-xs text-rose-600">
+                <div className="text-xs text-destructive">
                   {questionnaireError}
                 </div>
               ) : null}
             </div>
-            <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3">
-              <button
+            <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+              <UiButton variant="secondary" size="sm"
                 type="button"
-                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+                className=""
                 onClick={handleCloseQuestionnaireModal}
               >
                 Cancel
-              </button>
-              <button
+              </UiButton>
+              <UiButton variant="primary" size="sm"
                 type="button"
-                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+                className=""
                 onClick={handleCreateQuestionnaire}
               >
                 Create
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -4252,25 +4256,25 @@ export default function CompanyPage() {
           onClick={handleCloseInviteModal}
         >
           <div
-            className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-lg overflow-hidden rounded-panel bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="border-b border-slate-200 px-5 py-4">
-              <div className="text-sm font-semibold text-slate-900">
+            <div className="border-b border-border px-5 py-4">
+              <div className="text-sm font-semibold text-foreground">
                 Invite user
               </div>
-              <div className="mt-1 text-xs text-slate-500">
+              <div className="mt-1 text-xs text-muted-foreground">
                 Invited users must confirm their email before accessing the
                 account.
               </div>
             </div>
             <div className="space-y-4 px-5 py-4">
               <div>
-                <label className="text-xs font-semibold uppercase text-slate-500">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
                   Name
                 </label>
-                <input
-                  className="mt-2 h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                <UiInput
+                  className="mt-2 h-11 w-full"
                   placeholder="User name"
                   value={inviteName}
                   onChange={(event) => {
@@ -4280,11 +4284,11 @@ export default function CompanyPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold uppercase text-slate-500">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
                   Email
                 </label>
-                <input
-                  className="mt-2 h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                <UiInput
+                  className="mt-2 h-11 w-full"
                   placeholder="name@company.com"
                   value={inviteEmail}
                   onChange={(event) => {
@@ -4294,11 +4298,11 @@ export default function CompanyPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold uppercase text-slate-500">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
                   Role
                 </label>
-                <select
-                  className="mt-2 h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                <UiSelect
+                  className="mt-2 h-11 w-full"
                   value={inviteRole}
                   onChange={(event) => setInviteRole(event.target.value)}
                 >
@@ -4306,28 +4310,28 @@ export default function CompanyPage() {
                   <option>Member Premium</option>
                   <option>Member Basic</option>
                   <option>Visitor</option>
-                </select>
+                </UiSelect>
               </div>
               {inviteError ? (
-                <div className="text-xs text-rose-600">{inviteError}</div>
+                <div className="text-xs text-destructive">{inviteError}</div>
               ) : null}
             </div>
-            <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3">
-              <button
+            <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+              <UiButton variant="secondary" size="sm"
                 type="button"
-                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+                className=""
                 onClick={handleCloseInviteModal}
               >
                 Cancel
-              </button>
-              <button
+              </UiButton>
+              <UiButton variant="primary" size="sm"
                 type="button"
-                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                className="disabled:opacity-60"
                 onClick={handleInviteUser}
                 disabled={inviteLoading}
               >
                 {inviteLoading ? "Sending..." : "Send invite"}
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>

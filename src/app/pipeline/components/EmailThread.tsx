@@ -1,3 +1,6 @@
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { Textarea as UiTextarea } from "@/components/ui/textarea";
 import { Pencil } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -245,20 +248,20 @@ const normalizeTrackedHtmlForUi = (html: string) => {
 
 const MessageBody = ({ message }: { message: EmailMessage }) => {
   return (
-    <div className="mt-3 border-t border-slate-100 pt-3">
+    <div className="mt-3 border-t border-border pt-3">
       {message.body_html ? (
         <iframe
           title={`email-${message.id}`}
           sandbox="allow-popups allow-popups-to-escape-sandbox"
-          className="h-64 w-full rounded-xl border border-slate-200 bg-white"
+          className="h-64 w-full rounded-md border border-border bg-card"
           srcDoc={normalizeTrackedHtmlForUi(message.body_html)}
         />
       ) : message.body_text ? (
-        <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-slate-700">
+        <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-foreground">
           {message.body_text}
         </pre>
       ) : (
-        <div className="text-[11px] text-slate-400">No content.</div>
+        <div className="text-[11px] text-muted-foreground">No content.</div>
       )}
 
       {Array.isArray(message.attachments) && message.attachments.length > 0 ? (
@@ -273,7 +276,7 @@ const MessageBody = ({ message }: { message: EmailMessage }) => {
                 )}&aid=${encodeURIComponent(attachment.attachmentId)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-slate-800"
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-3 py-1.5 text-[11px] font-semibold text-primary-foreground shadow-sm hover:bg-primary"
               >
                 <span className="text-white/80">📎</span>
                 <span className="max-w-[260px] truncate">
@@ -298,25 +301,25 @@ const MessageSummary = ({ message }: { message: EmailMessage }) => {
   return (
     <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
       <div className="min-w-0">
-        <div className="text-[11px] font-semibold text-slate-900">Email — {subject}</div>
-        <div className="mt-1 text-[11px] text-slate-500">
-          <span className="font-semibold text-slate-700">{from}</span> → {to}
+        <div className="text-[11px] font-semibold text-foreground">Email — {subject}</div>
+        <div className="mt-1 text-[11px] text-muted-foreground">
+          <span className="font-semibold text-foreground">{from}</span> → {to}
         </div>
         {preview ? (
-          <div data-preview className="mt-2 line-clamp-2 text-[11px] text-slate-600">
+          <div data-preview className="mt-2 line-clamp-2 text-[11px] text-muted-foreground">
             {preview}
           </div>
         ) : null}
       </div>
-      <div className="shrink-0 text-right text-[11px] text-slate-500">
+      <div className="shrink-0 text-right text-[11px] text-muted-foreground">
         <div>{sentAt || "—"}</div>
         <div className="mt-1 flex items-center justify-end">
           {isOutbound ? (
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+            <span className="rounded-full bg-success-muted px-2 py-0.5 text-[10px] font-semibold text-success">
               Sent
             </span>
           ) : (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+            <span className="rounded-full bg-warning-muted px-2 py-0.5 text-[10px] font-semibold text-warning">
               Received
             </span>
           )}
@@ -325,11 +328,11 @@ const MessageSummary = ({ message }: { message: EmailMessage }) => {
           <div className="mt-1 flex items-center justify-end gap-3 text-[11px]">
             <span>
               Opens:{" "}
-              <span className="font-semibold text-slate-700">{message.opens_count ?? 0}</span>
+              <span className="font-semibold text-foreground">{message.opens_count ?? 0}</span>
             </span>
             <span>
               Clicks:{" "}
-              <span className="font-semibold text-slate-700">{message.clicks_count ?? 0}</span>
+              <span className="font-semibold text-foreground">{message.clicks_count ?? 0}</span>
             </span>
           </div>
         ) : null}
@@ -340,7 +343,7 @@ const MessageSummary = ({ message }: { message: EmailMessage }) => {
 
 const MessageCard = ({ message }: { message: EmailMessage }) => {
   return (
-    <details className="group rounded-2xl border border-slate-200 bg-white px-4 py-3 open:[&_[data-preview]]:hidden">
+    <details className="group rounded-panel border border-border bg-card px-4 py-3 open:[&_[data-preview]]:hidden">
       <MessageSummary message={message} />
       <MessageBody message={message} />
     </details>
@@ -590,13 +593,13 @@ export function EmailThread({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-end gap-2">
           {lastSyncAtMs ? (
-            <div className="text-[11px] text-slate-400">
+            <div className="text-[11px] text-muted-foreground">
               Last sync: {formatRelativeTime(lastSyncAtMs)}
             </div>
           ) : null}
-          <button
+          <UiButton variant="secondary" size="sm"
             type="button"
-            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 disabled:opacity-60"
+            className="disabled:opacity-60"
             onClick={() => {
               setError(null);
               void loadThread(true, true, true);
@@ -604,24 +607,24 @@ export function EmailThread({
             disabled={loading || syncing}
           >
             {syncing ? "Syncing…" : "Sync"}
-          </button>
+          </UiButton>
       </div>
 
       {!configured ? (
-        <div className="rounded-md border border-dashed border-slate-200 bg-white px-4 py-4 text-xs text-slate-500">
+        <div className="rounded-md border border-dashed border-border bg-card px-4 py-4 text-xs text-muted-foreground">
           Shared inbox not configured. Go to <span className="font-semibold">Company → Integrations</span> to connect
           Gmail (recommended) or enter SMTP/IMAP settings.
         </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+        <div className="rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-xs text-destructive">
           {error}
         </div>
       ) : null}
 
       {messages.length === 0 && configured && !loading ? (
-        <div className="rounded-md border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-xs text-slate-400">
+        <div className="rounded-md border border-dashed border-border bg-card px-4 py-6 text-center text-xs text-muted-foreground">
           No emails yet.
         </div>
       ) : null}
@@ -629,7 +632,7 @@ export function EmailThread({
       <div className="space-y-3">
         {threadTimelineByMonth.map((section) => (
           <div key={section.key}>
-            <div className="px-1 pt-2 text-lg font-semibold text-slate-700">
+            <div className="px-1 pt-2 text-lg font-semibold text-foreground">
               {section.label}
             </div>
             <div className="mt-3 space-y-3">
@@ -637,35 +640,35 @@ export function EmailThread({
                 item.type === "thread" ? (
                   <details
                     key={item.key}
-                    className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:content-[''] before:bg-transparent before:transition-colors open:before:bg-slate-900 open:[&_[data-close-thread]]:flex open:[&_[data-thread-preview]]:hidden"
+                    className="group relative overflow-hidden rounded-panel border border-border bg-card px-4 py-3 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:content-[''] before:bg-transparent before:transition-colors open:before:bg-primary open:[&_[data-close-thread]]:flex open:[&_[data-thread-preview]]:hidden"
                   >
                     <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-semibold text-slate-900">
+                          <span className="text-[11px] font-semibold text-foreground">
                             Thread — {item.thread.subject || "(no subject)"}
                           </span>
-                          <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-semibold text-white">
+                          <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
                             {item.thread.count}
                           </span>
                         </div>
                         {item.thread.latestPreview ? (
                           <div
                             data-thread-preview
-                            className="mt-2 line-clamp-2 text-[11px] text-slate-600"
+                            className="mt-2 line-clamp-2 text-[11px] text-muted-foreground"
                           >
                             {item.thread.latestPreview}
                           </div>
                         ) : null}
                       </div>
-                      <div className="shrink-0 text-right text-[11px] text-slate-500">
+                      <div className="shrink-0 text-right text-[11px] text-muted-foreground">
                         {item.thread.latestAtMs
                           ? formatDate(new Date(item.thread.latestAtMs).toISOString())
                           : "—"}
                       </div>
                     </summary>
 
-                    <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+                    <div className="mt-3 space-y-3 border-t border-border pt-3">
                       {[...item.thread.messagesAsc].reverse().map((message) => (
                         <MessageCard key={message.id} message={message} />
                       ))}
@@ -699,9 +702,9 @@ export function EmailThread({
       </div>
 
       <div className="pointer-events-none sticky bottom-4 z-20 flex translate-y-2 justify-end pt-4">
-        <button
+        <UiButton variant="primary" size="sm"
           type="button"
-          className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-[11px] font-semibold text-white shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:opacity-60 disabled:hover:translate-y-0"
+          className="pointer-events-auto inline-flex items-center gap-2 transition hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:translate-y-0"
           onClick={() => {
             setComposeSubject(defaultSubject || "Re:");
             setComposeBody("");
@@ -709,58 +712,58 @@ export function EmailThread({
           }}
           disabled={!canCompose || composeOpen}
         >
-          <Pencil className="h-4 w-4 text-white/90" />
+          <Pencil className="h-4 w-4 text-primary-foreground/90" />
           Create Email
-        </button>
+        </UiButton>
       </div>
 
       {composeOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-10">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <div className="text-sm font-semibold text-slate-900">New email</div>
-              <button
+          <div className="w-full max-w-2xl rounded-panel bg-card shadow-xl">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div className="text-sm font-semibold text-foreground">New email</div>
+              <UiButton variant="secondary" size="sm"
                 type="button"
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700"
+                className=""
                 onClick={() => setComposeOpen(false)}
                 disabled={sending}
               >
                 Close
-              </button>
+              </UiButton>
             </div>
             <div className="space-y-3 px-5 py-4">
-              <div className="text-[11px] text-slate-500">
-                From: <span className="font-semibold text-slate-700">{mailboxEmail}</span> → To:{" "}
-                <span className="font-semibold text-slate-700">
+              <div className="text-[11px] text-muted-foreground">
+                From: <span className="font-semibold text-foreground">{mailboxEmail}</span> → To:{" "}
+                <span className="font-semibold text-foreground">
                   {candidateEmail || "—"}
                 </span>
               </div>
-              <input
-                className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+              <UiInput
+                className="h-11 w-full"
                 placeholder="Subject"
                 value={composeSubject}
                 onChange={(e) => setComposeSubject(e.target.value)}
                 disabled={sending}
               />
-              <textarea
-                className="min-h-[220px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              <UiTextarea
+                className="min-h-[220px] w-full"
                 placeholder="Write your email…"
                 value={composeBody}
                 onChange={(e) => setComposeBody(e.target.value)}
                 disabled={sending}
               />
               <div className="flex items-center justify-end gap-2">
-                <button
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 disabled:opacity-60"
+                  className="disabled:opacity-60"
                   onClick={() => setComposeOpen(false)}
                   disabled={sending}
                 >
                   Cancel
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="primary" size="sm"
                   type="button"
-                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                  className="disabled:opacity-60"
                   disabled={sending || !composeSubject.trim() || !composeBody.trim()}
                   onClick={async () => {
                     setSending(true);
@@ -787,9 +790,9 @@ export function EmailThread({
                   }}
                 >
                   {sending ? "Sending…" : "Send email"}
-                </button>
+                </UiButton>
               </div>
-              <div className="text-[11px] text-slate-400">
+              <div className="text-[11px] text-muted-foreground">
                 {isLocalhost
                   ? "On localhost, Gmail open-tracking won’t work (images are fetched by Google’s proxy). Use a public URL (tunnel/deploy) for real tracking."
                   : "Opens/clicks tracking is applied automatically to emails sent from here."}

@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import "@fontsource-variable/inter";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
+import { themeInitScript } from "@/lib/theme";
 import { AppShell } from "@/components/app-shell";
 import {
   JOBS_PORTAL_SHARE_DESCRIPTION,
@@ -44,12 +47,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: themeInitScript }} /></head>
       <body
-        className="bg-[#c9f7db] text-slate-900 antialiased"
+        className="bg-background text-foreground font-sans antialiased"
         suppressHydrationWarning
       >
-        <AppShell>{children}</AppShell>
+        <ThemeProvider><AppShell>{children}</AppShell></ThemeProvider>
       </body>
     </html>
   );

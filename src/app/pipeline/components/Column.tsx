@@ -5,7 +5,7 @@ import { Candidate, Stage } from "../types";
 import CandidateCard from "./CandidateCard";
 
 const columnStyles =
-  "relative flex h-full w-[339px] shrink-0 flex-col rounded-xl border border-slate-200 bg-slate-50/60";
+  "relative flex h-full w-[339px] shrink-0 flex-col rounded-md border border-border bg-muted/60";
 
 type ColumnProps = {
   stage: Stage;
@@ -28,20 +28,20 @@ export default function Column({
 
   return (
     <div className={columnStyles}>
-      <div className="flex items-center justify-between rounded-t-xl border-b border-slate-200 bg-white px-3 py-2">
+      <div className="flex items-center justify-between rounded-t-xl border-b border-border bg-card px-3 py-2">
         <div className="flex items-center gap-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+          <div className="text-xs font-semibold uppercase tracking-wide text-foreground">
             {stage.name}
           </div>
-          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
+          <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-foreground">
             {candidates.length}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-slate-400">
-          <button type="button" className="rounded-md p-1 hover:bg-white">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <button type="button" className="rounded-md p-1 hover:bg-card">
             <Plus className="h-4 w-4" />
           </button>
-          <button type="button" className="rounded-md p-1 hover:bg-white">
+          <button type="button" className="rounded-md p-1 hover:bg-card">
             <MoreHorizontal className="h-4 w-4" />
           </button>
         </div>
@@ -51,7 +51,7 @@ export default function Column({
         ref={setNodeRef}
         className={
           "flex flex-1 flex-col gap-3 overflow-y-auto px-3 py-3" +
-          (isOver ? " bg-slate-100/70" : "")
+          (isOver ? " bg-muted/70" : "")
         }
       >
         <SortableContext
@@ -70,7 +70,7 @@ export default function Column({
           ))}
         </SortableContext>
         {candidates.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-200 bg-white/60 px-3 py-6 text-center text-xs text-slate-400">
+          <div className="rounded-lg border border-dashed border-border bg-card/60 px-3 py-6 text-center text-xs text-muted-foreground">
             Drop candidates here
           </div>
         ) : null}

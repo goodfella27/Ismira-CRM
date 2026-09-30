@@ -19,6 +19,7 @@ export const PUBLIC_ROUTES = [
 
 export const AUTH_ENTRY_ROUTES = ["/admin", "/login", "/register"];
 export const PROTECTED_ROUTES = [
+  "/design-system",
   "/breezy",
   "/calendar",
   "/companies",
@@ -28,7 +29,7 @@ export const PROTECTED_ROUTES = [
   "/pipeline",
   "/profile",
 ];
-export const ADMIN_ONLY_ROUTES = ["/company", "/breezy/application-routing", "/breezy/applications"];
+export const ADMIN_ONLY_ROUTES = ["/design-system", "/company", "/breezy/application-routing", "/breezy/applications"];
 
 export function isRouteMatch(pathname: string, route: string) {
   if (route === "/") return pathname === "/";

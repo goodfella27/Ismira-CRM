@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Image from "next/image";
@@ -13,8 +14,14 @@ import {
   Users2,
   Building2,
   Briefcase,
+  Menu,
+  Palette,
 } from "lucide-react";
 
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Avatar } from "@/components/ui/avatar";
+import { Dialog, DialogTrigger, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { ThemeToggle } from "@/components/theme-toggle";
 import ismiraLogo from "@/images/ismira_logo.png";
 import { cn } from "@/lib/utils";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -25,6 +32,7 @@ import {
 import { TaskNotificationBell } from "@/components/task-notification-bell";
 
 const navItems = [
+  { label: "Design system", href: "/design-system", description: "UI reference", icon: Palette },
   {
     label: "Leads",
     href: "/leads",
@@ -34,7 +42,7 @@ const navItems = [
   {
     label: "Ismira HR Portal",
     href: "/breezy",
-    description: "ATS connection",
+    description: "Recruitment workspace",
     icon: Briefcase,
   },
   {
@@ -157,120 +165,21 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
   };
 
   return (
-    <aside className="relative hidden h-screen w-72 shrink-0 flex-col border-r border-white/10 bg-slate-950 text-slate-100 md:sticky md:top-0 md:flex">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.25),transparent_55%)]" />
-      <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:radial-gradient(rgba(255,255,255,0.2)_0.5px,transparent_0.5px)] [background-size:14px_14px]" />
-      <div className="relative z-10 flex h-full flex-col">
-        <div className="flex items-center gap-3 px-6 pb-6 pt-8">
-          <div className="flex h-12 w-12 items-center justify-center">
-            {brandLogoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={brandLogoUrl}
-                alt={brandTitle}
-                className="h-10 w-auto object-contain brightness-0 invert"
-              />
-            ) : (
-              <Image
-                src={ismiraLogo}
-                alt="Ismira"
-                className="h-10 w-auto brightness-0 invert"
-                priority
-              />
-            )}
-          </div>
-          <div>
-            <div className="text-sm font-semibold tracking-wide text-white">
-              {brandTitle}
-            </div>
-            <div className="text-xs text-slate-300">Talent operations</div>
-          </div>
-        </div>
-
-        <nav className="flex flex-1 flex-col gap-2 px-4">
-          {navItems.filter((item) => item.href !== "/company" || isAdmin).map((item) => {
-            const active = isActiveRoute(pathname, item.href);
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "group relative overflow-hidden rounded-2xl border border-transparent px-4 py-3 text-sm transition",
-                  "hover:border-white/20 hover:bg-white/10",
-                  active
-                    ? "border-emerald-400/40 bg-white/10 text-white shadow-[0_10px_30px_-20px_rgba(16,185,129,0.6)]"
-                    : "text-slate-200"
-                )}
-              >
-                <span
-                  className={cn(
-                    "absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-emerald-400/90 transition-opacity",
-                    active ? "opacity-100" : "opacity-0"
-                  )}
-                />
-                <div className="flex items-center gap-3">
-                  <span
-                    className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-slate-100 transition",
-                      active
-                        ? "bg-emerald-400/20 text-emerald-200"
-                        : "group-hover:bg-white/20"
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <div className="font-semibold tracking-wide">{item.label}</div>
-                    <div className="text-xs text-slate-300">{item.description}</div>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="mt-auto px-6 pb-6 pt-6">
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white/10 text-sm font-semibold text-white">
-                {profileAvatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={profileAvatarUrl}
-                    alt={profileName}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  profileInitials
-                )}
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-white">
-                  {profileName}
-                </div>
-                <div className="text-xs text-slate-300">View account</div>
-              </div>
-            </div>
-            <div className="mt-3 grid gap-2">
-              <Link
-                href="/profile"
-                className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/20"
-              >
-                <UserCircle className="h-4 w-4" />
-                Profile
-              </Link>
-              <button
-                type="button"
-                className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
-                onClick={handleLogout}
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
+    <aside className="sticky top-0 hidden h-svh w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
+      <Link href="/breezy" className="flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border px-5">
+        {brandLogoUrl ? <img src={brandLogoUrl} alt="" className="h-8 w-8 object-contain" /> : <Image src={ismiraLogo} alt="" className="h-8 w-8 object-contain" priority />}
+        <span className="truncate text-sm font-semibold tracking-tight">{brandTitle}</span>
+      </Link>
+      <div className="px-5 pb-2 pt-6 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Workspace</div>
+      <nav aria-label="Main navigation" className="flex-1 space-y-1 overflow-y-auto px-3 py-1">
+        {navItems.filter(item => isAdmin || !["/company", "/design-system"].includes(item.href)).map(item => {
+          const active = isActiveRoute(pathname,item.href); const Icon=item.icon;
+          return <Link key={item.href} href={item.href} aria-current={active?"page":undefined} className={cn("flex h-9 items-center gap-3 rounded-md px-3 text-sm transition-colors",active?"bg-sidebar-accent font-medium text-sidebar-accent-foreground":"text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground")}><Icon size={16}/>{item.label}</Link>;
+        })}
+      </nav>
+      <div className="border-t border-sidebar-border p-3">
+        <Link href="/profile" className="flex min-w-0 items-center gap-3 rounded-md p-2 hover:bg-sidebar-accent"><Avatar>{profileAvatarUrl ? <img src={profileAvatarUrl} alt=""/> : profileInitials}</Avatar><span className="min-w-0"><span className="block truncate text-sm font-medium">{profileName}</span><span className="block text-xs text-muted-foreground">Your account</span></span></Link>
+        <Button variant="ghost" className="mt-1 w-full justify-start" onClick={handleLogout}><LogOut/>Sign out</Button>
       </div>
     </aside>
   );
@@ -305,52 +214,16 @@ export function MobileTopNav({ isAdmin }: { isAdmin: boolean }) {
   }, []);
 
   return (
-    <div className="border-b border-slate-200 bg-white/90 backdrop-blur md:hidden">
-      <div className="flex items-center justify-between px-4 pb-2 pt-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950">
-            {brandLogoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={brandLogoUrl}
-                alt={brandTitle}
-                className="h-6 w-auto object-contain invert"
-              />
-            ) : (
-              <Image
-                src={ismiraLogo}
-                alt="Ismira"
-                className="h-6 w-auto invert"
-                priority
-              />
-            )}
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-slate-900">{brandTitle}</div>
-            <div className="text-xs text-slate-500">Talent operations</div>
-          </div>
-        </div>
-        <TaskNotificationBell />
-      </div>
-      <nav className="flex items-center gap-2 overflow-x-auto px-4 pb-4 text-xs">
-        {navItems.filter((item) => item.href !== "/company" || isAdmin).map((item) => {
-          const active = isActiveRoute(pathname, item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "whitespace-nowrap rounded-full border px-3 py-1.5 font-semibold transition",
-                active
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-slate-200 text-slate-600 hover:bg-slate-100"
-              )}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+    <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-4 md:hidden">
+      <Dialog>
+        <DialogTrigger asChild><Button variant="ghost" size="icon" aria-label="Open navigation"><Menu/></Button></DialogTrigger>
+        <DialogContent className="left-0 top-0 h-svh max-h-svh w-72 translate-x-0 translate-y-0 rounded-none p-4" aria-describedby={undefined}>
+          <DialogTitle className="mb-6 text-base font-semibold">{brandTitle}</DialogTitle>
+          <nav aria-label="Mobile navigation" className="space-y-1">{navItems.filter(item=>isAdmin||!["/company","/design-system"].includes(item.href)).map(item=><Link key={item.href} href={item.href} aria-current={isActiveRoute(pathname,item.href)?"page":undefined} className={cn(buttonVariants({variant:"ghost"}),"flex w-full justify-start",isActiveRoute(pathname,item.href)&&"bg-accent text-foreground")}><item.icon/>{item.label}</Link>)}<Link href="/profile" className={cn(buttonVariants({variant:"ghost"}),"flex justify-start")}><UserCircle/>Profile</Link></nav>
+        </DialogContent>
+      </Dialog>
+      <div className="flex min-w-0 items-center gap-2">{brandLogoUrl?<img src={brandLogoUrl} alt="" className="size-7 object-contain"/>:<Image src={ismiraLogo} alt="" className="size-7 object-contain"/>}<span className="truncate font-semibold">{brandTitle}</span></div>
+      <div className="flex items-center"><ThemeToggle/><TaskNotificationBell/></div>
     </div>
   );
 }

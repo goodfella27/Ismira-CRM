@@ -5,10 +5,21 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --color-success: var(--success);
+  --color-success-muted: var(--success-muted);
+  --color-warning: var(--warning);
+  --color-warning-muted: var(--warning-muted);
+  --color-danger-muted: var(--danger-muted);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-overlay: var(--overlay);
+  --shadow-control: var(--shadow-control);
+  --shadow-overlay: var(--shadow-overlay);
+  --radius-panel: 10px;
+  --radius-dialog: 14px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-code);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -38,94 +49,103 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 14px;
+  --radius-3xl: 14px;
+  --radius-4xl: 16px;
 }
 
 :root {
-  --radius: 0.625rem;
-  --font-geist-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.21 0.006 285.885);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.705 0.015 286.067);
+  --radius: 0.375rem;
+  --font-ui: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-code: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --background: #fafafa;
+  --foreground: #202020;
+  --card: #ffffff;
+  --card-foreground: #202020;
+  --popover: #ffffff;
+  --popover-foreground: #202020;
+  --primary: #242424;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f0f0;
+  --secondary-foreground: #303030;
+  --muted: #f3f3f3;
+  --muted-foreground: #686868;
+  --accent: #ededed;
+  --accent-foreground: #202020;
+  --destructive: #ba303b;
+  --destructive-foreground: #ffffff;
+  --success: #24784b;
+  --success-muted: #eef8f1;
+  --warning: #93620c;
+  --warning-muted: #fff8e8;
+  --danger-muted: #fff1f2;
+  --border: #e5e5e5;
+  --input: #d4d4d4;
+  --ring: #808080;
+  --sidebar: #f4f4f4;
+  --sidebar-foreground: #353535;
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: #e7e7e7;
+  --sidebar-accent-foreground: #202020;
+  --sidebar-border: #e1e1e1;
+  --sidebar-ring: var(--ring);
+  --chart-1: #477a69;
+  --chart-2: #567b9b;
+  --chart-3: #9675ae;
+  --chart-4: #b88a42;
+  --chart-5: #b66575;
+  --overlay: rgb(0 0 0 / 45%);
+  --shadow-control: 0 1px 2px rgb(0 0 0 / 5%), inset 0 1px 0 rgb(255 255 255 / 10%);
+  --shadow-overlay: 0 12px 40px rgb(0 0 0 / 12%);
 }
-
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.92 0.004 286.32);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
+  --background: #191919;
+  --foreground: #eeeeee;
+  --card: #202020;
+  --card-foreground: #eeeeee;
+  --popover: #252525;
+  --popover-foreground: #eeeeee;
+  --primary: #eeeeee;
+  --primary-foreground: #202020;
+  --secondary: #303030;
+  --secondary-foreground: #eeeeee;
+  --muted: #252525;
+  --muted-foreground: #a3a3a3;
+  --accent: #333333;
+  --accent-foreground: #ffffff;
+  --destructive: #f08089;
+  --destructive-foreground: #261114;
+  --success: #8bd1aa;
+  --success-muted: #20372b;
+  --warning: #dfbf7c;
+  --warning-muted: #382f1f;
+  --danger-muted: #3b2228;
+  --border: #343434;
+  --input: #484848;
+  --ring: #a0a0a0;
+  --sidebar: #1e1e1e;
+  --sidebar-foreground: #cccccc;
+  --sidebar-accent: #303030;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #323232;
+  --overlay: rgb(0 0 0 / 65%);
+  --shadow-control: 0 1px 2px rgb(0 0 0 / 20%), inset 0 1px 0 rgb(255 255 255 / 5%);
+  --shadow-overlay: 0 16px 48px rgb(0 0 0 / 35%);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+  button, [role="button"], summary { touch-action: manipulation; }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans text-sm antialiased;
   }
 }
 
@@ -148,26 +168,12 @@
   background: transparent;
 }
 
-/* Remove browser autofill blue/yellow background */
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus,
-input:-webkit-autofill:active,
-textarea:-webkit-autofill,
-textarea:-webkit-autofill:hover,
-textarea:-webkit-autofill:focus,
-select:-webkit-autofill,
-select:-webkit-autofill:hover,
-select:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
-  box-shadow: 0 0 0 1000px #ffffff inset !important;
-  -webkit-text-fill-color: #0f172a !important;
-  caret-color: #0f172a;
-  transition: background-color 9999s ease-in-out 0s;
+/* Autofill inherits the active surface and text palette. */
+input:autofill, textarea:autofill, select:autofill {
+  box-shadow: 0 0 0 1000px var(--card) inset;
+  -webkit-text-fill-color: var(--foreground);
+  caret-color: var(--foreground);
 }
-
-/* Override for body background utility to use gradient on auth pages */
-.bg-\[\#c9f7db\] {
-  background-image: none;
-  background-color: #000f28;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }

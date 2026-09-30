@@ -3,7 +3,7 @@ import Skeleton from "@/components/Skeleton";
 export default function ProfileLoading() {
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-slate-200 px-8 py-6">
+      <div className="border-b border-border px-8 py-6">
         <div className="flex items-center gap-4">
           <Skeleton className="h-14 w-14 rounded-full" />
           <div className="space-y-2">
@@ -13,7 +13,7 @@ export default function ProfileLoading() {
         </div>
       </div>
       <div className="flex flex-1 items-start justify-center px-6 py-10">
-        <div className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="w-full max-w-2xl rounded-panel border border-border bg-card p-8 shadow-sm">
           <div className="flex items-center gap-4">
             <Skeleton className="h-16 w-16 rounded-full" />
             <Skeleton className="h-9 w-32 rounded-full" />

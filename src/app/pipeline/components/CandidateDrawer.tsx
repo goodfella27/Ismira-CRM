@@ -1,3 +1,7 @@
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { NativeSelect as UiSelect } from "@/components/ui/select";
+import { Textarea as UiTextarea } from "@/components/ui/textarea";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   ActivityEvent,
@@ -261,11 +265,11 @@ const renderMentionedBody = (
         key={`mention-${idx}`}
         className={`mx-0.5 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
           onGreen
-            ? "bg-white text-emerald-900"
-            : "bg-emerald-100 text-emerald-800"
+            ? "bg-card text-success"
+            : "bg-success-muted text-success"
         }`}
       >
-        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-300 text-[9px] font-bold text-emerald-900">
+        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-300 text-[9px] font-bold text-success">
           @
         </span>
         <span className="tracking-tight">{chunk.label}</span>
@@ -3672,7 +3676,7 @@ export default function CandidateDrawer({
     : meetingRsvpStatus === "accepted"
     ? "bg-emerald-500"
     : meetingRsvpStatus === "declined"
-    ? "bg-rose-500"
+    ? "bg-destructive"
     : "bg-amber-500";
   const hasExistingForm = formStatus === "pending" || formStatus === "submitted";
   const requestedFields = hasExistingForm
@@ -4137,28 +4141,28 @@ export default function CandidateDrawer({
     onChange: (next: number) => void,
     withLabels = false
   ) => (
-    <div className="flex w-full overflow-hidden rounded-md border border-slate-200 bg-white">
+    <div className="flex w-full overflow-hidden rounded-md border border-border bg-card">
       {scorecardScale.map((option) => {
         const isActive = value === option.value;
         const tone =
           option.value <= 1
-            ? "text-red-600"
+            ? "text-destructive"
             : option.value >= 3
-            ? "text-emerald-600"
-            : "text-slate-600";
+            ? "text-success"
+            : "text-muted-foreground";
         return (
           <button
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
-            className={`flex flex-1 items-center justify-center gap-2 border-r border-slate-200 px-2 py-2 text-[11px] font-semibold transition last:border-r-0 ${
+            className={`flex flex-1 items-center justify-center gap-2 border-r border-border px-2 py-2 text-[11px] font-semibold transition last:border-r-0 ${
               isActive
                 ? option.value <= 1
-                  ? "bg-red-100"
+                  ? "bg-danger-muted"
                   : option.value >= 3
-                  ? "bg-emerald-100"
-                  : "bg-slate-200"
-                : "bg-white hover:bg-slate-50"
+                  ? "bg-success-muted"
+                  : "bg-accent"
+                : "bg-card hover:bg-muted"
             } ${tone}`}
           >
             <span className="text-xs">{option.icon}</span>
@@ -4262,12 +4266,12 @@ export default function CandidateDrawer({
         }}
       >
         <div
-          className={`relative flex h-[92vh] w-[95vw] max-w-[1800px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl transition-opacity ${
+          className={`relative flex h-[92vh] w-[95vw] max-w-[1800px] flex-col overflow-hidden rounded-panel border border-border bg-card shadow-2xl transition-opacity ${
             isVisible ? "opacity-100 duration-200 ease-out" : "opacity-0 duration-150 ease-in"
           }`}
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-4">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <div
                 className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${getAvatarClass(
@@ -4279,54 +4283,54 @@ export default function CandidateDrawer({
               <div className="flex min-w-0 flex-col gap-1">
                 {editingName ? (
                   <div className="flex items-center gap-2">
-                    <input
-                      className="h-8 w-[220px] rounded-md border border-slate-200 px-2 text-sm"
+                    <UiInput
+                      className="h-8 w-[220px]"
                       value={nameDraft}
                       onChange={(event) => setNameDraft(event.target.value)}
                     />
-                    <button
+                    <UiButton variant="secondary" size="sm"
                       type="button"
-                      className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600"
+                      className=""
                       onClick={handleSaveName}
                     >
                       Save
-                    </button>
-                    <button
+                    </UiButton>
+                    <UiButton variant="secondary" size="sm"
                       type="button"
-                      className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-500"
+                      className=""
                       onClick={() => {
                         setEditingName(false);
                         setNameDraft(candidate.name);
                       }}
                     >
                       Cancel
-                    </button>
+                    </UiButton>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <div className="truncate text-sm font-semibold text-slate-900">
+                    <div className="truncate text-sm font-semibold text-foreground">
                       {candidate.name}
                     </div>
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                    <span className="rounded-full bg-success-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
                       {candidate.status}
                     </span>
-                    <button
+                    <UiButton variant="secondary" size="sm"
                       type="button"
-                      className="rounded-md border border-slate-200 px-2 py-0.5 text-[10px] text-slate-500"
+                      className=""
                       onClick={() => setEditingName(true)}
                     >
                       Edit
-                    </button>
+                    </UiButton>
                   </div>
                 )}
-                <div className="min-w-0 text-xs text-slate-500">
+                <div className="min-w-0 text-xs text-muted-foreground">
                   {candidate.pipeline_id === "companies"
                     ? candidate.website_url ? (
                         <a
                           href={toExternalHref(candidate.website_url) ?? undefined}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex min-w-0 max-w-[min(520px,60vw)] items-center gap-1 text-sm font-medium text-emerald-700 hover:underline"
+                          className="inline-flex min-w-0 max-w-[min(520px,60vw)] items-center gap-1 text-sm font-medium text-success hover:underline"
                         >
                           <span className="truncate">{candidate.website_url}</span>
                           <ExternalLink className="h-4 w-4 shrink-0" />
@@ -4339,18 +4343,18 @@ export default function CandidateDrawer({
               </div>
             </div>
 	            <div className="flex shrink-0 items-center gap-3">
-	              <button
+	              <UiButton variant="secondary" size="sm"
 	                type="button"
-	                className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+	                className="flex items-center gap-2"
 	                onClick={() => {
 	                  void handleCopyShareLink();
 	                }}
 	              >
 	                {shareCopied ? "Link copied" : "Copy link"}
-	              </button>
-		              <button
+	              </UiButton>
+		              <UiButton variant="secondary" size="sm"
 		                type="button"
-		                className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+		                className="flex items-center gap-2"
 		                onClick={() => {
 		                  if (typeof window === "undefined") return;
 		                  setTeamChatUnreadCount(0);
@@ -4364,14 +4368,14 @@ export default function CandidateDrawer({
 		                <span className="relative">
 		                  <MessageCircle className="h-4 w-4" />
 		                  {teamChatUnreadCount > 0 ? (
-		                    <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
+		                    <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-white" />
 		                  ) : null}
 		                </span>
 		                Chat
-		              </button>
-	              <button
+		              </UiButton>
+	              <UiButton variant="secondary" size="sm"
 	                type="button"
-	                className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+	                className="flex items-center gap-2 disabled:opacity-60"
 	                onClick={handleRefresh}
 	                disabled={
                   refreshing ||
@@ -4386,26 +4390,26 @@ export default function CandidateDrawer({
                   className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
                 />
                 {refreshing ? "Refreshing" : "Refresh"}
-              </button>
-              <button
+              </UiButton>
+              <UiButton variant="primary" size="md"
                 type="button"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-white hover:bg-black/90"
+                className="flex h-9 w-9 items-center justify-center"
                 onClick={onClose}
                 aria-label="Close"
               >
                 <span className="text-base leading-none">×</span>
-              </button>
+              </UiButton>
             </div>
           </div>
 
           {isBreezyCandidate && (breezyProfileSyncing || breezyProfileSyncError) ? (
             <div className="px-6 pb-3">
               {breezyProfileSyncing ? (
-                <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-xs text-sky-700">
+                <div className="rounded-md border border-input bg-accent px-4 py-2 text-xs text-foreground">
                   Syncing Breezy candidate data…
                 </div>
               ) : breezyProfileSyncError ? (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700">
+                <div className="rounded-md border border-destructive/25 bg-danger-muted px-4 py-2 text-xs text-destructive">
                   {breezyProfileSyncError}
                 </div>
               ) : null}
@@ -4419,8 +4423,8 @@ export default function CandidateDrawer({
 		                : "grid-cols-[1.98fr_1.638fr_1.302fr]"
 		            }`}
 		          >
-	          <section className="flex h-full min-h-0 flex-col border-r border-slate-200 px-6 py-4">
-	            <div className="flex items-center gap-4 text-xs text-slate-500">
+	          <section className="flex h-full min-h-0 flex-col border-r border-border px-6 py-4">
+	            <div className="flex items-center gap-4 text-xs text-muted-foreground">
 	              {(candidate.pipeline_id === "companies"
 	                ? ([
 	                    { id: "overview", label: "Overview" },
@@ -4441,8 +4445,8 @@ export default function CandidateDrawer({
 	                  onClick={() => setLeftTab(tab.id as typeof leftTab)}
                   className={`border-b-2 pb-2 text-xs ${
                     leftTab === tab.id
-                      ? "border-emerald-500 font-semibold text-slate-900"
-                      : "border-transparent hover:text-slate-800"
+                      ? "border-success/25 font-semibold text-foreground"
+                      : "border-transparent hover:text-foreground"
                   }`}
                 >
                   <span className="inline-flex items-center gap-2">
@@ -4456,19 +4460,19 @@ export default function CandidateDrawer({
                 </button>
               ))}
             </div>
-            <div className="relative mt-4 flex-1 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+            <div className="relative mt-4 flex-1 overflow-hidden rounded-md border border-border bg-muted">
               <div
                 className={`flex h-full flex-col ${
                   leftTab === "resume"
                     ? "gap-4 overflow-hidden"
                     : "gap-6 overflow-y-auto"
-                } p-6 text-sm text-slate-600`}
+                } p-6 text-sm text-muted-foreground`}
 	              >
 	                {leftTab === "overview" ? (
 	                  <>
 	                    <div className="grid gap-4 md:grid-cols-2">
-	                      <div className="rounded-md border border-slate-200 bg-white px-4 py-3">
-	                        <div className="text-xs font-semibold uppercase text-slate-500">
+	                      <div className="rounded-md border border-border bg-card px-4 py-3">
+	                        <div className="text-xs font-semibold uppercase text-muted-foreground">
 	                          Company owner
 	                        </div>
 	                        <div className="mt-3 flex items-center gap-3">
@@ -4480,44 +4484,44 @@ export default function CandidateDrawer({
 	                            {initials(companyOwnerLabel)}
 	                          </span>
 	                          <div className="min-w-0">
-	                            <div className="truncate text-sm font-semibold text-slate-800">
+	                            <div className="truncate text-sm font-semibold text-foreground">
 	                              {companyOwnerLabel}
 	                            </div>
-	                            <div className="truncate text-xs text-slate-500">
+	                            <div className="truncate text-xs text-muted-foreground">
 	                              Owner
 	                            </div>
 	                          </div>
 	                        </div>
 	                      </div>
-	                      <div className="rounded-md border border-slate-200 bg-white px-4 py-3">
-	                        <div className="text-xs font-semibold uppercase text-slate-500">
+	                      <div className="rounded-md border border-border bg-card px-4 py-3">
+	                        <div className="text-xs font-semibold uppercase text-muted-foreground">
 	                          Assigned profiles
 	                        </div>
 	                        <div className="mt-3 flex items-baseline gap-2">
-	                          <div className="text-3xl font-semibold text-slate-900">
+	                          <div className="text-3xl font-semibold text-foreground">
 	                            {assignedProfilesCount ?? "…"}
 	                          </div>
-	                          <div className="text-xs text-slate-500">total</div>
+	                          <div className="text-xs text-muted-foreground">total</div>
 	                        </div>
-	                        <div className="mt-2 text-xs text-slate-500">
+	                        <div className="mt-2 text-xs text-muted-foreground">
 	                          Profiles linked to this company.
 	                        </div>
 	                      </div>
 	                    </div>
 
-		                    <div className="rounded-md border border-slate-200 bg-white px-4 py-3">
-		                      <div className="text-xs font-semibold uppercase text-slate-500">
+		                    <div className="rounded-md border border-border bg-card px-4 py-3">
+		                      <div className="text-xs font-semibold uppercase text-muted-foreground">
 		                        Company details
 		                      </div>
-		                      <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+		                      <div className="mt-3 rounded-lg border border-border bg-muted px-3 py-3">
 		                        <div className="flex items-center justify-between gap-3">
-		                          <div className="text-[11px] font-semibold uppercase text-slate-500">
+		                          <div className="text-[11px] font-semibold uppercase text-muted-foreground">
 		                            Company representative
 		                          </div>
 		                          {!representativeEditing ? (
-		                            <button
+		                            <UiButton variant="secondary" size="sm"
 		                              type="button"
-		                              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+		                              className=""
 		                              onClick={() => setRepresentativeEditing(true)}
 		                            >
 		                              {candidate.company_representative_name ||
@@ -4525,29 +4529,29 @@ export default function CandidateDrawer({
 		                              candidate.company_representative_phone
 		                                ? "Edit"
 		                                : "Add"}
-		                            </button>
+		                            </UiButton>
 		                          ) : null}
 		                        </div>
 		                        {representativeEditing ? (
 		                          <div className="mt-3 grid gap-2 md:grid-cols-3">
-		                            <input
-		                              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700"
+		                            <UiInput
+		                              className="h-9 w-full"
 		                              placeholder="Name"
 		                              value={representativeNameDraft}
 		                              onChange={(event) =>
 		                                setRepresentativeNameDraft(event.target.value)
 		                              }
 		                            />
-		                            <input
-		                              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700"
+		                            <UiInput
+		                              className="h-9 w-full"
 		                              placeholder="Email"
 		                              value={representativeEmailDraft}
 		                              onChange={(event) =>
 		                                setRepresentativeEmailDraft(event.target.value)
 		                              }
 		                            />
-		                            <input
-		                              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700"
+		                            <UiInput
+		                              className="h-9 w-full"
 		                              placeholder="Phone"
 		                              value={representativePhoneDraft}
 		                              onChange={(event) =>
@@ -4555,9 +4559,9 @@ export default function CandidateDrawer({
 		                              }
 		                            />
 		                            <div className="flex items-center justify-end gap-2 md:col-span-3">
-		                              <button
+		                              <UiButton variant="secondary" size="sm"
 		                                type="button"
-		                                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+		                                className=""
 		                                onClick={() => {
 		                                  setRepresentativeEditing(false);
 		                                  setRepresentativeNameDraft(
@@ -4572,62 +4576,62 @@ export default function CandidateDrawer({
 		                                }}
 		                              >
 		                                Cancel
-		                              </button>
-		                              <button
+		                              </UiButton>
+		                              <UiButton variant="primary" size="sm"
 		                                type="button"
-		                                className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white hover:bg-slate-800"
+		                                className=""
 		                                onClick={handleSaveRepresentative}
 		                              >
 		                                Save
-		                              </button>
+		                              </UiButton>
 		                            </div>
 		                          </div>
 			                        ) : (
 			                          <div className="mt-3 grid gap-4 md:grid-cols-3">
 			                            <div className="min-w-0">
-			                              <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                              <div className="text-[11px] font-semibold uppercase text-muted-foreground">
 			                                Name
 			                              </div>
 			                              <div
 			                                className={`mt-1 truncate text-sm font-semibold ${
 			                                  candidate.company_representative_name
-			                                    ? "text-slate-800"
-			                                    : "text-slate-400"
+			                                    ? "text-foreground"
+			                                    : "text-muted-foreground"
 			                                }`}
 			                              >
 			                                {candidate.company_representative_name || "—"}
 			                              </div>
 			                            </div>
 			                            <div className="min-w-0">
-			                              <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                              <div className="text-[11px] font-semibold uppercase text-muted-foreground">
 			                                Email
 			                              </div>
 			                              {candidate.company_representative_email ? (
 				                                <a
 				                                  href={`mailto:${candidate.company_representative_email}`}
-				                                  className="mt-1 block truncate text-sm font-semibold text-slate-900 hover:underline"
+				                                  className="mt-1 block truncate text-sm font-semibold text-foreground hover:underline"
 				                                >
 				                                  {candidate.company_representative_email}
 				                                </a>
 				                              ) : (
-			                                <div className="mt-1 text-sm font-semibold text-slate-400">
+			                                <div className="mt-1 text-sm font-semibold text-muted-foreground">
 			                                  —
 			                                </div>
 			                              )}
 			                            </div>
 			                            <div className="min-w-0">
-			                              <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                              <div className="text-[11px] font-semibold uppercase text-muted-foreground">
 			                                Phone
 			                              </div>
 			                              {candidate.company_representative_phone ? (
 				                                <a
 				                                  href={`tel:${candidate.company_representative_phone}`}
-				                                  className="mt-1 block truncate text-sm font-semibold text-slate-900 hover:underline"
+				                                  className="mt-1 block truncate text-sm font-semibold text-foreground hover:underline"
 				                                >
 				                                  {candidate.company_representative_phone}
 				                                </a>
 				                              ) : (
-			                                <div className="mt-1 text-sm font-semibold text-slate-400">
+			                                <div className="mt-1 text-sm font-semibold text-muted-foreground">
 			                                  —
 			                                </div>
 			                              )}
@@ -4637,7 +4641,7 @@ export default function CandidateDrawer({
 		                      </div>
 			                      <div className="mt-4 grid gap-4">
 			                        <div className="min-w-0">
-			                          <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                          <div className="text-[11px] font-semibold uppercase text-muted-foreground">
 			                            Website
 			                          </div>
 			                          {companyWebsite ? (
@@ -4649,42 +4653,42 @@ export default function CandidateDrawer({
 				                              }
 				                              target="_blank"
 				                              rel="noopener noreferrer"
-				                              className="mt-1 block truncate text-sm font-semibold text-slate-900 hover:underline"
+				                              className="mt-1 block truncate text-sm font-semibold text-foreground hover:underline"
 				                            >
 				                              {companyWebsite}
 				                            </a>
 				                          ) : (
-			                            <div className="mt-1 text-sm font-semibold text-slate-400">
+			                            <div className="mt-1 text-sm font-semibold text-muted-foreground">
 			                              —
 			                            </div>
 			                          )}
 			                        </div>
 
 			                        <div className="min-w-0">
-			                          <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                          <div className="text-[11px] font-semibold uppercase text-muted-foreground">
 			                            Phone
 			                          </div>
 			                          {companyPhone ? (
 				                            <a
 				                              href={`tel:${companyPhone}`}
-				                              className="mt-1 block truncate text-sm font-semibold text-slate-900 hover:underline"
+				                              className="mt-1 block truncate text-sm font-semibold text-foreground hover:underline"
 				                            >
 				                              {companyPhone}
 				                            </a>
 				                          ) : (
-			                            <div className="mt-1 text-sm font-semibold text-slate-400">
+			                            <div className="mt-1 text-sm font-semibold text-muted-foreground">
 			                              —
 			                            </div>
 			                          )}
 			                        </div>
 
 			                        <div className="min-w-0">
-			                          <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                          <div className="text-[11px] font-semibold uppercase text-muted-foreground">
 			                            City
 			                          </div>
 			                          <div
 			                            className={`mt-1 truncate text-sm font-semibold ${
-			                              companyCity ? "text-slate-800" : "text-slate-400"
+			                              companyCity ? "text-foreground" : "text-muted-foreground"
 			                            }`}
 			                          >
 			                            {companyCity || "—"}
@@ -4692,12 +4696,12 @@ export default function CandidateDrawer({
 			                        </div>
 
 			                        <div className="min-w-0">
-			                          <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                          <div className="text-[11px] font-semibold uppercase text-muted-foreground">
 			                            Country
 			                          </div>
 			                          <div
 			                            className={`mt-1 truncate text-sm font-semibold ${
-			                              country.label !== "—" ? "text-slate-800" : "text-slate-400"
+			                              country.label !== "—" ? "text-foreground" : "text-muted-foreground"
 			                            }`}
 			                          >
 			                            {country.label !== "—"
@@ -4707,12 +4711,12 @@ export default function CandidateDrawer({
 			                        </div>
 
 			                        <div className="min-w-0">
-			                          <div className="text-[11px] font-semibold uppercase text-slate-400">
+			                          <div className="text-[11px] font-semibold uppercase text-muted-foreground">
 			                            Industry
 			                          </div>
 			                          <div
 			                            className={`mt-1 truncate text-sm font-semibold ${
-			                              companyIndustry ? "text-slate-800" : "text-slate-400"
+			                              companyIndustry ? "text-foreground" : "text-muted-foreground"
 			                            }`}
 			                          >
 			                            {companyIndustry || "—"}
@@ -4725,42 +4729,42 @@ export default function CandidateDrawer({
 		                ) : leftTab === "experience" ? (
 	                  <>
 	                    {candidate.ai_summary_markdown ? (
-	                      <div className="rounded-md border border-slate-200 bg-white px-3 py-3 text-xs text-slate-600">
-	                        <div className="text-[11px] font-semibold uppercase text-slate-500">
+	                      <div className="rounded-md border border-border bg-card px-3 py-3 text-xs text-muted-foreground">
+	                        <div className="text-[11px] font-semibold uppercase text-muted-foreground">
                           AI Summary
                         </div>
                         <Markdown
                           content={candidate.ai_summary_markdown}
-                          className="mt-2 text-sm text-slate-700"
+                          className="mt-2 text-sm text-foreground"
                         />
                       </div>
                     ) : null}
 
                     <div>
-                      <div className="text-xs font-semibold uppercase text-slate-500">
+                      <div className="text-xs font-semibold uppercase text-muted-foreground">
                         Summary
                       </div>
-                      <textarea
-                        className="mt-2 min-h-[90px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs"
+                      <UiTextarea
+                        className="mt-2 min-h-[90px] w-full"
                         placeholder="Add a short summary..."
                         value={summaryDraft}
                         onChange={(event) => setSummaryDraft(event.target.value)}
                       />
-                      <button
+                      <UiButton variant="secondary" size="sm"
                         type="button"
-                        className="mt-2 rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-600"
+                        className="mt-2"
                         onClick={handleSaveSummary}
                       >
                         Save summary
-                      </button>
+                      </UiButton>
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2">
-                      <div className="rounded-md border border-emerald-100 bg-emerald-50 px-3 py-3">
-                        <div className="text-xs font-semibold uppercase text-emerald-700">
+                      <div className="rounded-md border border-success/25 bg-success-muted px-3 py-3">
+                        <div className="text-xs font-semibold uppercase text-success">
                           Top Strengths
                         </div>
-                        <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-emerald-800">
+                        <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-success">
                           {topStrengths.length > 0 ? (
                             topStrengths.map((item, idx) => (
                               <li key={`strength-${idx}`}>{item}</li>
@@ -4770,11 +4774,11 @@ export default function CandidateDrawer({
                           )}
                         </ul>
                       </div>
-                      <div className="rounded-md border border-rose-100 bg-rose-50 px-3 py-3">
-                        <div className="text-xs font-semibold uppercase text-rose-700">
+                      <div className="rounded-md border border-destructive/25 bg-danger-muted px-3 py-3">
+                        <div className="text-xs font-semibold uppercase text-destructive">
                           Top Concerns
                         </div>
-                        <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-rose-800">
+                        <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-destructive">
                           {topConcerns.length > 0 ? (
                             topConcerns.map((item, idx) => (
                               <li key={`concern-${idx}`}>{item}</li>
@@ -4787,45 +4791,45 @@ export default function CandidateDrawer({
                     </div>
 
                     <div>
-                      <div className="text-xs font-semibold uppercase text-slate-500">
+                      <div className="text-xs font-semibold uppercase text-muted-foreground">
                         Work History
                       </div>
                       <div className="mt-2 space-y-3">
                         {(candidate.work_history ?? []).length === 0 ? (
-                          <div className="rounded-md border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-400">
+                          <div className="rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
                             No work history yet.
                           </div>
                         ) : (
                           candidate.work_history?.map((item) => (
                             <div
                               key={item.id}
-                              className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600"
+                              className="rounded-md border border-border bg-card px-3 py-2 text-xs text-muted-foreground"
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <div className="min-w-0 flex-1">
-                                  <div className="text-sm font-semibold text-slate-900">
+                                  <div className="text-sm font-semibold text-foreground">
                                     {item.role}
                                   </div>
                                   <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                                     <div
                                       className={`truncate text-sm font-semibold ${
                                         item.company && item.company !== "Company"
-                                          ? "text-slate-800"
-                                          : "text-slate-400"
+                                          ? "text-foreground"
+                                          : "text-muted-foreground"
                                       }`}
                                     >
                                       {item.company && item.company !== "Company" ? item.company : "—"}
                                     </div>
                                     {item.start || item.end ? (
-                                      <div className="text-xs text-slate-500">
+                                      <div className="text-xs text-muted-foreground">
                                         {`${item.start ?? ""}${item.end ? ` - ${item.end}` : ""}`.trim()}
                                       </div>
                                     ) : null}
                                   </div>
                                 </div>
-                                <button
+                                <UiButton variant="secondary" size="sm"
                                   type="button"
-                                  className="rounded-md border border-slate-200 px-2 py-1 text-[11px] text-slate-500"
+                                  className=""
                                   onClick={() => {
                                     setShowWorkForm(true);
                                     setEditingWorkId(item.id);
@@ -4837,10 +4841,10 @@ export default function CandidateDrawer({
                                   }}
                                 >
                                   Edit
-                                </button>
+                                </UiButton>
                               </div>
                               {item.details ? (
-                                <div className="mt-2 whitespace-pre-wrap text-xs leading-5 text-slate-600">
+                                <div className="mt-2 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
                                   {item.details}
                                 </div>
                               ) : null}
@@ -4849,9 +4853,9 @@ export default function CandidateDrawer({
                         )}
                       </div>
                       <div className="mt-3 flex items-center gap-2">
-                        <button
+                        <UiButton variant="secondary" size="sm"
                           type="button"
-                          className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-600"
+                          className=""
                           onClick={() => {
                             setShowWorkForm((prev) => !prev);
                             if (showWorkForm) {
@@ -4871,58 +4875,58 @@ export default function CandidateDrawer({
                             : showWorkForm
                             ? "Close editor"
                             : "Add work history"}
-                        </button>
+                        </UiButton>
                         {editingWorkId ? (
-                          <span className="text-xs text-slate-400">
+                          <span className="text-xs text-muted-foreground">
                             Editing current entry
                           </span>
                         ) : null}
                       </div>
                       {showWorkForm ? (
                         <form onSubmit={handleAddWork} className="mt-3 grid gap-2">
-                          <input
-                            className="h-9 rounded-md border border-slate-200 px-3 text-xs"
+                          <UiInput
+                            className="h-9"
                             placeholder="Role"
                             value={workRole}
                             onChange={(event) => setWorkRole(event.target.value)}
                           />
-                          <input
-                            className="h-9 rounded-md border border-slate-200 px-3 text-xs"
+                          <UiInput
+                            className="h-9"
                             placeholder="Company"
                             value={workCompany}
                             onChange={(event) => setWorkCompany(event.target.value)}
                           />
                           <div className="flex gap-2">
-                            <input
-                              className="h-9 flex-1 rounded-md border border-slate-200 px-3 text-xs"
+                            <UiInput
+                              className="h-9 flex-1"
                               placeholder="Start (e.g. Sep 2021)"
                               value={workStart}
                               onChange={(event) => setWorkStart(event.target.value)}
                             />
-                            <input
-                              className="h-9 flex-1 rounded-md border border-slate-200 px-3 text-xs"
+                            <UiInput
+                              className="h-9 flex-1"
                               placeholder="End"
                               value={workEnd}
                               onChange={(event) => setWorkEnd(event.target.value)}
                             />
                           </div>
-                          <textarea
-                            className="min-h-[70px] rounded-md border border-slate-200 px-3 py-2 text-xs"
+                          <UiTextarea
+                            className="min-h-[70px]"
                             placeholder="Details"
                             value={workDetails}
                             onChange={(event) => setWorkDetails(event.target.value)}
                           />
                           <div className="flex items-center gap-2">
-                            <button
+                            <UiButton variant="secondary" size="sm"
                               type="submit"
-                              className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-600"
+                              className=""
                             >
                               {editingWorkId ? "Save work history" : "Add work history"}
-                            </button>
+                            </UiButton>
                             {editingWorkId ? (
-                              <button
+                              <UiButton variant="secondary" size="sm"
                                 type="button"
-                                className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-500"
+                                className=""
                                 onClick={() => {
                                   setEditingWorkId(null);
                                   setWorkRole("");
@@ -4933,7 +4937,7 @@ export default function CandidateDrawer({
                                 }}
                               >
                                 Cancel edit
-                              </button>
+                              </UiButton>
                             ) : null}
                           </div>
                         </form>
@@ -4941,31 +4945,31 @@ export default function CandidateDrawer({
                     </div>
 
                     <div>
-                      <div className="text-xs font-semibold uppercase text-slate-500">
+                      <div className="text-xs font-semibold uppercase text-muted-foreground">
                         Education
                       </div>
                       <div className="mt-2 space-y-3">
                         {(candidate.education ?? []).length === 0 ? (
-                          <div className="rounded-md border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-400">
+                          <div className="rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
                             No education yet.
                           </div>
                         ) : (
                           candidate.education?.map((item) => (
                             <div
                               key={item.id}
-                              className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600"
+                              className="rounded-md border border-border bg-card px-3 py-2 text-xs text-muted-foreground"
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <div className="min-w-0 flex-1">
-                                  <div className="text-sm font-semibold text-slate-900">
+                                  <div className="text-sm font-semibold text-foreground">
                                     {item.program}
                                   </div>
                                   <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                                     <div
                                       className={`truncate text-sm font-semibold ${
                                         item.institution && item.institution !== "Institution"
-                                          ? "text-slate-800"
-                                          : "text-slate-400"
+                                          ? "text-foreground"
+                                          : "text-muted-foreground"
                                       }`}
                                     >
                                       {item.institution && item.institution !== "Institution"
@@ -4973,15 +4977,15 @@ export default function CandidateDrawer({
                                         : "—"}
                                     </div>
                                     {item.start || item.end ? (
-                                      <div className="text-xs text-slate-500">
+                                      <div className="text-xs text-muted-foreground">
                                         {`${item.start ?? ""}${item.end ? ` - ${item.end}` : ""}`.trim()}
                                       </div>
                                     ) : null}
                                   </div>
                                 </div>
-                                <button
+                                <UiButton variant="secondary" size="sm"
                                   type="button"
-                                  className="rounded-md border border-slate-200 px-2 py-1 text-[11px] text-slate-500"
+                                  className=""
                                   onClick={() => {
                                     setShowEducationForm(true);
                                     setEditingEducationId(item.id);
@@ -4993,10 +4997,10 @@ export default function CandidateDrawer({
                                   }}
                                 >
                                   Edit
-                                </button>
+                                </UiButton>
                               </div>
                               {item.details ? (
-                                <div className="mt-2 whitespace-pre-wrap text-xs leading-5 text-slate-600">
+                                <div className="mt-2 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
                                   {item.details}
                                 </div>
                               ) : null}
@@ -5005,9 +5009,9 @@ export default function CandidateDrawer({
                         )}
                       </div>
                       <div className="mt-3 flex items-center gap-2">
-                        <button
+                        <UiButton variant="secondary" size="sm"
                           type="button"
-                          className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-600"
+                          className=""
                           onClick={() => {
                             setShowEducationForm((prev) => !prev);
                             if (showEducationForm) {
@@ -5027,58 +5031,58 @@ export default function CandidateDrawer({
                             : showEducationForm
                             ? "Close editor"
                             : "Add education"}
-                        </button>
+                        </UiButton>
                         {editingEducationId ? (
-                          <span className="text-xs text-slate-400">
+                          <span className="text-xs text-muted-foreground">
                             Editing current entry
                           </span>
                         ) : null}
                       </div>
                       {showEducationForm ? (
                         <form onSubmit={handleAddEducation} className="mt-3 grid gap-2">
-                          <input
-                            className="h-9 rounded-md border border-slate-200 px-3 text-xs"
+                          <UiInput
+                            className="h-9"
                             placeholder="Program / Degree"
                             value={eduProgram}
                             onChange={(event) => setEduProgram(event.target.value)}
                           />
-                          <input
-                            className="h-9 rounded-md border border-slate-200 px-3 text-xs"
+                          <UiInput
+                            className="h-9"
                             placeholder="Institution"
                             value={eduInstitution}
                             onChange={(event) => setEduInstitution(event.target.value)}
                           />
                           <div className="flex gap-2">
-                            <input
-                              className="h-9 flex-1 rounded-md border border-slate-200 px-3 text-xs"
+                            <UiInput
+                              className="h-9 flex-1"
                               placeholder="Start"
                               value={eduStart}
                               onChange={(event) => setEduStart(event.target.value)}
                             />
-                            <input
-                              className="h-9 flex-1 rounded-md border border-slate-200 px-3 text-xs"
+                            <UiInput
+                              className="h-9 flex-1"
                               placeholder="End"
                               value={eduEnd}
                               onChange={(event) => setEduEnd(event.target.value)}
                             />
                           </div>
-                          <textarea
-                            className="min-h-[70px] rounded-md border border-slate-200 px-3 py-2 text-xs"
+                          <UiTextarea
+                            className="min-h-[70px]"
                             placeholder="Details"
                             value={eduDetails}
                             onChange={(event) => setEduDetails(event.target.value)}
                           />
                           <div className="flex items-center gap-2">
-                            <button
+                            <UiButton variant="secondary" size="sm"
                               type="submit"
-                              className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-600"
+                              className=""
                             >
                               {editingEducationId ? "Save education" : "Add education"}
-                            </button>
+                            </UiButton>
                             {editingEducationId ? (
-                              <button
+                              <UiButton variant="secondary" size="sm"
                                 type="button"
-                                className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-500"
+                                className=""
                                 onClick={() => {
                                   setEditingEducationId(null);
                                   setEduProgram("");
@@ -5089,7 +5093,7 @@ export default function CandidateDrawer({
                                 }}
                               >
                                 Cancel edit
-                              </button>
+                              </UiButton>
                             ) : null}
                           </div>
                         </form>
@@ -5099,14 +5103,14 @@ export default function CandidateDrawer({
                 ) : leftTab === "resume" ? (
                   <div className="flex h-full min-h-0 flex-col">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm font-semibold text-slate-800">
+                      <div className="text-sm font-semibold text-foreground">
                         Resume / CV Preview
                       </div>
                       <div className="flex items-center gap-2">
                         {cvLink ? (
-                          <button
+                          <UiButton variant="secondary" size="sm"
                             type="button"
-                            className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            className=""
                             onClick={async () => {
                               try {
                                 await navigator.clipboard.writeText(cvLink);
@@ -5117,27 +5121,27 @@ export default function CandidateDrawer({
                             }}
                           >
                             {cvCopied ? "Link copied" : "Copy CV link"}
-                          </button>
+                          </UiButton>
                         ) : (
-                          <button
+                          <UiButton variant="secondary" size="sm"
                             type="button"
-                            className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                            className="disabled:opacity-60"
                             onClick={handleCreateCvLink}
                             disabled={cvLoading}
                           >
                             {cvLoading ? "Creating..." : "Create CV link"}
-                          </button>
+                          </UiButton>
                         )}
                         {resumeAttachment ? (
-                          <button
+                          <UiButton variant="secondary" size="sm"
                             type="button"
-                            className="rounded-full border border-slate-900 px-4 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50"
+                            className=""
                             onClick={handleResumeRemove}
                           >
                             Remove
-                          </button>
+                          </UiButton>
                         ) : null}
-                        <label className="cursor-pointer rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800">
+                        <label className="cursor-pointer rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary">
                           {resumeUploading ? "Uploading..." : "Upload file"}
                           <input
                             type="file"
@@ -5153,29 +5157,29 @@ export default function CandidateDrawer({
                       </div>
                     </div>
                     {cvError ? (
-                      <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-600">
+                      <div className="mt-3 rounded-md border border-destructive/25 bg-danger-muted px-4 py-3 text-xs text-destructive">
                         {cvError}
                       </div>
                     ) : null}
                     {cvLink ? (
-                      <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
+                      <div className="mt-3 rounded-md border border-success/25 bg-success-muted px-4 py-3 text-xs text-success">
                         <div className="flex items-center justify-between gap-3">
                           <div className="font-semibold">CV form link ready</div>
-                          <div className="text-[10px] uppercase text-emerald-600">
+                          <div className="text-[10px] uppercase text-success">
                             Pending
                           </div>
                         </div>
-                        <div className="mt-2 break-all text-[11px] text-emerald-800/80">
+                        <div className="mt-2 break-all text-[11px] text-success">
                           {cvLink}
                         </div>
-                        <div className="mt-2 text-[10px] text-emerald-700/70">
+                        <div className="mt-2 text-[10px] text-success">
                           Share this link with the candidate to build a CV.
                         </div>
                       </div>
                     ) : cvStatus === "submitted" ? (
-                      <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
+                      <div className="mt-3 rounded-md border border-success/25 bg-success-muted px-4 py-3 text-xs text-success">
                         <div className="font-semibold">CV submitted</div>
-                        <div className="mt-1 text-[10px] text-emerald-700/70">
+                        <div className="mt-1 text-[10px] text-success">
                           {cvSubmittedAt
                             ? `Submitted ${formatTimestamp(cvSubmittedAt)}`
                             : "The CV has been generated."}
@@ -5183,7 +5187,7 @@ export default function CandidateDrawer({
                       </div>
                     ) : null}
                     <div className="mt-3 flex min-h-0 flex-1">
-                      <div className="flex h-full w-full overflow-hidden rounded-lg border border-dashed border-slate-200 bg-white">
+                      <div className="flex h-full w-full overflow-hidden rounded-lg border border-dashed border-border bg-card">
                         {resumeUrl ? (
                           isResumePdf ? (
                             <iframe
@@ -5198,12 +5202,12 @@ export default function CandidateDrawer({
                               className="h-full w-full object-contain"
                             />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
+                            <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
                               Preview not available.
                             </div>
                           )
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
+                          <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
                             Upload a PDF or image to preview here.
                           </div>
                         )}
@@ -5213,10 +5217,10 @@ export default function CandidateDrawer({
                 ) : leftTab === "documents" ? (
                   <div className="flex h-full flex-col">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm font-semibold text-slate-800">
+                      <div className="text-sm font-semibold text-foreground">
                         Documents
                       </div>
-                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800">
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary">
                         {documentUploading ? "Uploading..." : "Add document"}
                         <input
                           type="file"
@@ -5232,7 +5236,7 @@ export default function CandidateDrawer({
                       </label>
                     </div>
                     {documentUploading ? (
-                      <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
+                      <div className="mt-3 rounded-md border border-success/25 bg-success-muted px-4 py-3 text-xs text-success">
                         <div className="flex items-center justify-between gap-3">
                           <div className="truncate font-semibold">
                             Uploading {documentUploadName ?? "file"}...
@@ -5242,24 +5246,24 @@ export default function CandidateDrawer({
                             <span>In progress</span>
                           </div>
                         </div>
-                        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-emerald-100">
+                        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-success-muted">
                           <div className="h-full w-2/5 animate-pulse rounded-full bg-emerald-400" />
                         </div>
                       </div>
                     ) : null}
                     {breezyDocsSyncing ? (
-                      <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-700">
+                      <div className="mt-3 rounded-md border border-input bg-accent px-4 py-3 text-xs text-foreground">
                         Syncing Breezy documents…
                       </div>
                     ) : null}
                     {breezyDocsSyncError ? (
-                      <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+                      <div className="mt-3 rounded-md border border-destructive/25 bg-danger-muted px-4 py-3 text-xs text-destructive">
                         {breezyDocsSyncError}
                       </div>
                     ) : null}
                     <div className="mt-3 flex-1 overflow-y-auto">
                       {documentAttachments.length === 0 ? (
-                        <div className="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-xs text-slate-400">
+                        <div className="rounded-lg border border-dashed border-border bg-card px-4 py-6 text-center text-xs text-muted-foreground">
                           No documents uploaded yet.
                         </div>
                       ) : (
@@ -5290,12 +5294,12 @@ export default function CandidateDrawer({
                                 role="button"
                                 tabIndex={canOpen ? 0 : -1}
                                 aria-disabled={!canOpen}
-                                className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm ${
+                                className={`flex w-full items-center justify-between rounded-md border px-4 py-3 text-sm ${
                                   !canOpen
-                                    ? "cursor-not-allowed border-slate-200 bg-white text-slate-300"
+                                    ? "cursor-not-allowed border-border bg-card text-muted-foreground"
                                     : isActive
-                                    ? "cursor-pointer border-emerald-300 bg-emerald-50 text-slate-800"
-                                    : "cursor-pointer border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-slate-800"
+                                    ? "cursor-pointer border-success/25 bg-success-muted text-foreground"
+                                    : "cursor-pointer border-border bg-card text-muted-foreground hover:border-success/25 hover:text-foreground"
                                 }`}
                                 onClick={(event) => {
                                   event.preventDefault();
@@ -5334,9 +5338,9 @@ export default function CandidateDrawer({
                                   </div>
                                   <div className="min-w-0">
                                     {isRenaming ? (
-                                      <input
+                                      <UiInput
                                         id={`candidate-document-rename-input-${doc.id}`}
-                                        className="h-9 w-full min-w-[240px] rounded-lg border border-emerald-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                                        className="h-9 w-full min-w-[240px]"
                                         value={renameDocumentDraft}
                                         onChange={(event) =>
                                           setRenameDocumentDraft(event.target.value)
@@ -5360,7 +5364,7 @@ export default function CandidateDrawer({
                                         {doc.name ?? "Document"}
                                       </div>
                                     )}
-                                    <div className="mt-1 text-[11px] text-slate-400">
+                                    <div className="mt-1 text-[11px] text-muted-foreground">
                                       Added {displayTimestamp} • {displayBy}
                                     </div>
                                   </div>
@@ -5368,19 +5372,19 @@ export default function CandidateDrawer({
                                 <div className="ml-3 flex shrink-0 items-center gap-2">
                                   {isRenaming ? (
                                     <>
-                                      <button
+                                      <UiButton variant="primary" size="sm"
                                         type="button"
-                                        className="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
+                                        className=""
                                         onClick={(event) => {
                                           event.stopPropagation();
                                           saveRenameDocument(doc.id);
                                         }}
                                       >
                                         Save
-                                      </button>
-                                      <button
+                                      </UiButton>
+                                      <UiButton variant="secondary" size="sm"
                                         type="button"
-                                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                                        className=""
                                         onClick={(event) => {
                                           event.stopPropagation();
                                           setRenamingDocumentId(null);
@@ -5388,27 +5392,27 @@ export default function CandidateDrawer({
                                         }}
                                       >
                                         Cancel
-                                      </button>
+                                      </UiButton>
                                     </>
                                   ) : (
                                     <>
-                                      <button
+                                      <UiButton variant="secondary" size="sm"
                                         type="button"
-                                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                                        className=""
                                         onClick={(event) => {
                                           event.stopPropagation();
                                           startRenameDocument(doc.id, doc.name ?? null);
                                         }}
                                       >
                                         Rename
-                                      </button>
+                                      </UiButton>
                                       <button
                                         type="button"
                                         disabled={!canOpen}
                                         className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
                                           !canOpen
-                                            ? "bg-slate-200 text-slate-500"
-                                            : "bg-slate-900 text-white hover:bg-black"
+                                            ? "bg-accent text-muted-foreground"
+                                            : "bg-primary text-primary-foreground hover:bg-primary/90"
                                         }`}
                                         onClick={(event) => {
                                           event.stopPropagation();
@@ -5434,48 +5438,48 @@ export default function CandidateDrawer({
                       )}
                     </div>
                     {documentUploadError ? (
-                      <div className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-600">
+                      <div className="mt-2 rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-[11px] text-destructive">
                         {documentUploadError}
                       </div>
                     ) : null}
-                    <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-xs text-slate-400">
+                    <div className="mt-4 rounded-md border border-dashed border-border bg-card px-4 py-8 text-center text-xs text-muted-foreground">
                       Click a document to preview in a popup window.
                     </div>
                   </div>
                 ) : leftTab === "questionnaires" ? (
                   <div className="flex h-full flex-col">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm font-semibold text-slate-800">
+                      <div className="text-sm font-semibold text-foreground">
                         Questionnaires
                       </div>
-                      <button
+                      <UiButton variant="primary" size="sm"
                         type="button"
-                        className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+                        className=""
                         onClick={() => setIsQuestionnaireModalOpen(true)}
                       >
                         Send questionnaire
-                      </button>
+                      </UiButton>
                     </div>
-                    <div className="mt-4 rounded-2xl border border-slate-200 bg-white">
+                    <div className="mt-4 rounded-panel border border-border bg-card">
                       {sentQuestionnairesSorted.length === 0 ? (
-                        <div className="px-4 py-6 text-center text-xs text-slate-400">
+                        <div className="px-4 py-6 text-center text-xs text-muted-foreground">
                           No questionnaires sent yet.
                         </div>
                       ) : (
                         sentQuestionnairesSorted.map((item, index) => (
                           <div
                             key={`${item.id}-${item.sent_at}-${index}`}
-                            className="flex items-center justify-between border-b border-slate-200 px-4 py-3 text-sm last:border-b-0"
+                            className="flex items-center justify-between border-b border-border px-4 py-3 text-sm last:border-b-0"
                           >
                             <div className="flex items-center gap-3">
-                              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
                                 <Send className="h-4 w-4" />
                               </span>
                               <div>
-                                <div className="font-semibold text-slate-900">
+                                <div className="font-semibold text-foreground">
                                   {item.name}
                                 </div>
-                                <div className="text-xs text-slate-500">
+                                <div className="text-xs text-muted-foreground">
                                   Sent {formatTimestamp(item.sent_at)}
                                   {item.sent_by ? ` by ${item.sent_by}` : ""}
                                 </div>
@@ -5484,8 +5488,8 @@ export default function CandidateDrawer({
                             <span
                               className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
                                 item.status === "Active"
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : "bg-slate-100 text-slate-600"
+                                  ? "bg-success-muted text-success"
+                                  : "bg-muted text-muted-foreground"
                               }`}
                             >
                               {item.status}
@@ -5494,16 +5498,16 @@ export default function CandidateDrawer({
                         ))
                       )}
                     </div>
-                    <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-xs text-slate-400">
+                    <div className="mt-4 rounded-md border border-dashed border-border bg-card px-4 py-6 text-center text-xs text-muted-foreground">
                       Choose a questionnaire to send to this candidate.
                     </div>
                   </div>
                 ) : (
                   <>
-                    <div className="text-sm font-semibold text-slate-800">
+                    <div className="text-sm font-semibold text-foreground">
                       Details
                     </div>
-                    <div className="space-y-2 text-xs text-slate-500">
+                    <div className="space-y-2 text-xs text-muted-foreground">
                       {candidate.pipeline_id === "companies" ? (
                         <>
                           <div>Company owner: {candidate.company_owner ?? "—"}</div>
@@ -5514,7 +5518,7 @@ export default function CandidateDrawer({
                                     href={toExternalHref(candidate.website_url) ?? undefined}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex max-w-full items-center gap-1 font-medium text-emerald-700 hover:underline"
+                                    className="inline-flex max-w-full items-center gap-1 font-medium text-success hover:underline"
                                   >
                                     <span className="break-all">
                                       {candidate.website_url}
@@ -5536,11 +5540,11 @@ export default function CandidateDrawer({
                       <div>Phone: {candidate.phone ?? "—"}</div>
                     </div>
                     {isBreezyCandidate && breezyMetadata ? (
-                      <details className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
-                        <summary className="cursor-pointer text-xs font-semibold text-slate-700">
+                      <details className="mt-4 rounded-md border border-border bg-card p-3">
+                        <summary className="cursor-pointer text-xs font-semibold text-foreground">
                           Breezy metadata (JSON)
                         </summary>
-                        <pre className="mt-3 max-h-[320px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-slate-700">
+                        <pre className="mt-3 max-h-[320px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-foreground">
                           {JSON.stringify(breezyMetadata, null, 2)}
                         </pre>
                       </details>
@@ -5552,16 +5556,16 @@ export default function CandidateDrawer({
                 <div className="pointer-events-none absolute bottom-4 right-4 z-30 flex flex-col items-end gap-3">
                   {aiChatOpen ? (
                     <div
-                      className="pointer-events-auto w-[320px] overflow-hidden rounded-2xl border border-slate-800 bg-[#0b0b0c] text-slate-100 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.65)]"
+                      className="pointer-events-auto w-[320px] overflow-hidden rounded-panel border border-input bg-popover text-muted-foreground shadow-overlay"
                       onClick={(event) => event.stopPropagation()}
                     >
                       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                         <div className="text-sm font-semibold">AI Assistant</div>
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>Not saved</span>
-                    <button
+                    <UiButton variant="secondary" size="md"
                       type="button"
-                      className="rounded-full border border-white/10 p-2 text-slate-300 hover:bg-white/10"
+                      className=""
                       onClick={() => setAiChatOpen(false)}
                       aria-label="Collapse"
                       title="Collapse"
@@ -5577,7 +5581,7 @@ export default function CandidateDrawer({
                       >
                         <path d="M6 9l6 6 6-6" />
                       </svg>
-                    </button>
+                    </UiButton>
                   </div>
                       </div>
                       <div
@@ -5585,7 +5589,7 @@ export default function CandidateDrawer({
                         className="hide-scrollbar max-h-[280px] space-y-2 overflow-y-auto px-4 py-3 text-xs"
                       >
                         {aiChatMessages.length === 0 ? (
-                          <div className="rounded-lg border border-dashed border-white/10 px-3 py-3 text-slate-400">
+                          <div className="rounded-lg border border-dashed border-white/10 px-3 py-3 text-muted-foreground">
                             Ask about concerns, gaps, strengths, or anything in the
                             transcript or summary.
                           </div>
@@ -5593,16 +5597,16 @@ export default function CandidateDrawer({
                           aiChatMessages.map((message, index) => (
                             <div
                               key={`${message.role}-${index}`}
-                              className={`rounded-xl px-3 py-2 ${
+                              className={`rounded-md px-3 py-2 ${
                                 message.role === "user"
-                                  ? "bg-emerald-500/15 text-emerald-100"
-                                  : "bg-white/5 text-slate-100"
+                                  ? "bg-emerald-500/15 text-success"
+                                  : "bg-card/5 text-muted-foreground"
                               }`}
                             >
-                              <div className="text-[10px] font-semibold uppercase text-slate-400">
+                              <div className="text-[10px] font-semibold uppercase text-muted-foreground">
                                 {message.role === "user" ? "You" : "AI"}
                               </div>
-                              <div className="mt-1 whitespace-pre-wrap text-sm text-slate-100">
+                              <div className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
                                 {message.content}
                               </div>
                             </div>
@@ -5610,13 +5614,13 @@ export default function CandidateDrawer({
                         )}
                       </div>
                       {aiChatError ? (
-                        <div className="px-4 pb-2 text-xs text-rose-300">
+                        <div className="px-4 pb-2 text-xs text-destructive">
                           {aiChatError}
                         </div>
                       ) : null}
                       <div className="border-t border-white/10 px-4 py-3">
-                        <textarea
-                          className="min-h-[68px] w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                        <UiTextarea
+                          className="min-h-[68px] w-full"
                           placeholder="Ask something about the candidate..."
                           value={aiChatInput}
                           onChange={(event) => setAiChatInput(event.target.value)}
@@ -5624,27 +5628,27 @@ export default function CandidateDrawer({
                         <div className="mt-3 flex items-center justify-between">
                           <button
                             type="button"
-                            className="text-[11px] text-slate-400 hover:text-slate-200"
+                            className="text-[11px] text-muted-foreground hover:text-muted-foreground"
                             onClick={() => setAiChatMessages([])}
                           >
                             Clear
                           </button>
-                          <button
+                          <UiButton variant="ghost" size="sm"
                             type="button"
-                            className="rounded-full bg-emerald-500 px-3 py-1.5 text-[11px] font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-60"
+                            className="text-success disabled:opacity-60"
                             onClick={handleAskAi}
                             disabled={aiChatLoading || !aiChatInput.trim()}
                           >
                             {aiChatLoading ? "Asking..." : "Ask AI"}
-                          </button>
+                          </UiButton>
                         </div>
                       </div>
                     </div>
                   ) : null}
 
-                  <button
+                  <UiButton variant="primary" size="md"
                     type="button"
-                    className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-black/90 shadow-[0_10px_28px_-10px_rgba(0,0,0,0.7)] transition hover:-translate-y-0.5 hover:bg-black"
+                    className="pointer-events-auto flex h-14 w-14 items-center justify-center transition hover:-translate-y-0.5"
                     onClick={(event) => {
                       event.stopPropagation();
                       setAiChatOpen((prev) => !prev);
@@ -5656,14 +5660,14 @@ export default function CandidateDrawer({
                       alt="AI"
                       className="h-8 w-8"
                     />
-                  </button>
+                  </UiButton>
                 </div>
               ) : null}
             </div>
           </section>
 
-	          <section className="flex h-full min-h-0 flex-col border-r border-slate-200 px-5 py-4">
-		            <div className="flex items-center justify-between gap-4 text-xs text-slate-500">
+	          <section className="flex h-full min-h-0 flex-col border-r border-border px-5 py-4">
+		            <div className="flex items-center justify-between gap-4 text-xs text-muted-foreground">
 			              <div className="flex items-center gap-4">
 		                {[
 		                  {
@@ -5701,21 +5705,21 @@ export default function CandidateDrawer({
 			                    onClick={() => setRightTab(tab.id as RightTab)}
 			                    className={`border-b-2 pb-2 text-xs ${
 			                      rightTab === tab.id
-			                        ? "border-emerald-500 font-semibold text-slate-900"
-			                        : "border-transparent hover:text-slate-800"
+			                        ? "border-success/25 font-semibold text-foreground"
+			                        : "border-transparent hover:text-foreground"
 			                    }`}
 			                  >
 			                    <span className="flex items-center gap-2">
 			                      <Icon
 			                        className={`h-3.5 w-3.5 ${
-			                          isActive ? "text-emerald-600" : "text-slate-400"
+			                          isActive ? "text-success" : "text-muted-foreground"
 			                        }`}
 			                      />
 			                      {tab.label}
 			                      {"notifCount" in tab &&
 			                      tab.notifCount &&
 			                      tab.notifCount > 0 ? (
-			                        <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+			                        <span className="rounded-full bg-destructive px-2 py-0.5 text-[10px] font-semibold text-destructive-foreground">
 			                          {tab.notifCount}
 			                        </span>
 			                      ) : null}
@@ -5726,7 +5730,7 @@ export default function CandidateDrawer({
 			                        />
 		                      ) : null}
 		                      {tab.id === "tasks" && tab.count && tab.count > 0 ? (
-		                        <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+		                        <span className="rounded-full bg-destructive px-2 py-0.5 text-[10px] font-semibold text-destructive-foreground">
 			                          {tab.count}
 			                        </span>
 			                      ) : null}
@@ -5738,7 +5742,7 @@ export default function CandidateDrawer({
 			            </div>
 	            <div
 	              ref={discussionScrollRef}
-	              className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 hide-scrollbar"
+	              className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-md border border-border bg-card p-4 hide-scrollbar"
 	              style={
 	                rightTab === "discussion" || rightTab === "notes"
 	                  ? {
@@ -5758,20 +5762,20 @@ export default function CandidateDrawer({
 		                        {Array.from({ length: 3 }).map((_, index) => (
 		                          <div
                             key={index}
-                            className="h-12 w-full animate-pulse rounded-2xl border border-slate-200 bg-white/80"
+                            className="h-12 w-full animate-pulse rounded-panel border border-border bg-card/80"
                           />
                         ))}
 		                      </div>
 		                    ) : null}
 		                    {timelineError ? (
-		                      <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+		                      <div className="rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-xs text-destructive">
 		                        {timelineError}
 		                      </div>
 		                    ) : null}
 		                    {(rightTab === "discussion"
                           ? discussionItems.length === 0
                           : notesItems.length === 0) ? (
-		                      <div className="rounded-md border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-400">
+		                      <div className="rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
 		                        {rightTab === "discussion"
 		                          ? "No messages yet."
 		                          : "No history yet."}
@@ -5789,11 +5793,11 @@ export default function CandidateDrawer({
                                     className="my-4 -mx-4 flex items-center"
                                     aria-label={row.label}
                                   >
-                                    <div className="h-px flex-1 bg-white/40" />
-                                    <div className="mx-3 rounded-full bg-white/85 px-3 py-1 text-[11px] font-semibold text-slate-700 shadow-sm backdrop-blur">
+                                    <div className="h-px flex-1 bg-card/40" />
+                                    <div className="mx-3 rounded-full bg-card/85 px-3 py-1 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur">
                                       {row.label}
                                     </div>
-                                    <div className="h-px flex-1 bg-white/40" />
+                                    <div className="h-px flex-1 bg-card/40" />
                                   </div>
                                 );
                               }
@@ -5846,18 +5850,18 @@ export default function CandidateDrawer({
                               item.body.startsWith("Auto-canceled");
                             const bubbleClass = isSystemEvent
                               ? isAutoCanceled
-                                ? "border border-rose-200 bg-rose-50 text-rose-900"
-                                : "border border-slate-900 bg-slate-900 text-white"
+                                ? "border border-destructive/25 bg-danger-muted text-destructive"
+                                : "border border-input bg-primary text-primary-foreground"
                               : isMine
-                              ? "bg-emerald-100 text-emerald-900"
-                              : "border border-slate-200 bg-white text-slate-800";
+                              ? "bg-success-muted text-success"
+                              : "border border-border bg-card text-foreground";
                             const metaClass = isSystemEvent
                               ? isAutoCanceled
-                                ? "text-rose-700/70"
-                                : "text-white/70"
+                                ? "text-destructive"
+                                : "text-primary-foreground/70"
                               : isMine
-                              ? "text-emerald-700/70"
-                              : "text-slate-400";
+                              ? "text-success"
+                              : "text-muted-foreground";
                             const isMeetingSystem =
                               isSystemEvent &&
                               typeof item.body === "string" &&
@@ -5904,7 +5908,7 @@ export default function CandidateDrawer({
 	                                }`}
 	                              >
 	                                {!isMine ? (
-	                                  <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-100 text-[10px] font-semibold text-slate-600">
+	                                  <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-muted text-[10px] font-semibold text-muted-foreground">
 	                                    {avatarUrl ? (
 	                                      <img
 	                                        src={avatarUrl}
@@ -5918,7 +5922,7 @@ export default function CandidateDrawer({
 	                                  </div>
 	                                ) : null}
 	                                <div
-	                                  className={`max-w-[78%] rounded-2xl px-3 py-2 text-xs shadow-sm ${bubbleClass}`}
+	                                  className={`max-w-[78%] rounded-panel px-3 py-2 text-xs shadow-sm ${bubbleClass}`}
 	                                >
 	                                  <div
 	                                    className={`flex items-center gap-2 text-[10px] ${metaClass}`}
@@ -5945,7 +5949,7 @@ export default function CandidateDrawer({
 	                                          <span>
 	                                            {prefix}
 	                                            <span className="mt-1 block">
-	                                              <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[13px] text-slate-900">
+	                                              <span className="rounded-md bg-card/90 px-1.5 py-0.5 text-[13px] text-foreground">
 	                                                {suffix}
 	                                              </span>
 	                                            </span>
@@ -5967,7 +5971,7 @@ export default function CandidateDrawer({
 	                                  ) : null}
 	                                </div>
 	                                {isMine ? (
-	                                  <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-900 text-[10px] font-semibold text-white">
+	                                  <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-primary text-[10px] font-semibold text-primary-foreground">
 	                                    {avatarUrl ? (
 	                                      <img
 	                                        src={avatarUrl}
@@ -5990,37 +5994,37 @@ export default function CandidateDrawer({
 		              ) : rightTab === "meetings" ? (
                 <div className="flex h-full flex-col gap-4">
                   {candidate.meeting_link ? (
-                    <div className="rounded-xl border border-slate-200 bg-white p-4">
-                      <div className="text-sm font-semibold text-slate-900">
+                    <div className="rounded-md border border-border bg-card p-4">
+                      <div className="text-sm font-semibold text-foreground">
                         Upcoming interview
                       </div>
-                      <div className="mt-1 text-xs text-slate-500">
+                      <div className="mt-1 text-xs text-muted-foreground">
                         {candidate.meeting_start
                           ? `Starts ${formatTimestamp(candidate.meeting_start)}`
                           : "Meeting scheduled"}
                       </div>
                       {candidate.meeting_interviewers ? (
-                        <div className="mt-1 text-xs text-slate-500">
+                        <div className="mt-1 text-xs text-muted-foreground">
                           With {candidate.meeting_interviewers}
                         </div>
                       ) : null}
 	                      {candidate.meeting_rsvp_status ? (
-	                        <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-	                          <span className="text-[11px] uppercase text-slate-400">
+	                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+	                          <span className="text-[11px] uppercase text-muted-foreground">
 	                            RSVP
 	                          </span>
 	                          <span
 	                            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
 	                              candidate.meeting_rsvp_status === "accepted"
-	                                ? "bg-emerald-100 text-emerald-700"
+	                                ? "bg-success-muted text-success"
 	                                : candidate.meeting_rsvp_status === "canceled" ||
 	                                  candidate.meeting_rsvp_status === "cancelled"
-	                                ? "bg-rose-100 text-rose-700"
+	                                ? "bg-danger-muted text-destructive"
 	                                : candidate.meeting_rsvp_status === "declined"
-	                                ? "bg-rose-100 text-rose-700"
+	                                ? "bg-danger-muted text-destructive"
 	                                : candidate.meeting_rsvp_status === "tentative"
-	                                ? "bg-amber-100 text-amber-700"
-	                                : "bg-slate-100 text-slate-600"
+	                                ? "bg-warning-muted text-warning"
+	                                : "bg-muted text-muted-foreground"
 	                            }`}
 	                          >
 	                            {candidate.meeting_rsvp_status === "accepted"
@@ -6045,9 +6049,9 @@ export default function CandidateDrawer({
                         >
                           Join Google Meet
                         </a>
-                        <button
+                        <UiButton variant="secondary" size="sm"
                           type="button"
-                          className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50"
+                          className=""
                           onClick={() => {
                             navigator.clipboard.writeText(
                               candidate.meeting_link ?? ""
@@ -6055,31 +6059,31 @@ export default function CandidateDrawer({
                           }}
                         >
                           Copy link
-                        </button>
-                        <button
+                        </UiButton>
+                        <UiButton variant="secondary" size="sm"
                           type="button"
-                          className="rounded-md border border-rose-200 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50"
+                          className="text-destructive"
                           onClick={handleCancelMeeting}
                         >
                           Cancel meeting
-                        </button>
+                        </UiButton>
                       </div>
                       {meetingArtifactsError ? (
-                        <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                        <div className="mt-3 rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-xs text-destructive">
                           {meetingArtifactsError}
                         </div>
                       ) : null}
                       <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-600">
-                          <div className="text-[11px] font-semibold uppercase text-slate-500">
+                        <div className="rounded-lg border border-border bg-muted px-3 py-3 text-xs text-muted-foreground">
+                          <div className="text-[11px] font-semibold uppercase text-muted-foreground">
                             Recording
                           </div>
-                          <div className="mt-2 text-sm font-semibold text-slate-900">
+                          <div className="mt-2 text-sm font-semibold text-foreground">
                             {candidate.meeting_recording_url ? "Ready" : "Pending"}
                           </div>
                           {candidate.meeting_recording_url ? (
                             <a
-                              className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-sky-600 hover:text-sky-700"
+                              className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-foreground hover:text-foreground"
                               href={candidate.meeting_recording_url}
                               target="_blank"
                               rel="noreferrer"
@@ -6087,23 +6091,23 @@ export default function CandidateDrawer({
                               Open recording
                             </a>
                           ) : (
-                            <div className="mt-2 text-[11px] text-slate-400">
+                            <div className="mt-2 text-[11px] text-muted-foreground">
                               {candidate.meeting_recording_state
                                 ? `Status: ${candidate.meeting_recording_state}`
                                 : "No recording yet."}
                             </div>
                           )}
                         </div>
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-600">
-                          <div className="text-[11px] font-semibold uppercase text-slate-500">
+                        <div className="rounded-lg border border-border bg-muted px-3 py-3 text-xs text-muted-foreground">
+                          <div className="text-[11px] font-semibold uppercase text-muted-foreground">
                             Transcript
                           </div>
-                          <div className="mt-2 text-sm font-semibold text-slate-900">
+                          <div className="mt-2 text-sm font-semibold text-foreground">
                             {candidate.meeting_transcript_url ? "Ready" : "Pending"}
                           </div>
                           {candidate.meeting_transcript_url ? (
                             <a
-                              className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-sky-600 hover:text-sky-700"
+                              className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-foreground hover:text-foreground"
                               href={candidate.meeting_transcript_url}
                               target="_blank"
                               rel="noreferrer"
@@ -6111,7 +6115,7 @@ export default function CandidateDrawer({
                               Open transcript
                             </a>
                           ) : (
-                            <div className="mt-2 text-[11px] text-slate-400">
+                            <div className="mt-2 text-[11px] text-muted-foreground">
                               {candidate.meeting_transcript_state
                                 ? `Status: ${candidate.meeting_transcript_state}`
                                 : "No transcript yet."}
@@ -6120,57 +6124,57 @@ export default function CandidateDrawer({
                         </div>
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <button
+                        <UiButton variant="secondary" size="sm"
                           type="button"
-                          className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+                          className="disabled:opacity-60"
                           onClick={() => syncMeetingArtifacts()}
                           disabled={meetingArtifactsLoading}
                         >
                           {meetingArtifactsLoading ? "Syncing..." : "Sync artifacts"}
-                        </button>
-                        <button
+                        </UiButton>
+                        <UiButton variant="secondary" size="sm"
                           type="button"
-                          className="rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+                          className="disabled:opacity-60"
                           onClick={() => syncMeetingRsvp()}
                           disabled={meetingRsvpLoading}
                         >
                           {meetingRsvpLoading ? "Syncing RSVP..." : "Sync RSVP"}
-                        </button>
+                        </UiButton>
                         {candidate.meeting_transcript_excerpt &&
                         !candidate.meeting_transcript_summary ? (
-                          <button
+                          <UiButton variant="secondary" size="sm"
                             type="button"
-                            className="rounded-md border border-emerald-200 px-3 py-2 text-xs text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                            className="text-success disabled:opacity-60"
                             onClick={() =>
                               syncMeetingArtifacts({ generateSummary: true })
                             }
                             disabled={meetingArtifactsLoading}
                           >
                             Generate summary
-                          </button>
+                          </UiButton>
                         ) : null}
                       </div>
                       {candidate.meeting_transcript_summary ? (
-                        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs text-emerald-800">
-                          <div className="text-[11px] font-semibold uppercase text-emerald-700">
+                        <div className="mt-4 rounded-lg border border-success/25 bg-success-muted px-3 py-3 text-xs text-success">
+                          <div className="text-[11px] font-semibold uppercase text-success">
                             Summary
                           </div>
-                          <div className="mt-2 whitespace-pre-wrap text-sm text-emerald-900">
+                          <div className="mt-2 whitespace-pre-wrap text-sm text-success">
                             {candidate.meeting_transcript_summary}
                           </div>
                         </div>
                       ) : null}
                       {meetingRsvpError ? (
-                        <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                        <div className="mt-3 rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-xs text-destructive">
                           {meetingRsvpError}
                         </div>
                       ) : null}
                       {candidate.meeting_transcript_excerpt ? (
-                        <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-3 text-xs text-slate-600">
-                          <div className="text-[11px] font-semibold uppercase text-slate-500">
+                        <div className="mt-3 rounded-lg border border-border bg-card px-3 py-3 text-xs text-muted-foreground">
+                          <div className="text-[11px] font-semibold uppercase text-muted-foreground">
                             Transcript preview
                           </div>
-                          <div className="mt-2 line-clamp-4 text-sm text-slate-700">
+                          <div className="mt-2 line-clamp-4 text-sm text-foreground">
                             {candidate.meeting_transcript_excerpt}
                           </div>
                         </div>
@@ -6178,54 +6182,54 @@ export default function CandidateDrawer({
                     </div>
                   ) : (
                     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-2xl text-slate-500">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-2xl text-muted-foreground">
                         📅
                       </div>
                       <div className="space-y-1">
-                        <div className="text-lg font-semibold text-slate-800">
+                        <div className="text-lg font-semibold text-foreground">
                           No meetings yet
                         </div>
-                        <div className="text-sm text-slate-500">
+                        <div className="text-sm text-muted-foreground">
                           There haven&apos;t been any meetings scheduled yet.
                         </div>
                       </div>
                     </div>
                   )}
-                  <button
+                  <UiButton variant="primary" size="md"
                     type="button"
-                    className="inline-flex items-center gap-2 rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-600"
+                    className="inline-flex items-center gap-2"
                     onClick={() => setShowMeetingModal(true)}
                   >
                     <span>📅</span>
                     Schedule Interview
-                  </button>
+                  </UiButton>
                 </div>
 	              ) : rightTab === "tasks" ? (
 		                <div className="space-y-4">
 			                  <div className="flex items-center justify-between">
 			                    <div>
-		                      <div className="text-xs font-semibold uppercase text-slate-500">
+		                      <div className="text-xs font-semibold uppercase text-muted-foreground">
 		                        Tasks
 		                      </div>
-		                      <div className="mt-1 text-[11px] text-slate-400">
+		                      <div className="mt-1 text-[11px] text-muted-foreground">
 		                        {timelineLoading ? "Loading…" : `${openTaskCount} open`}
 		                      </div>
 		                    </div>
-		                    <button
+		                    <UiButton variant="primary" size="sm"
 		                      type="button"
-		                      className="rounded-full bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-black/90"
+		                      className=""
 		                      onClick={handleAddTask}
 		                    >
 		                      Create
-		                    </button>
+		                    </UiButton>
 		                  </div>
 	                  {taskActionError ? (
-	                    <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+	                    <div className="rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-xs text-destructive">
 	                      {taskActionError}
                     </div>
                   ) : null}
                   {timelineError ? (
-                    <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                    <div className="rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-xs text-destructive">
                       {timelineError}
                     </div>
                   ) : null}
@@ -6234,12 +6238,12 @@ export default function CandidateDrawer({
                       {Array.from({ length: 3 }).map((_, index) => (
                         <div
                           key={index}
-                          className="h-12 w-full animate-pulse rounded-md border border-slate-200 bg-white"
+                          className="h-12 w-full animate-pulse rounded-md border border-border bg-card"
                         />
                       ))}
                     </div>
                   ) : tasks.length === 0 ? (
-                    <div className="rounded-md border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-400">
+                    <div className="rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
                       No tasks yet.
                     </div>
                   ) : (
@@ -6278,7 +6282,7 @@ export default function CandidateDrawer({
 			                        return (
 			                          <div key={task.id} className="space-y-2">
 			                            <div
-			                              className="flex items-start justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 transition hover:bg-slate-50"
+			                              className="flex items-start justify-between rounded-md border border-border bg-card px-3 py-2 text-xs text-foreground transition hover:bg-muted"
 			                              role="button"
 			                              tabIndex={0}
 			                              onClick={() => handleEditTask(task)}
@@ -6308,7 +6312,7 @@ export default function CandidateDrawer({
 		                                      className={`flex h-full w-full items-center justify-center rounded ${
 		                                        task.status === "done"
 		                                          ? "bg-emerald-400 text-white"
-		                                          : "bg-white text-transparent"
+		                                          : "bg-card text-transparent"
 		                                      }`}
 		                                    >
 		                                      ✓
@@ -6317,26 +6321,26 @@ export default function CandidateDrawer({
 		                                  <div
 		                                    className={`min-w-0 flex-1 truncate ${
 		                                      task.status === "done"
-		                                        ? "text-slate-400 line-through"
-		                                        : "text-slate-700"
+		                                        ? "text-muted-foreground line-through"
+		                                        : "text-foreground"
 		                                    }`}
 		                                  >
 		                                    {task.title}
 		                                  </div>
 		                                </div>
 		                                {task.status === "done" ? (
-		                                  <div className="ml-6 mt-1 text-[11px] text-slate-400">
+		                                  <div className="ml-6 mt-1 text-[11px] text-muted-foreground">
 		                                    Completed{" "}
 		                                    {task.completed_at ? formatTimestamp(task.completed_at) : "—"}
                                     {completedByLabel ? ` • ${completedByLabel}` : ""}
                                   </div>
 		                                ) : openMeta ? (
-		                                  <div className="ml-6 mt-1 text-[11px] text-slate-400">
+		                                  <div className="ml-6 mt-1 text-[11px] text-muted-foreground">
 		                                    {openMeta}
 		                                  </div>
 		                                ) : null}
 			                                {notesPreview ? (
-			                                  <div className="ml-6 mt-1 line-clamp-2 text-[11px] text-slate-500">
+			                                  <div className="ml-6 mt-1 line-clamp-2 text-[11px] text-muted-foreground">
 			                                    {notesPreview}
 			                                  </div>
 			                                ) : null}
@@ -6344,7 +6348,7 @@ export default function CandidateDrawer({
 			                              <div className="ml-3 flex shrink-0 items-center gap-3 self-center">
 			                                {assigneeId && assigneeLabel ? (
 			                                  <div
-			                                    className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-xs font-semibold text-slate-600"
+			                                    className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-xs font-semibold text-muted-foreground"
 			                                    title={assigneeLabel}
 			                                  >
 			                                    {assigneeAvatar ? (
@@ -6362,7 +6366,7 @@ export default function CandidateDrawer({
 		                                ) : null}
 		                                <button
 		                                  type="button"
-		                                  className="text-slate-400 hover:text-slate-600"
+		                                  className="text-muted-foreground hover:text-muted-foreground"
 		                                  onClick={(event) => {
 		                                    event.stopPropagation();
 		                                    handleRemoveTask(task.id);
@@ -6378,13 +6382,13 @@ export default function CandidateDrawer({
 	                      })}
 	                    </div>
                   )}
-                  <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-700">
-                    <div className="text-[11px] font-semibold uppercase text-slate-500">
+                  <div className="rounded-md border border-border bg-muted px-3 py-3 text-xs text-foreground">
+                    <div className="text-[11px] font-semibold uppercase text-muted-foreground">
                       Request Missing Info
                     </div>
                     <div className="mt-3 space-y-2">
                       {requestedFields.length === 0 ? (
-                        <div className="rounded-md border border-dashed border-slate-200 bg-white px-3 py-3 text-center text-[11px] text-slate-400">
+                        <div className="rounded-md border border-dashed border-border bg-card px-3 py-3 text-center text-[11px] text-muted-foreground">
                           No fields selected yet.
                         </div>
                       ) : (
@@ -6393,19 +6397,19 @@ export default function CandidateDrawer({
                         return (
                           <label
                             key={field.key}
-                            className="flex cursor-pointer items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2"
+                            className="flex cursor-pointer items-center justify-between rounded-md border border-border bg-card px-3 py-2"
                           >
                             <span className="flex items-center gap-2">
                               <span
                                 className={`flex h-4 w-4 items-center justify-center rounded border ${
                                   checked
-                                    ? "border-emerald-500 bg-emerald-500 text-white"
-                                    : "border-slate-300 text-transparent"
+                                    ? "border-success/25 bg-emerald-500 text-white"
+                                    : "border-input text-transparent"
                                 }`}
                               >
                                 ✓
                               </span>
-                              <span className="text-xs text-slate-700">
+                              <span className="text-xs text-foreground">
                                 {field.label}
                               </span>
                             </span>
@@ -6422,28 +6426,28 @@ export default function CandidateDrawer({
                       )}
                     </div>
                     {!hasExistingForm ? (
-                      <button
+                      <UiButton variant="primary" size="sm"
                         type="button"
-                        className="mt-3 w-full rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="mt-3 w-full transition disabled:cursor-not-allowed disabled:opacity-60"
                         onClick={handleCreateFormLink}
                         disabled={formBusy || selectedFormFields.length === 0}
                       >
                         {formBusy ? "Creating link..." : "Create form link"}
-                      </button>
+                      </UiButton>
                     ) : null}
                     {formLink ? (
-                      <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">
+                      <div className="mt-3 rounded-md border border-success/25 bg-success-muted px-3 py-2 text-[11px] text-success">
                         {formCopied ? "Link copied." : "Form link created."}{" "}
                         <span className="break-all">{formLink}</span>
                       </div>
                     ) : null}
                     {hasExistingForm && formStatus === "submitted" ? (
-                      <div className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-500">
+                      <div className="mt-3 rounded-md border border-border bg-card px-3 py-2 text-[11px] text-muted-foreground">
                         Form submitted. Updates will sync automatically.
                       </div>
                     ) : null}
                     {formError ? (
-                      <div className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-600">
+                      <div className="mt-2 rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-[11px] text-destructive">
                         {formError}
                       </div>
                     ) : null}
@@ -6463,13 +6467,13 @@ export default function CandidateDrawer({
                   }
                 />
               ) : (
-                <div className="rounded-md border border-dashed border-slate-200 px-4 py-6 text-center text-xs text-slate-400">
+                <div className="rounded-md border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
                   This section is coming soon.
                 </div>
               )}
             </div>
 		            {rightTab === "discussion" ? (
-		              <div className="shrink-0 bg-white p-4">
+		              <div className="shrink-0 bg-card p-4">
 		                <AddNoteForm
                       onAddNote={handleAddNote}
                       teamUsers={teamUsers}
@@ -6478,7 +6482,7 @@ export default function CandidateDrawer({
 		              </div>
 		            ) : null}
 		            {rightTab === "notes" ? (
-		              <div className="shrink-0 bg-white p-4">
+		              <div className="shrink-0 bg-card p-4">
 		                <AddNoteForm
                       onAddNote={(body) => {
                         void addActivity(body, "note");
@@ -6491,13 +6495,13 @@ export default function CandidateDrawer({
 	          </section>
 
 	          <aside className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto px-5 py-4">
-	            <div className="grid gap-2 text-xs text-slate-600">
+	            <div className="grid gap-2 text-xs text-muted-foreground">
                 {candidate.pipeline_id !== "companies" ? (
                   <>
 	                  <div className="flex items-center justify-between">
 	                    <span className="font-semibold uppercase">Stage</span>
-	                    <select
-	                      className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+	                    <UiSelect
+	                      className=""
 	                      value={candidate.stage_id}
 	                      onChange={(event) => onStageChange(event.target.value)}
 	                    >
@@ -6506,12 +6510,12 @@ export default function CandidateDrawer({
 	                          {item.name}
 	                        </option>
 	                      ))}
-	                    </select>
+	                    </UiSelect>
 	                  </div>
 	                  <div className="flex items-center justify-between">
 	                    <span className="font-semibold uppercase">Pipeline</span>
-	                    <select
-	                      className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+	                    <UiSelect
+	                      className=""
 	                      value={candidate.pipeline_id}
 	                      onChange={(event) => onPipelineChange(event.target.value)}
 	                    >
@@ -6520,7 +6524,7 @@ export default function CandidateDrawer({
 	                          {pipeline.name}
 	                        </option>
 	                      ))}
-	                    </select>
+	                    </UiSelect>
 	                  </div>
                   </>
                 ) : null}
@@ -6543,9 +6547,9 @@ export default function CandidateDrawer({
               {candidate.pipeline_id !== "companies" ? (
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-semibold uppercase">Start date</span>
-                  <input
+                  <UiInput
                     type="date"
-                    className="h-8 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700"
+                    className="h-8"
                     value={(candidate.start_date ?? "").split("T")[0] ?? ""}
                     onChange={(event) => {
                       const next = event.target.value.trim();
@@ -6560,8 +6564,8 @@ export default function CandidateDrawer({
 
 		            {candidate.pipeline_id === "companies" ? (
 		              <>
-		                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700">
-		                  <div className="text-[11px] font-semibold uppercase text-slate-500">
+		                <div className="rounded-lg border border-border bg-card px-4 py-3 text-xs text-foreground">
+		                  <div className="text-[11px] font-semibold uppercase text-muted-foreground">
 		                    Company owner
 		                  </div>
 		                  <div className="mt-2 flex items-center gap-2">
@@ -6572,18 +6576,18 @@ export default function CandidateDrawer({
 		                    >
 		                      {initials(companyOwnerLabel)}
 		                    </span>
-		                    <span className="min-w-0 truncate text-sm font-semibold text-slate-900">
+		                    <span className="min-w-0 truncate text-sm font-semibold text-foreground">
 		                      {companyOwnerLabel}
 		                    </span>
 		                  </div>
 		                </div>
 
-			                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+			                <div className="rounded-lg border border-border bg-card px-4 py-3">
 			                  <div className="flex items-center justify-between gap-3">
-			                    <div className="text-[11px] font-semibold uppercase text-slate-500">
+			                    <div className="text-[11px] font-semibold uppercase text-muted-foreground">
 			                      Assigned profiles
 			                    </div>
-			                    <div className="text-xs font-semibold text-slate-500">
+			                    <div className="text-xs font-semibold text-muted-foreground">
 			                      {linkedCandidatesLoading
 			                        ? "…"
 			                        : linkedCandidatesTotal ?? linkedCandidates.length}
@@ -6591,28 +6595,28 @@ export default function CandidateDrawer({
 			                  </div>
 			                  {(linkedCandidatesTotal ?? linkedCandidates.length) > 6 ? (
 			                    <div className="mt-3">
-			                      <input
+			                      <UiInput
 			                        value={linkedCandidatesQuery}
 			                        onChange={(event) => setLinkedCandidatesQuery(event.target.value)}
 			                        placeholder="Search assigned profiles..."
-			                        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/30"
+			                        className="h-11 w-full"
 			                      />
 			                      {linkedCandidatesSearchError ? (
-			                        <div className="mt-2 text-xs text-rose-600">
+			                        <div className="mt-2 text-xs text-destructive">
 			                          {linkedCandidatesSearchError}
 			                        </div>
 			                      ) : null}
 			                    </div>
 			                  ) : null}
 			                  {linkedCandidatesError ? (
-			                    <div className="mt-2 text-xs text-rose-600">
+			                    <div className="mt-2 text-xs text-destructive">
 			                      {linkedCandidatesError}
 			                    </div>
 			                  ) : null}
 		                  {linkedCandidatesLoading ? (
-		                    <div className="mt-3 text-xs text-slate-500">Loading...</div>
+		                    <div className="mt-3 text-xs text-muted-foreground">Loading...</div>
 			                  ) : linkedCandidates.length === 0 ? (
-			                    <div className="mt-3 text-xs text-slate-500">
+			                    <div className="mt-3 text-xs text-muted-foreground">
 			                      No assigned profiles.
 			                    </div>
 			                  ) : (
@@ -6647,7 +6651,7 @@ export default function CandidateDrawer({
 				                          <button
 				                            key={item.id}
 				                            type="button"
-				                            className="flex w-full min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
+				                            className="flex w-full min-w-0 items-center gap-3 rounded-md border border-border bg-card px-4 py-3 text-left transition hover:border-success/25 hover:bg-success-muted"
 				                            onClick={() =>
 				                              handleViewProfile({
 				                                id: item.id,
@@ -6674,11 +6678,11 @@ export default function CandidateDrawer({
 				                              )}
 				                            </span>
 					                            <div className="min-w-0 flex-1">
-					                              <div className="truncate text-sm font-semibold text-slate-900">
+					                              <div className="truncate text-sm font-semibold text-foreground">
 					                                {item.name || item.email || "Untitled"}
 					                              </div>
                                     {item.email ? (
-					                                <div className="truncate text-xs text-slate-500">
+					                                <div className="truncate text-xs text-muted-foreground">
 					                                  {item.email}
 					                                </div>
                                     ) : null}
@@ -6690,15 +6694,15 @@ export default function CandidateDrawer({
                                       const showStart = Boolean(startLabel);
                                       if (!showStage && !showStart) return null;
                                       return (
-					                                  <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-500">
+					                                  <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
 					                                    {showStart ? (
-					                                      <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5">
+					                                      <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5">
 					                                        <CalendarDays className="h-3.5 w-3.5" />
 					                                        Start: {startLabel}
 					                                      </span>
 					                                    ) : null}
 					                                    {showStage ? (
-					                                      <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5">
+					                                      <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5">
 					                                        <Zap className="h-3.5 w-3.5" />
 					                                        Stage: {stageLabel}
 					                                      </span>
@@ -6711,20 +6715,20 @@ export default function CandidateDrawer({
 						                        );
 						                      })}
 				                        {query && linkedCandidatesSearchLoading ? (
-				                          <div className="text-xs text-slate-400">Searching...</div>
+				                          <div className="text-xs text-muted-foreground">Searching...</div>
 				                        ) : null}
 				                        {query && hasMoreMatches ? (
-				                          <div className="text-xs text-slate-400">
+				                          <div className="text-xs text-muted-foreground">
 				                            Showing first {list.length} matches.
 				                          </div>
 				                        ) : null}
 				                        {!query && total > 6 ? (
-				                          <div className="text-xs text-slate-400">
+				                          <div className="text-xs text-muted-foreground">
 				                            Showing 6 of {total}. Use search to find more.
 				                          </div>
 				                        ) : null}
 			                        {query && list.length === 0 ? (
-			                          <div className="text-xs text-slate-400">
+			                          <div className="text-xs text-muted-foreground">
 			                            No matches for &quot;{query}&quot;.
 			                          </div>
 			                        ) : null}
@@ -6736,18 +6740,18 @@ export default function CandidateDrawer({
 			                </div>
 		              </>
 		            ) : (
-		              <div className="rounded-lg border border-slate-900 bg-slate-950 px-4 py-3 text-xs text-slate-100">
-		                <div className="font-semibold uppercase text-slate-300">Details</div>
-		                <div className="mt-2 space-y-1 text-slate-100">
+		              <div className="rounded-lg border border-input bg-primary px-4 py-3 text-xs text-muted-foreground">
+		                <div className="font-semibold uppercase text-muted-foreground">Details</div>
+		                <div className="mt-2 space-y-1 text-muted-foreground">
 		                  <div className="flex flex-col gap-1 pt-1">
 		                    <div className="flex items-center justify-between">
 		                      <span>Company:</span>
 		                      {companyOptionsLoading ? (
-		                        <span className="text-[11px] text-slate-400">Loading...</span>
+		                        <span className="text-[11px] text-muted-foreground">Loading...</span>
 		                      ) : null}
 		                    </div>
-		                    <select
-		                      className="h-8 w-full rounded-md border border-white/10 bg-white/5 px-2 text-xs text-slate-100"
+		                    <UiSelect
+		                      className="h-8 w-full"
 		                      value={candidate.assigned_company_id ?? ""}
 		                      onChange={(event) => handleAssignCompany(event.target.value)}
 		                      disabled={companyOptionsLoading}
@@ -6766,9 +6770,9 @@ export default function CandidateDrawer({
 		                          {company.name}
 		                        </option>
 		                      ))}
-		                    </select>
+		                    </UiSelect>
 		                    {companyOptionsError ? (
-		                      <div className="text-[11px] text-rose-300">
+		                      <div className="text-[11px] text-destructive">
 		                        {companyOptionsError}
 		                      </div>
 		                    ) : null}
@@ -6802,8 +6806,8 @@ export default function CandidateDrawer({
 		              </div>
 		            )}
 
-	            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
-	              <div className="font-semibold uppercase text-slate-500">
+	            <div className="rounded-lg border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
+	              <div className="font-semibold uppercase text-muted-foreground">
 	                {mailerlite && isRecord(mailerlite)
                   ? "Subscriber Details"
                   : "Transcript Details"}
@@ -6818,12 +6822,12 @@ export default function CandidateDrawer({
                     key in mailerlite ? (
                       <div
                         key={key}
-                        className="grid grid-cols-[120px_1fr] gap-3 border-b border-slate-100 pb-2 last:border-b-0 last:pb-0"
+                        className="grid grid-cols-[120px_1fr] gap-3 border-b border-border pb-2 last:border-b-0 last:pb-0"
                       >
-                        <div className="text-[11px] uppercase text-slate-400">
+                        <div className="text-[11px] uppercase text-muted-foreground">
                           {formatKey(key)}
                         </div>
-                        <div className="text-xs text-slate-700">
+                        <div className="text-xs text-foreground">
                           {formatValue(mailerlite[key])}
                         </div>
                       </div>
@@ -6832,7 +6836,7 @@ export default function CandidateDrawer({
 
                   {Array.isArray(mailerlite.groups) ? (
                     <div className="space-y-2">
-                      <div className="text-[11px] uppercase text-slate-400">
+                      <div className="text-[11px] uppercase text-muted-foreground">
                         Groups
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -6840,13 +6844,13 @@ export default function CandidateDrawer({
                           mailerlite.groups.map((group, index) => (
                             <span
                               key={`${(group as { id?: string }).id ?? index}`}
-                              className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px]"
+                              className="rounded-full border border-border bg-muted px-2 py-1 text-[11px]"
                             >
                               {formatValue(group)}
                             </span>
                           ))
                         ) : (
-                          <span className="text-xs text-slate-400">—</span>
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </div>
                     </div>
@@ -6854,7 +6858,7 @@ export default function CandidateDrawer({
 
                   {mailerliteFields ? (
                     <div className="space-y-2">
-                      <div className="text-[11px] uppercase text-slate-400">
+                      <div className="text-[11px] uppercase text-muted-foreground">
                         Fields
                       </div>
                       <div className="space-y-2">
@@ -6891,12 +6895,12 @@ export default function CandidateDrawer({
                           .map(([key, value]) => (
                             <div
                               key={key}
-                              className="grid grid-cols-[120px_1fr] gap-3 border-b border-slate-100 pb-2 last:border-b-0 last:pb-0"
+                              className="grid grid-cols-[120px_1fr] gap-3 border-b border-border pb-2 last:border-b-0 last:pb-0"
                             >
-                              <div className="text-[11px] uppercase text-slate-400">
+                              <div className="text-[11px] uppercase text-muted-foreground">
                                 {formatKey(key)}
                               </div>
-                              <div className="text-xs text-slate-700">
+                              <div className="text-xs text-foreground">
                                 {formatValue(value)}
                               </div>
                             </div>
@@ -6910,55 +6914,55 @@ export default function CandidateDrawer({
                   {transcriptDetails.map((item) => (
                     <div
                       key={item.label}
-                      className="grid grid-cols-[120px_1fr] gap-3 border-b border-slate-100 pb-2 last:border-b-0 last:pb-0"
+                      className="grid grid-cols-[120px_1fr] gap-3 border-b border-border pb-2 last:border-b-0 last:pb-0"
                     >
-                      <div className="text-[11px] uppercase text-slate-400">
+                      <div className="text-[11px] uppercase text-muted-foreground">
                         {item.label}
                       </div>
-                      <div className="text-xs text-slate-700">
+                      <div className="text-xs text-foreground">
                         {item.value}
                       </div>
                     </div>
                   ))}
                 </div>
               ) : mailerliteLoading ? (
-                <div className="mt-3 rounded-md border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-400">
+                <div className="mt-3 rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
                   Loading MailerLite details…
                 </div>
               ) : mailerliteError ? (
-                <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-3 text-xs text-rose-600">
+                <div className="mt-3 rounded-md border border-destructive/25 bg-danger-muted px-3 py-3 text-xs text-destructive">
                   {mailerliteError}
                 </div>
               ) : (
-                <div className="mt-3 rounded-md border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-400">
+                <div className="mt-3 rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
                   No details yet.
                 </div>
               )}
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
-              <div className="flex items-center justify-between font-semibold uppercase text-slate-500">
+            <div className="rounded-lg border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
+              <div className="flex items-center justify-between font-semibold uppercase text-muted-foreground">
                 <span>Tags</span>
-                <button
+                <UiButton variant="secondary" size="md"
                   type="button"
-                  className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-[14px] text-slate-500 hover:bg-slate-100"
+                  className="flex h-6 w-6 items-center justify-center"
                   onClick={() => setShowTagInput((prev) => !prev)}
                   aria-label="Add tag"
                 >
                   +
-                </button>
+                </UiButton>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {tags.length > 0 ? (
                   tags.map((tag) => (
                     <span
                       key={tag}
-                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700"
+                      className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-foreground"
                     >
                       {tag}
                       <button
                         type="button"
-                        className="text-slate-400 hover:text-slate-600"
+                        className="text-muted-foreground hover:text-muted-foreground"
                         onClick={() => handleRemoveTag(tag)}
                         aria-label={`Remove ${tag}`}
                       >
@@ -6967,13 +6971,13 @@ export default function CandidateDrawer({
                     </span>
                   ))
                 ) : (
-                  <span className="text-xs text-slate-400">No tags yet.</span>
+                  <span className="text-xs text-muted-foreground">No tags yet.</span>
                 )}
               </div>
               {showTagInput ? (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <input
-                    className="h-9 w-44 rounded-md border border-slate-200 bg-white px-3 text-xs"
+                  <UiInput
+                    className="h-9 w-44"
                     placeholder="Add tag..."
                     value={tagDraft}
                     onChange={(event) => setTagDraft(event.target.value)}
@@ -6984,13 +6988,13 @@ export default function CandidateDrawer({
                       }
                     }}
                   />
-                  <button
+                  <UiButton variant="secondary" size="sm"
                     type="button"
-                    className="h-9 rounded-md border border-slate-200 px-3 text-xs text-slate-600"
+                    className="h-9"
                     onClick={handleAddTag}
                   >
                     Add
-                  </button>
+                  </UiButton>
                 </div>
               ) : null}
             </div>
@@ -7003,29 +7007,29 @@ export default function CandidateDrawer({
 	          onClick={() => setIsTaskModalOpen(false)}
 	        >
           <div
-            className="w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            className="w-full max-w-4xl overflow-hidden rounded-panel border border-border bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-	            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-	              <div className="text-lg font-semibold text-slate-900">
+	            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+	              <div className="text-lg font-semibold text-foreground">
 	                {taskEditingId ? "Edit task" : "Task"}
 	              </div>
-	              <button
+	              <UiButton variant="ghost" size="md"
                 type="button"
-                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className=""
                 aria-label="Close"
                 onClick={() => setIsTaskModalOpen(false)}
               >
                 ×
-              </button>
+              </UiButton>
             </div>
             <div className="space-y-6 px-6 py-5">
               <div>
-                <label className="text-xs font-semibold uppercase text-slate-500">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
                   Enter your task
                 </label>
-	                <input
-                  className="mt-2 h-12 w-full rounded-md border border-slate-200 px-4 text-sm text-slate-900 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+	                <UiInput
+                  className="mt-2 h-12 w-full"
                   placeholder="Enter your task"
                   value={taskFormTitle}
                   onChange={(event) => {
@@ -7042,36 +7046,36 @@ export default function CandidateDrawer({
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
-                  <div className="text-xs font-semibold uppercase text-slate-500">
+                <div className="rounded-md border border-border bg-card px-4 py-4">
+                  <div className="text-xs font-semibold uppercase text-muted-foreground">
                     Activity date
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-3">
-                    <input
+                    <UiInput
                       type="date"
-                      className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-900"
+                      className="h-11 w-full"
                       value={taskFormDueDate}
                       onChange={(event) => setTaskFormDueDate(event.target.value)}
                     />
-                    <input
+                    <UiInput
                       type="time"
-                      className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-900"
+                      className="h-11 w-full"
                       value={taskFormDueTime}
                       onChange={(event) => setTaskFormDueTime(event.target.value)}
                       disabled={!taskFormDueDate}
                     />
                   </div>
-                  <div className="mt-2 text-[11px] text-slate-400">
+                  <div className="mt-2 text-[11px] text-muted-foreground">
                     Leave empty if no due date.
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
-                  <div className="text-xs font-semibold uppercase text-slate-500">
+                <div className="rounded-md border border-border bg-card px-4 py-4">
+                  <div className="text-xs font-semibold uppercase text-muted-foreground">
                     Send reminder
                   </div>
-                  <select
-                    className="mt-3 h-11 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-900"
+                  <UiSelect
+                    className="mt-3 h-11 w-full"
                     value={taskFormReminder}
                     onChange={(event) => setTaskFormReminder(event.target.value)}
                     disabled={!taskFormDueDate}
@@ -7081,16 +7085,16 @@ export default function CandidateDrawer({
                     <option value="15">15 minutes before</option>
                     <option value="60">1 hour before</option>
                     <option value="1440">1 day before</option>
-                  </select>
-                  <div className="mt-2 text-[11px] text-slate-400">
+                  </UiSelect>
+                  <div className="mt-2 text-[11px] text-muted-foreground">
                     Reminder setting is saved on the task (delivery not implemented yet).
                   </div>
                 </div>
               </div>
 
               <div className="grid gap-4">
-                <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
-	                  <div className="text-xs font-semibold uppercase text-slate-500">
+                <div className="rounded-md border border-border bg-card px-4 py-4">
+	                  <div className="text-xs font-semibold uppercase text-muted-foreground">
 	                    Activity assigned to
 	                  </div>
                     <div className="relative mt-3">
@@ -7103,7 +7107,7 @@ export default function CandidateDrawer({
                           ? resolveAvatar(assignee.id, assignee.email, false)
                           : null;
                         return (
-                          <div className="pointer-events-none absolute left-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-[10px] font-semibold text-slate-600">
+                          <div className="pointer-events-none absolute left-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-[10px] font-semibold text-muted-foreground">
                             {avatarUrl ? (
                               <img
                                 src={avatarUrl}
@@ -7119,8 +7123,8 @@ export default function CandidateDrawer({
                           </div>
                         );
                       })()}
-	                    <select
-	                      className="h-11 w-full rounded-md border border-slate-200 pl-12 pr-3 text-sm text-slate-900"
+	                    <UiSelect
+	                      className="h-11 w-full pl-12 pr-3"
 	                      value={taskFormAssigneeId}
 	                      onChange={(event) => setTaskFormAssigneeId(event.target.value)}
 	                    >
@@ -7130,17 +7134,17 @@ export default function CandidateDrawer({
 	                          {user.name?.trim() || user.email}
 	                        </option>
 	                      ))}
-	                    </select>
+	                    </UiSelect>
                     </div>
 	                </div>
 	              </div>
 
               <div>
-                <label className="text-xs font-semibold uppercase text-slate-500">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
                   Notes
                 </label>
-                <textarea
-                  className="mt-2 w-full rounded-md border border-slate-200 px-4 py-3 text-sm text-slate-900"
+                <UiTextarea
+                  className="mt-2 w-full"
                   rows={4}
                   placeholder="Notes…"
                   value={taskFormNotes}
@@ -7149,22 +7153,22 @@ export default function CandidateDrawer({
               </div>
 
               {taskFormError ? (
-                <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                <div className="rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-xs text-destructive">
                   {taskFormError}
                 </div>
               ) : null}
             </div>
-            <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
-	              <button
+            <div className="flex items-center justify-end gap-2 border-t border-border px-6 py-4">
+	              <UiButton variant="secondary" size="sm"
 	                type="button"
-	                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+	                className=""
 	                onClick={() => setIsTaskModalOpen(false)}
 	              >
 	                Cancel
-	              </button>
-	              <button
+	              </UiButton>
+	              <UiButton variant="primary" size="sm"
 	                type="button"
-	                className="rounded-full bg-slate-900 px-5 py-2 text-xs font-semibold text-white disabled:opacity-60"
+	                className="disabled:opacity-60"
 	                onClick={handleSaveTask}
 	                disabled={!taskFormTitle.trim() || taskFormSaving}
 	              >
@@ -7175,7 +7179,7 @@ export default function CandidateDrawer({
 	                  : taskEditingId
 	                    ? "Save"
 	                    : "Create"}
-	              </button>
+	              </UiButton>
 	              </div>
 	            </div>
 	          </div>
@@ -7186,51 +7190,51 @@ export default function CandidateDrawer({
           onClick={() => setShowMeetingModal(false)}
         >
           <div
-            className="w-full max-w-5xl rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            className="w-full max-w-5xl rounded-panel border border-border bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between border-b border-slate-200 px-6 py-4">
+            <div className="flex items-start justify-between border-b border-border px-6 py-4">
               <div className="space-y-1">
-                <div className="text-2xl font-semibold text-slate-900">
+                <div className="text-2xl font-semibold text-foreground">
                   Schedule Interviews
                 </div>
-                <div className="text-sm text-slate-500">
+                <div className="text-sm text-muted-foreground">
                   Plan, organize and schedule one or more interviews.{" "}
-                  <button type="button" className="text-sky-500">
+                  <button type="button" className="text-foreground">
                     Learn More
                   </button>
                 </div>
               </div>
-              <button
+              <UiButton variant="secondary" size="md"
                 type="button"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg text-slate-500 hover:bg-slate-50"
+                className="flex h-9 w-9 items-center justify-center text-lg"
                 onClick={() => setShowMeetingModal(false)}
               >
                 ×
-              </button>
+              </UiButton>
             </div>
             <div className="space-y-4 px-6 py-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted px-4 py-3">
                 <div>
-                  <div className="text-sm font-semibold text-slate-800">
+                  <div className="text-sm font-semibold text-foreground">
                     Instant interview
                   </div>
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-muted-foreground">
                     Create a Google Meet link that starts now.
                   </div>
                 </div>
-                <button
+                <UiButton variant="primary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+                  className="inline-flex items-center gap-2"
                   onClick={handleInstantMeeting}
                   disabled={meetingSubmitting}
                 >
                   <Zap className="h-4 w-4" />
                   Start now
-                </button>
+                </UiButton>
               </div>
               {googleConnected === false ? (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/25 bg-warning-muted px-4 py-3 text-sm text-warning">
                   <span>Google account not connected.</span>
                   <a
                     className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
@@ -7240,7 +7244,7 @@ export default function CandidateDrawer({
                   </a>
                 </div>
               ) : googleNeedsReconnect ? (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/25 bg-warning-muted px-4 py-3 text-sm text-warning">
                   <span>Google connection expired. Reconnect to schedule meetings.</span>
                   <a
                     className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
@@ -7250,7 +7254,7 @@ export default function CandidateDrawer({
                   </a>
                 </div>
               ) : googleHasScopes === false ? (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/25 bg-warning-muted px-4 py-3 text-sm text-warning">
                   <span>Google is connected but missing Calendar permissions.</span>
                   <a
                     className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
@@ -7260,19 +7264,19 @@ export default function CandidateDrawer({
                   </a>
                 </div>
               ) : googleConnected ? (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
+                <div className="rounded-lg border border-success/25 bg-success-muted px-4 py-3 text-xs text-success">
                   Google Calendar connected.
                 </div>
               ) : null}
               {meetingError ? (
-                <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-600">
+                <div className="rounded-lg border border-destructive/25 bg-danger-muted px-4 py-3 text-xs text-destructive">
                   {meetingError}
                 </div>
               ) : null}
               <div className="flex flex-wrap gap-3">
-                <input
+                <UiInput
                   type="date"
-                  className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+                  className="h-10"
                   value={meetingForm.date}
                   onChange={(event) =>
                     setMeetingForm((prev) => ({
@@ -7281,8 +7285,8 @@ export default function CandidateDrawer({
                     }))
                   }
                 />
-                <select
-                  className="h-10 min-w-[220px] rounded-md border border-slate-200 px-3 text-sm"
+                <UiSelect
+                  className="h-10 min-w-[220px]"
                   value={meetingForm.timezone}
                   onChange={(event) =>
                     setMeetingForm((prev) => ({
@@ -7295,11 +7299,11 @@ export default function CandidateDrawer({
                   <option>GMT+01:00 - Europe/Warsaw</option>
                   <option>GMT+00:00 - UTC</option>
                   <option>GMT-05:00 - America/New York</option>
-                </select>
+                </UiSelect>
               </div>
               <div className="grid gap-3 md:grid-cols-[120px_140px_1fr_auto]">
-                <select
-                  className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+                <UiSelect
+                  className="h-10"
                   value={meetingForm.time}
                   onChange={(event) =>
                     setMeetingForm((prev) => ({
@@ -7311,9 +7315,9 @@ export default function CandidateDrawer({
                   {["09:00", "10:00", "11:00", "13:00", "15:00"].map((value) => (
                     <option key={value}>{value}</option>
                   ))}
-                </select>
-                <select
-                  className="h-10 rounded-md border border-slate-200 px-3 text-sm"
+                </UiSelect>
+                <UiSelect
+                  className="h-10"
                   value={meetingForm.duration}
                   onChange={(event) =>
                     setMeetingForm((prev) => ({
@@ -7325,10 +7329,10 @@ export default function CandidateDrawer({
                   {["30 min", "45 min", "60 min", "90 min"].map((value) => (
                     <option key={value}>{value}</option>
                   ))}
-                </select>
+                </UiSelect>
                 <div className="relative">
-                  <input
-                    className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
+                  <UiInput
+                    className="h-10 w-full"
                     placeholder="Interviewers"
                     value={interviewerQuery}
                     onChange={(event) => {
@@ -7347,7 +7351,7 @@ export default function CandidateDrawer({
                   />
                   {showInterviewerMenu &&
                   interviewerQuery.trim().length > 0 ? (
-                    <div className="absolute z-10 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
+                    <div className="absolute z-10 mt-1 w-full rounded-lg border border-border bg-card shadow-lg">
                       {interviewerOptions
                         .filter((option) =>
                           option.name
@@ -7358,7 +7362,7 @@ export default function CandidateDrawer({
                           <button
                             key={option.id}
                             type="button"
-                            className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                            className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
                             onMouseDown={(event) => event.preventDefault()}
                             onClick={() => {
                               setInterviewerQuery(option.name);
@@ -7380,23 +7384,23 @@ export default function CandidateDrawer({
                           .toLowerCase()
                           .includes(interviewerQuery.toLowerCase())
                       ).length === 0 ? (
-                        <div className="px-3 py-2 text-xs text-slate-400">
+                        <div className="px-3 py-2 text-xs text-muted-foreground">
                           No matches.
                         </div>
                       ) : null}
                     </div>
                   ) : null}
                 </div>
-                <button
+                <UiButton variant="secondary" size="md"
                   type="button"
-                  className="h-10 rounded-md border border-slate-200 bg-slate-50 px-4 text-sm text-slate-600"
+                  className="h-10"
                 >
                   Availability
-                </button>
+                </UiButton>
               </div>
               <div className="grid gap-3 md:grid-cols-[1fr_260px]">
-                <input
-                  className="h-11 rounded-md border border-slate-200 px-3 text-sm"
+                <UiInput
+                  className="h-11"
                   value={meetingForm.title}
                   onChange={(event) =>
                     setMeetingForm((prev) => ({
@@ -7406,8 +7410,8 @@ export default function CandidateDrawer({
                   }
                 />
                 <div className="flex items-center gap-2">
-                  <select
-                    className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                  <UiSelect
+                    className="h-11 w-full"
                     value={meetingForm.interviewerName}
                     onChange={(event) =>
                       setMeetingForm((prev) => ({
@@ -7418,18 +7422,18 @@ export default function CandidateDrawer({
                   >
                     <option>Audrius Gadisauskas</option>
                     <option>Ismira Recruiter</option>
-                  </select>
-                  <button
+                  </UiSelect>
+                  <UiButton variant="secondary" size="lg"
                     type="button"
-                    className="flex h-11 w-11 items-center justify-center rounded-md border border-slate-200 text-slate-500"
+                    className="flex h-11 w-11 items-center justify-center"
                   >
                     i
-                  </button>
+                  </UiButton>
                 </div>
               </div>
               <div className="grid gap-3 md:grid-cols-[1fr_260px]">
-                <textarea
-                  className="min-h-[180px] rounded-md border border-slate-200 px-3 py-2 text-sm"
+                <UiTextarea
+                  className="min-h-[180px]"
                   placeholder="Interview description"
                   value={meetingForm.description}
                   onChange={(event) =>
@@ -7440,8 +7444,8 @@ export default function CandidateDrawer({
                   }
                 />
                 <div className="space-y-3">
-                  <input
-                    className="h-11 rounded-md border border-slate-200 px-3 text-sm"
+                  <UiInput
+                    className="h-11"
                     placeholder="Location"
                     value={meetingForm.location}
                     onChange={(event) =>
@@ -7451,8 +7455,8 @@ export default function CandidateDrawer({
                       }))
                     }
                   />
-                  <select
-                    className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                  <UiSelect
+                    className="h-11 w-full"
                     value={meetingForm.interviewGuide}
                     onChange={(event) =>
                       setMeetingForm((prev) => ({
@@ -7464,9 +7468,9 @@ export default function CandidateDrawer({
                     <option>Interview Guide</option>
                     <option>Standard Interview</option>
                     <option>Service Role Interview</option>
-                  </select>
-                  <select
-                    className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                  </UiSelect>
+                  <UiSelect
+                    className="h-11 w-full"
                     value={meetingForm.meetingType}
                     onChange={(event) =>
                       setMeetingForm((prev) => ({
@@ -7479,10 +7483,10 @@ export default function CandidateDrawer({
                     <option>Zoom</option>
                     <option>Teams</option>
                     <option>Google Meet</option>
-                  </select>
+                  </UiSelect>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-700">Request Scorecards?</span>
-                    <div className="flex overflow-hidden rounded-md border border-slate-200">
+                    <span className="text-foreground">Request Scorecards?</span>
+                    <div className="flex overflow-hidden rounded-md border border-border">
                       {[
                         { label: "Yes", value: true },
                         { label: "No", value: false },
@@ -7492,8 +7496,8 @@ export default function CandidateDrawer({
                           type="button"
                           className={`px-3 py-1 text-xs font-semibold ${
                             meetingForm.requestScorecards === item.value
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-white text-slate-500"
+                              ? "bg-success-muted text-success"
+                              : "bg-card text-muted-foreground"
                           }`}
                           onClick={() =>
                             setMeetingForm((prev) => ({
@@ -7508,8 +7512,8 @@ export default function CandidateDrawer({
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-700">Send SMS Reminders</span>
-                    <div className="flex overflow-hidden rounded-md border border-slate-200">
+                    <span className="text-foreground">Send SMS Reminders</span>
+                    <div className="flex overflow-hidden rounded-md border border-border">
                       {[
                         { label: "Yes", value: true },
                         { label: "No", value: false },
@@ -7519,8 +7523,8 @@ export default function CandidateDrawer({
                           type="button"
                           className={`px-3 py-1 text-xs font-semibold ${
                             meetingForm.sendSms === item.value
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-white text-slate-500"
+                              ? "bg-success-muted text-success"
+                              : "bg-card text-muted-foreground"
                           }`}
                           onClick={() =>
                             setMeetingForm((prev) => ({
@@ -7538,34 +7542,34 @@ export default function CandidateDrawer({
               </div>
               <button
                 type="button"
-                className="text-sm font-semibold text-sky-500"
+                className="text-sm font-semibold text-foreground"
               >
                 + Add Interview
               </button>
             </div>
-            <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
-              <button
+            <div className="flex items-center justify-between border-t border-border px-6 py-4">
+              <UiButton variant="secondary" size="md"
                 type="button"
-                className="rounded-md border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600"
+                className=""
               >
                 Save as Template
-              </button>
+              </UiButton>
               <div className="flex items-center gap-2">
-                <button
+                <UiButton variant="secondary" size="md"
                   type="button"
-                  className="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600"
+                  className=""
                   onClick={() => setShowMeetingModal(false)}
                 >
                   Cancel
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="ghost" size="md"
                   type="button"
-                  className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white"
+                  className=""
                   onClick={() => void handleCreateMeeting()}
                   disabled={meetingSubmitting}
                 >
                   {meetingSubmitting ? "Creating..." : "Create Google Meet"}
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>
@@ -7578,22 +7582,22 @@ export default function CandidateDrawer({
           onClick={() => setIsDocumentModalOpen(false)}
         >
           <div
-            className="flex h-[85vh] w-[90vw] max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="flex h-[85vh] w-[90vw] max-w-5xl flex-col overflow-hidden rounded-panel bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+            <div className="flex items-center justify-between border-b border-border px-5 py-3">
               <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-slate-900">
+                <div className="truncate text-sm font-semibold text-foreground">
                   {activeDocumentName ?? "Document"}
                 </div>
-                <div className="mt-1 text-[11px] text-slate-500">
+                <div className="mt-1 text-[11px] text-muted-foreground">
                   {activeDocumentId ? "Preview" : "No document selected"}
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                  className=""
                   onClick={() => {
                     if (!activeDocumentId) return;
                     const entry = documentEntries.find(
@@ -7608,17 +7612,17 @@ export default function CandidateDrawer({
                   }}
                 >
                   Open in new tab
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="primary" size="sm"
                   type="button"
-                  className="rounded-full bg-black px-3 py-1 text-[11px] font-semibold text-white"
+                  className=""
                   onClick={() => setIsDocumentModalOpen(false)}
                 >
                   Close
-                </button>
+                </UiButton>
               </div>
             </div>
-            <div className="flex-1 overflow-hidden bg-slate-50">
+            <div className="flex-1 overflow-hidden bg-muted">
                   {activeDocumentUrl ? (
                     isPdfFile(activeDocumentMime, activeDocumentUrl, activeDocumentName) ? (
                       <iframe
@@ -7633,16 +7637,16 @@ export default function CandidateDrawer({
                         className="h-full w-full object-contain"
                       />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
+                  <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
                     Preview not available. Use “Open in new tab.”
                   </div>
                 )
               ) : signingDocId === activeDocumentId ? (
-                <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
+                <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
                   Loading preview...
                 </div>
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
+                <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
                   Preview not available.
                 </div>
               )}
@@ -7656,23 +7660,23 @@ export default function CandidateDrawer({
           onClick={() => setIsQuestionnaireModalOpen(false)}
         >
           <div
-            className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-lg overflow-hidden rounded-panel bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="border-b border-slate-200 px-5 py-4">
-              <div className="text-sm font-semibold text-slate-900">
+            <div className="border-b border-border px-5 py-4">
+              <div className="text-sm font-semibold text-foreground">
                 Send questionnaire
               </div>
-              <div className="mt-1 text-xs text-slate-500">
+              <div className="mt-1 text-xs text-muted-foreground">
                 Choose which questionnaire to send.
               </div>
             </div>
             <div className="px-5 py-4">
-              <label className="text-xs font-semibold uppercase text-slate-500">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">
                 Questionnaire
               </label>
-              <select
-                className="mt-2 h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+              <UiSelect
+                className="mt-2 h-11 w-full"
                 value={selectedQuestionnaire}
                 onChange={(event) => setSelectedQuestionnaire(event.target.value)}
                 disabled={questionnaires.length === 0}
@@ -7683,8 +7687,8 @@ export default function CandidateDrawer({
                     {item.name}
                   </option>
                 ))}
-              </select>
-              <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+              </UiSelect>
+              <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                 <span>
                   {questionnaires.length === 0
                     ? "No questionnaires yet."
@@ -7692,20 +7696,20 @@ export default function CandidateDrawer({
                 </span>
                 <button
                   type="button"
-                  className="font-semibold text-emerald-700"
+                  className="font-semibold text-success"
                   onClick={() => handleOpenCreateQuestionnaire(true)}
                 >
                   Create new questionnaire
                 </button>
               </div>
               {selectedQuestionnaire ? (
-                <div className="mt-3 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-                  <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-300 text-xs font-semibold text-emerald-700">
+                <div className="mt-3 flex items-start gap-2 rounded-md border border-success/25 bg-success-muted px-3 py-2 text-xs text-success">
+                  <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-success/25 text-xs font-semibold text-success">
                     i
                   </span>
                   <div>
                     You are about to send this questionnaire to{" "}
-                    <span className="font-semibold text-emerald-800">
+                    <span className="font-semibold text-success">
                       {candidate?.email ?? "this candidate"}
                     </span>
                     .
@@ -7713,22 +7717,22 @@ export default function CandidateDrawer({
                 </div>
               ) : null}
             </div>
-            <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3">
-              <button
+            <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+              <UiButton variant="secondary" size="sm"
                 type="button"
-                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+                className=""
                 onClick={() => setIsQuestionnaireModalOpen(false)}
               >
                 Cancel
-              </button>
-              <button
+              </UiButton>
+              <UiButton variant="primary" size="sm"
                 type="button"
-                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                className="disabled:opacity-60"
                 disabled={!selectedQuestionnaire}
                 onClick={handleSendQuestionnaire}
               >
                 Send
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -7739,24 +7743,24 @@ export default function CandidateDrawer({
           onClick={() => handleCloseCreateQuestionnaireModal()}
         >
           <div
-            className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-lg overflow-hidden rounded-panel bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="border-b border-slate-200 px-5 py-4">
-              <div className="text-sm font-semibold text-slate-900">
+            <div className="border-b border-border px-5 py-4">
+              <div className="text-sm font-semibold text-foreground">
                 Create questionnaire
               </div>
-              <div className="mt-1 text-xs text-slate-500">
+              <div className="mt-1 text-xs text-muted-foreground">
                 Add a name and status for the questionnaire.
               </div>
             </div>
             <div className="space-y-4 px-5 py-4">
               <div>
-                <label className="text-xs font-semibold uppercase text-slate-500">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
                   Name
                 </label>
-                <input
-                  className="mt-2 h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                <UiInput
+                  className="mt-2 h-11 w-full"
                   placeholder="Questionnaire name"
                   value={questionnaireDraftName}
                   onChange={(event) => {
@@ -7768,11 +7772,11 @@ export default function CandidateDrawer({
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold uppercase text-slate-500">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
                   Status
                 </label>
-                <select
-                  className="mt-2 h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+                <UiSelect
+                  className="mt-2 h-11 w-full"
                   value={questionnaireDraftStatus}
                   onChange={(event) =>
                     setQuestionnaireDraftStatus(
@@ -7782,29 +7786,29 @@ export default function CandidateDrawer({
                 >
                   <option value="Active">Active</option>
                   <option value="Draft">Draft</option>
-                </select>
+                </UiSelect>
               </div>
               {questionnaireDraftError ? (
-                <div className="text-xs text-rose-600">
+                <div className="text-xs text-destructive">
                   {questionnaireDraftError}
                 </div>
               ) : null}
             </div>
-            <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3">
-              <button
+            <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+              <UiButton variant="secondary" size="sm"
                 type="button"
-                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+                className=""
                 onClick={() => handleCloseCreateQuestionnaireModal()}
               >
                 Cancel
-              </button>
-              <button
+              </UiButton>
+              <UiButton variant="primary" size="sm"
                 type="button"
-                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+                className=""
                 onClick={handleCreateQuestionnaire}
               >
                 Create
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -7948,14 +7952,14 @@ type AddNoteFormProps = {
     <div className="mt-4">
       <form onSubmit={handleSubmit} className="mt-auto flex items-center gap-3">
         <div
-          className={`relative flex flex-1 gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm ${
+          className={`relative flex flex-1 gap-2 rounded-panel border border-border bg-card px-3 py-2 shadow-sm ${
             isCompact ? "items-center" : "items-end"
           }`}
         >
           {mentionOpen ? (
-            <div className="absolute bottom-full left-10 z-20 mb-2 w-[360px] max-w-[calc(100vw-5rem)] rounded-xl border border-slate-200 bg-white p-2 text-xs shadow-lg">
+            <div className="absolute bottom-full left-10 z-20 mb-2 w-[360px] max-w-[calc(100vw-5rem)] rounded-md border border-border bg-card p-2 text-xs shadow-lg">
               {mentionOptions.length === 0 ? (
-                <div className="px-2 py-1.5 text-slate-400">
+                <div className="px-2 py-1.5 text-muted-foreground">
                   {teamUsers.length === 0
                     ? "No team members loaded."
                     : "No matching team members."}
@@ -7968,22 +7972,22 @@ type AddNoteFormProps = {
 	                      type="button"
 	                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left ${
 	                        index === mentionIndexSafe
-	                          ? "bg-slate-100 text-slate-900"
-	                          : "text-slate-700 hover:bg-slate-50"
+	                          ? "bg-muted text-foreground"
+	                          : "text-foreground hover:bg-muted"
 	                      }`}
                       onMouseDown={(event) => {
                         event.preventDefault();
                         applyMention(user);
                       }}
                     >
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700">
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-success-muted text-[10px] font-bold text-success">
                         @
                       </span>
-                      <span className="text-xs font-semibold text-slate-900">
+                      <span className="text-xs font-semibold text-foreground">
                         {user.label}
                       </span>
                       {user.email ? (
-                        <span className="ml-auto text-[11px] text-slate-400">
+                        <span className="ml-auto text-[11px] text-muted-foreground">
                           {user.email}
                         </span>
                       ) : null}
@@ -7993,17 +7997,17 @@ type AddNoteFormProps = {
               )}
             </div>
           ) : null}
-          <button
+          <UiButton variant="ghost" size="md"
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+            className="flex h-8 w-8 items-center justify-center"
             aria-label="Add emoji"
           >
             <Smile className="h-4 w-4" />
-          </button>
+          </UiButton>
           <textarea
             ref={textareaRef}
             rows={1}
-            className={`max-h-40 min-h-[32px] flex-1 resize-none bg-transparent text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none ${
+            className={`max-h-40 min-h-[32px] flex-1 resize-none bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none ${
               isCompact ? "h-8 py-2 leading-4" : "py-1.5 leading-5"
             }`}
             placeholder={placeholder ?? "Type a message"}
@@ -8061,21 +8065,21 @@ type AddNoteFormProps = {
               }
             }}
           />
-          <button
+          <UiButton variant="ghost" size="md"
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+            className="flex h-8 w-8 items-center justify-center"
             aria-label="Attach file"
           >
             <Paperclip className="h-4 w-4" />
-          </button>
+          </UiButton>
         </div>
-        <button
+        <UiButton variant="primary" size="md"
           type="submit"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm transition hover:bg-slate-800"
+          className="flex h-10 w-10 items-center justify-center transition"
           aria-label="Send message"
         >
           <Send className="h-4 w-4" />
-        </button>
+        </UiButton>
       </form>
     </div>
   );

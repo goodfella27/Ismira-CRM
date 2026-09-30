@@ -1,4 +1,6 @@
 "use client";
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
 import { FilterTooltip } from "@/components/filter-tooltip";
 import { getPriorityTooltip, sortPriorityTypes } from "@/lib/breezy-priority-types";
 import { getPriorityBadgeClass, getPriorityTextClass } from "@/lib/opening-type-colors";
@@ -47,7 +49,7 @@ import {
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
-import { DropdownMenu } from "radix-ui";
+import { DropdownMenu, Dialog as DisclaimerDialog } from "radix-ui";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 
@@ -118,13 +120,13 @@ function HeroCoverImage({ src }: { src: string }) {
 
   if (!src) {
     return (
-      <div className="w-full bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6] sm:aspect-[16/7]" />
+      <div className="w-full bg-muted sm:aspect-[16/7]" />
     );
   }
 
   return (
     <div
-      className="w-full overflow-hidden bg-gradient-to-br from-[#ffc45c] via-[#58d0d8] to-[#3ea4e6]"
+      className="w-full overflow-hidden bg-muted"
       style={aspectRatio ? { aspectRatio: String(aspectRatio) } : { aspectRatio: "16 / 7" }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -259,8 +261,8 @@ function HeroLogoStackSkeleton({ size = 124, className }: { size?: number; class
           <div
             key={level}
             className={[
-              "absolute left-0 bottom-0 overflow-hidden rounded-[28px] ring-1 ring-black/5",
-              "bg-white/40 shadow-[0_26px_60px_-30px_rgba(0,0,0,0.25)]",
+              "absolute left-0 bottom-0 overflow-hidden rounded-dialog ring-1 ring-black/5",
+              "bg-card/40 shadow-overlay",
               "animate-pulse",
             ].join(" ")}
             style={{
@@ -413,25 +415,25 @@ function RichText({ content }: { content: string }) {
     return (
       <div
         className={[
-          "text-[15px] leading-7 text-slate-800",
+          "text-[15px] leading-7 text-foreground",
           "[&>*:first-child]:mt-0",
           "[&_p]:mt-3",
-          "[&_h1]:mb-2 [&_h1]:mt-6 [&_h1]:text-xl [&_h1]:font-extrabold [&_h1]:uppercase [&_h1]:tracking-wide [&_h1]:text-slate-950",
-          "xl:[&_h1]:mb-3 xl:[&_h1]:mt-8 xl:[&_h1]:border-l-4 xl:[&_h1]:border-sky-300 xl:[&_h1]:pl-4 xl:[&_h1]:text-[1.1rem] xl:[&_h1]:tracking-[0.08em] xl:[&_h1]:text-slate-900",
-          "[&_h2]:mb-2 [&_h2]:mt-6 [&_h2]:text-lg [&_h2]:font-extrabold [&_h2]:uppercase [&_h2]:tracking-wide [&_h2]:text-slate-950",
-          "xl:[&_h2]:mb-3 xl:[&_h2]:mt-8 xl:[&_h2]:border-l-4 xl:[&_h2]:border-sky-300 xl:[&_h2]:pl-4 xl:[&_h2]:text-[1.05rem] xl:[&_h2]:tracking-[0.08em] xl:[&_h2]:text-slate-900",
-          "[&_h3]:mb-2 [&_h3]:mt-5 [&_h3]:text-base [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-wide [&_h3]:text-slate-800",
-          "xl:[&_h3]:mt-6 xl:[&_h3]:border-l-4 xl:[&_h3]:border-sky-200 xl:[&_h3]:pl-4 xl:[&_h3]:tracking-[0.06em]",
-          "[&_h4]:mb-1 [&_h4]:mt-4 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:uppercase [&_h4]:tracking-wide [&_h4]:text-slate-600",
+          "[&_h1]:mb-2 [&_h1]:mt-6 [&_h1]:text-xl [&_h1]:font-extrabold [&_h1]:uppercase [&_h1]:tracking-wide [&_h1]:text-foreground",
+          "xl:[&_h1]:mb-3 xl:[&_h1]:mt-8 xl:[&_h1]:border-l-4 xl:[&_h1]:border-input xl:[&_h1]:pl-4 xl:[&_h1]:text-[1.1rem] xl:[&_h1]:tracking-[0.08em] xl:[&_h1]:text-foreground",
+          "[&_h2]:mb-2 [&_h2]:mt-6 [&_h2]:text-lg [&_h2]:font-extrabold [&_h2]:uppercase [&_h2]:tracking-wide [&_h2]:text-foreground",
+          "xl:[&_h2]:mb-3 xl:[&_h2]:mt-8 xl:[&_h2]:border-l-4 xl:[&_h2]:border-input xl:[&_h2]:pl-4 xl:[&_h2]:text-[1.05rem] xl:[&_h2]:tracking-[0.08em] xl:[&_h2]:text-foreground",
+          "[&_h3]:mb-2 [&_h3]:mt-5 [&_h3]:text-base [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-wide [&_h3]:text-foreground",
+          "xl:[&_h3]:mt-6 xl:[&_h3]:border-l-4 xl:[&_h3]:border-input xl:[&_h3]:pl-4 xl:[&_h3]:tracking-[0.06em]",
+          "[&_h4]:mb-1 [&_h4]:mt-4 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:uppercase [&_h4]:tracking-wide [&_h4]:text-muted-foreground",
           "xl:[&_h4]:tracking-[0.08em]",
           "[&_ul]:mt-3 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5 xl:[&_ul]:mt-4 xl:[&_ul]:space-y-3 xl:[&_ul]:pl-7",
           "[&_ol]:mt-3 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-5 xl:[&_ol]:mt-4 xl:[&_ol]:space-y-3 xl:[&_ol]:pl-7",
-          "[&_li]:leading-7 [&_li]:marker:text-sky-500",
-          "[&_strong]:font-extrabold [&_strong]:text-slate-900",
-          "[&_a]:font-semibold [&_a]:text-emerald-700 [&_a:hover]:underline",
-          "[&_img]:my-4 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-[24px] [&_img]:border [&_img]:border-slate-200 [&_img]:shadow-[0_20px_50px_-30px_rgba(15,23,42,0.45)]",
+          "[&_li]:leading-7 [&_li]:marker:text-foreground",
+          "[&_strong]:font-extrabold [&_strong]:text-foreground",
+          "[&_a]:font-semibold [&_a]:text-success [&_a:hover]:underline",
+          "[&_img]:my-4 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-panel [&_img]:border [&_img]:border-border [&_img]:shadow-overlay",
           "[&_figure]:my-4",
-          "[&_hr]:my-6 [&_hr]:border-slate-200",
+          "[&_hr]:my-6 [&_hr]:border-border",
           "[&_br]:leading-6",
         ].join(" ")}
         dangerouslySetInnerHTML={{ __html: safeHtml || "" }}
@@ -440,7 +442,7 @@ function RichText({ content }: { content: string }) {
   }
 
   return (
-    <div className="whitespace-pre-wrap text-sm leading-6 text-slate-800">
+    <div className="whitespace-pre-wrap text-sm leading-6 text-foreground">
       {safeText || "—"}
     </div>
   );
@@ -448,42 +450,42 @@ function RichText({ content }: { content: string }) {
 
 function JobDetailsSkeleton() {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5">
+    <div className="rounded-panel border border-border bg-card p-5">
       <div className="animate-pulse">
         <div className="grid gap-4 sm:grid-cols-4">
           <div className="sm:col-span-2">
-            <div className="h-3 w-16 rounded bg-slate-200" />
-            <div className="mt-2 h-6 w-72 rounded bg-slate-200" />
+            <div className="h-3 w-16 rounded bg-accent" />
+            <div className="mt-2 h-6 w-72 rounded bg-accent" />
           </div>
           <div>
-            <div className="h-3 w-10 rounded bg-slate-200" />
-            <div className="mt-2 h-4 w-40 rounded bg-slate-200" />
+            <div className="h-3 w-10 rounded bg-accent" />
+            <div className="mt-2 h-4 w-40 rounded bg-accent" />
           </div>
           <div className="sm:col-span-4">
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="h-3 w-20 rounded bg-slate-200" />
-                <div className="mt-2 h-4 w-48 rounded bg-slate-200" />
+              <div className="rounded-panel border border-border bg-muted p-4">
+                <div className="h-3 w-20 rounded bg-accent" />
+                <div className="mt-2 h-4 w-48 rounded bg-accent" />
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="h-3 w-28 rounded bg-slate-200" />
-                <div className="mt-2 h-4 w-44 rounded bg-slate-200" />
+              <div className="rounded-panel border border-border bg-muted p-4">
+                <div className="h-3 w-28 rounded bg-accent" />
+                <div className="mt-2 h-4 w-44 rounded bg-accent" />
               </div>
             </div>
           </div>
           <div className="sm:col-span-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="h-3 w-24 rounded bg-slate-200" />
+            <div className="rounded-panel border border-border bg-card p-4">
+              <div className="h-3 w-24 rounded bg-accent" />
               <div className="mt-3 space-y-2">
-                <div className="h-3 w-full rounded bg-slate-200" />
-                <div className="h-3 w-[92%] rounded bg-slate-200" />
-                <div className="h-3 w-[86%] rounded bg-slate-200" />
-                <div className="h-3 w-[70%] rounded bg-slate-200" />
+                <div className="h-3 w-full rounded bg-accent" />
+                <div className="h-3 w-[92%] rounded bg-accent" />
+                <div className="h-3 w-[86%] rounded bg-accent" />
+                <div className="h-3 w-[70%] rounded bg-accent" />
               </div>
             </div>
           </div>
         </div>
-        <div className="mt-4 text-center text-xs text-slate-500">
+        <div className="mt-4 text-center text-xs text-muted-foreground">
           Fetching details (cached after first load)…
         </div>
       </div>
@@ -497,23 +499,23 @@ function JobsListSkeleton() {
       {[0, 1, 2].map((item) => (
         <div
           key={item}
-          className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm xl:rounded-3xl xl:p-5"
+          className="rounded-[22px] border border-border bg-card p-4 shadow-sm xl:rounded-panel xl:p-5"
         >
           <div className="animate-pulse xl:flex xl:items-start xl:gap-4">
-            <div className="h-16 w-16 shrink-0 rounded-2xl bg-slate-100 ring-1 ring-slate-200 xl:h-20 xl:w-20 xl:rounded-full" />
+            <div className="h-16 w-16 shrink-0 rounded-panel bg-muted ring-1 ring-ring xl:h-20 xl:w-20 xl:rounded-full" />
             <div className="mt-4 min-w-0 flex-1 xl:mt-0">
-              <div className="h-4 w-24 rounded-full bg-slate-100" />
-              <div className="mt-3 h-5 w-[78%] rounded bg-slate-200" />
-              <div className="mt-2 h-4 w-[52%] rounded bg-slate-100" />
+              <div className="h-4 w-24 rounded-full bg-muted" />
+              <div className="mt-3 h-5 w-[78%] rounded bg-accent" />
+              <div className="mt-2 h-4 w-[52%] rounded bg-muted" />
               <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                <div className="h-9 rounded-full bg-slate-100 xl:rounded-2xl" />
-                <div className="h-9 rounded-full bg-slate-100 xl:rounded-2xl" />
-                <div className="h-9 rounded-full bg-slate-100 xl:rounded-2xl" />
+                <div className="h-9 rounded-full bg-muted xl:rounded-panel" />
+                <div className="h-9 rounded-full bg-muted xl:rounded-panel" />
+                <div className="h-9 rounded-full bg-muted xl:rounded-panel" />
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <div className="h-7 w-28 rounded-full bg-slate-100" />
-                <div className="h-7 w-36 rounded-full bg-slate-100" />
-                <div className="h-7 w-24 rounded-full bg-slate-100" />
+                <div className="h-7 w-28 rounded-full bg-muted" />
+                <div className="h-7 w-36 rounded-full bg-muted" />
+                <div className="h-7 w-24 rounded-full bg-muted" />
               </div>
             </div>
           </div>
@@ -533,8 +535,8 @@ type DropdownOption = {
 
 function FilterSectionLabel({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
   return (
-    <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-      <Icon className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+    <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
       <span>{label}</span>
     </div>
   );
@@ -550,7 +552,7 @@ function JobsDisplayLimitFilter({
   return (
     <div>
       <FilterSectionLabel icon={ClipboardList} label="Job Openings" />
-      <div className="mt-2 grid grid-cols-4 gap-2 rounded-2xl border border-slate-200 bg-white p-2">
+      <div className="mt-2 grid grid-cols-4 gap-2 rounded-panel border border-border bg-card p-2">
         {JOBS_DISPLAY_LIMIT_OPTIONS.map((option) => {
           const selected = option.value === value;
           return (
@@ -558,10 +560,10 @@ function JobsDisplayLimitFilter({
               key={String(option.value)}
               type="button"
               className={[
-                "h-9 rounded-xl px-2 text-xs font-semibold transition",
+                "h-9 rounded-md px-2 text-xs font-semibold transition",
                 selected
-                  ? "bg-slate-950 text-white shadow-sm"
-                  : "text-slate-600 hover:bg-slate-50",
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-muted",
               ].join(" ")}
               onClick={() => onChange(option.value)}
               aria-pressed={selected}
@@ -700,7 +702,7 @@ function FilterDropdown({
       <button
         ref={buttonRef}
         type="button"
-        className="mt-2 inline-flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm hover:bg-slate-50"
+        className="mt-2 inline-flex h-11 w-full items-center justify-between gap-3 rounded-panel border border-border bg-card px-4 text-sm text-foreground shadow-sm hover:bg-muted"
         onClick={() => {
           if (open) close();
           else setOpen(true);
@@ -717,26 +719,26 @@ function FilterDropdown({
               <span className="min-w-0 truncate">{selected.label}</span>
             </>
           ) : (
-            <span className="text-slate-500">{placeholder}</span>
+            <span className="text-muted-foreground">{placeholder}</span>
           )}
         </span>
-        <ChevronDown className="h-4 w-4 flex-none text-slate-400" />
+        <ChevronDown className="h-4 w-4 flex-none text-muted-foreground" />
       </button>
 
       {open && menuStyle && typeof document !== "undefined"
         ? createPortal(
             <div
               ref={menuRef}
-              className="fixed z-[1000] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+              className="fixed z-[1000] overflow-hidden rounded-panel border border-border bg-card shadow-xl"
               style={{ top: menuStyle.top, left: menuStyle.left, width: menuStyle.width }}
               role="listbox"
             >
               {options.length > 8 ? (
-                <div className="border-b border-slate-200 bg-white p-2">
-                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3">
-                    <Search className="h-4 w-4 text-slate-400" />
-                    <input
-                      className="h-10 w-full border-none bg-transparent text-sm text-slate-800 outline-none"
+                <div className="border-b border-border bg-card p-2">
+                  <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3">
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                    <UiInput
+                      className="h-10 w-full"
                       placeholder={`Search ${label.toLowerCase()}…`}
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
@@ -753,10 +755,10 @@ function FilterDropdown({
                       key={`${label}:${opt.value || "all"}`}
                       type="button"
 	                      className={[
-	                        "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm",
+	                        "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm",
 	                        isSelected
-	                          ? "bg-emerald-50 text-emerald-950"
-	                          : "text-slate-700 hover:bg-slate-50",
+	                          ? "bg-success-muted text-success"
+	                          : "text-foreground hover:bg-muted",
 	                      ].join(" ")}
                       role="option"
                       aria-selected={isSelected}
@@ -770,7 +772,7 @@ function FilterDropdown({
 	                        <span className="min-w-0 truncate">{opt.label}</span>
 	                      </span>
                       {opt.suffix ? (
-                        <span className="flex-none text-xs font-semibold text-slate-500">
+                        <span className="flex-none text-xs font-semibold text-muted-foreground">
                           {opt.suffix}
                         </span>
                       ) : null}
@@ -778,7 +780,7 @@ function FilterDropdown({
                   );
                 })}
                 {filtered.length === 0 ? (
-                  <div className="px-3 py-6 text-center text-sm text-slate-500">No results.</div>
+                  <div className="px-3 py-6 text-center text-sm text-muted-foreground">No results.</div>
                 ) : null}
               </div>
             </div>,
@@ -813,16 +815,16 @@ function MultiSelectTrigger({
       <FilterSectionLabel icon={icon} label={label} />
       <button
         type="button"
-        className="mt-2 inline-flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm hover:bg-slate-50"
+        className="mt-2 inline-flex h-11 w-full items-center justify-between gap-3 rounded-panel border border-border bg-card px-4 text-sm text-foreground shadow-sm hover:bg-muted"
         onClick={onClick}
         aria-haspopup="dialog"
       >
         <span className="flex min-w-0 items-center gap-2 truncate text-left">
-          <span className={valueLabel.toLowerCase().startsWith("all ") ? "text-slate-500" : ""}>
+          <span className={valueLabel.toLowerCase().startsWith("all ") ? "text-muted-foreground" : ""}>
             {valueLabel}
           </span>
         </span>
-        <ChevronDown className="h-4 w-4 flex-none text-slate-400" />
+        <ChevronDown className="h-4 w-4 flex-none text-muted-foreground" />
       </button>
     </div>
   );
@@ -883,53 +885,53 @@ function MultiSelectModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[2000] flex items-end justify-center bg-slate-950/50 p-2 backdrop-blur-sm sm:items-center sm:p-6"
+      className="fixed inset-0 z-[2000] flex items-end justify-center bg-overlay p-2 backdrop-blur-sm sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={title}
       onClick={onClose}
     >
       <div
-        className="max-h-[92svh] w-full max-w-4xl overflow-hidden rounded-[24px] border border-white/10 bg-white shadow-[0_30px_80px_-55px_rgba(0,0,0,0.85)] sm:rounded-3xl"
+        className="max-h-[92svh] w-full max-w-4xl overflow-hidden rounded-panel border border-white/10 bg-card shadow-overlay sm:rounded-panel"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-slate-900">{title}</div>
-            <div className="mt-1 text-xs text-slate-500">
+            <div className="text-sm font-semibold text-foreground">{title}</div>
+            <div className="mt-1 text-xs text-muted-foreground">
               {description ?? `${draft.length} selected`}
             </div>
           </div>
-          <button
+          <UiButton variant="primary" size="md"
             type="button"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-white shadow-sm hover:bg-black"
+            className="grid h-10 w-10 shrink-0 place-items-center"
             aria-label="Close"
             onClick={onClose}
           >
             <span aria-hidden="true" className="text-lg leading-none">
               ×
             </span>
-          </button>
+          </UiButton>
         </div>
 
-        <div className="border-b border-slate-200 bg-white px-5 py-4">
-          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-            <Search className="h-4 w-4 text-slate-400" />
-            <input
-              className="h-11 w-full border-none bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+        <div className="border-b border-border bg-card px-5 py-4">
+          <div className="flex items-center gap-2 rounded-panel border border-border bg-card px-4 shadow-overlay">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <UiInput
+              className="h-11 w-full"
               placeholder={`Search ${title.toLowerCase()}…`}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
             {query.trim() ? (
-              <button
+              <UiButton variant="ghost" size="md"
                 type="button"
-                className="grid h-9 w-9 place-items-center rounded-full text-slate-500 hover:bg-slate-50"
+                className="grid h-9 w-9 place-items-center"
                 aria-label="Clear search"
                 onClick={() => setQuery("")}
               >
                 <X className="h-4 w-4" />
-              </button>
+              </UiButton>
             ) : null}
           </div>
         </div>
@@ -944,10 +946,10 @@ function MultiSelectModal({
                   type="button"
                   onClick={() => toggle(opt.value)}
                   className={[
-                    "flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm shadow-sm transition",
+                    "flex w-full items-center gap-3 rounded-panel border px-4 py-3 text-left text-sm shadow-sm transition",
                     isSelected
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-950"
-                      : "border-slate-200 bg-white text-slate-800 hover:bg-slate-50",
+                      ? "border-success/25 bg-success-muted text-success"
+                      : "border-border bg-card text-foreground hover:bg-muted",
                   ].join(" ")}
                 >
                   <span
@@ -955,8 +957,8 @@ function MultiSelectModal({
                     className={[
                       "grid h-5 w-5 place-items-center rounded-md border text-[12px] font-bold",
                       isSelected
-                        ? "border-emerald-400 bg-emerald-500 text-white"
-                        : "border-slate-300 bg-white text-transparent",
+                        ? "border-success/25 bg-emerald-500 text-white"
+                        : "border-input bg-card text-transparent",
                     ].join(" ")}
                   >
                     ✓
@@ -964,7 +966,7 @@ function MultiSelectModal({
                   {opt.prefix ? <span className="flex-none">{opt.prefix}</span> : null}
                   <span className="min-w-0 flex-1 truncate">{opt.label}</span>
                   {opt.suffix ? (
-                    <span className="flex-none text-xs font-semibold text-slate-500">
+                    <span className="flex-none text-xs font-semibold text-muted-foreground">
                       {opt.suffix}
                     </span>
                   ) : null}
@@ -973,37 +975,37 @@ function MultiSelectModal({
             })}
           </div>
           {filteredOptions.length === 0 ? (
-            <div className="py-10 text-center text-sm text-slate-500">No results.</div>
+            <div className="py-10 text-center text-sm text-muted-foreground">No results.</div>
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-5 py-4">
-          <button
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-5 py-4">
+          <UiButton variant="secondary" size="sm"
             type="button"
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className=""
             onClick={() => setDraft([])}
             disabled={draft.length === 0}
           >
             Clear selection
-          </button>
+          </UiButton>
           <div className="flex items-center gap-2">
-            <button
+            <UiButton variant="secondary" size="sm"
               type="button"
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className=""
               onClick={onClose}
             >
               Cancel
-            </button>
-            <button
+            </UiButton>
+            <UiButton variant="primary" size="sm"
               type="button"
-              className="rounded-full bg-slate-900 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-black"
+              className=""
               onClick={() => {
                 onApply(draft);
                 onClose();
               }}
             >
               Apply
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -1026,14 +1028,14 @@ function companyOptionPrefix(label: string, logoUrl: string): ReactNode {
       <img
         src={logo}
         alt={name || "Company"}
-        className="h-7 w-7 rounded-full bg-white object-contain shadow-sm ring-1 ring-slate-200"
+        className="h-7 w-7 rounded-full bg-card object-contain shadow-sm ring-1 ring-ring"
         loading="lazy"
         decoding="async"
       />
     );
   }
   return (
-    <span className="grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600 ring-1 ring-slate-200">
+    <span className="grid h-7 w-7 place-items-center rounded-full bg-muted text-[11px] font-bold text-muted-foreground ring-1 ring-ring">
       {initial}
     </span>
   );
@@ -1153,14 +1155,14 @@ function BenefitTagDatapoints({
           <span
             key={tag}
             className={[
-              "inline-flex min-w-0 items-center gap-2 rounded-2xl bg-slate-50 px-2.5 py-2 text-slate-950 ring-1 ring-slate-100",
+              "inline-flex min-w-0 items-center gap-2 rounded-panel bg-muted px-2.5 py-2 text-foreground ring-1 ring-ring",
               "xl:rounded-none xl:bg-transparent xl:px-1 xl:py-0.5 xl:ring-0",
             ].join(" ")}
           >
-            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-slate-950 ring-1 ring-slate-200 xl:bg-slate-100 xl:ring-0">
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-card text-foreground ring-1 ring-ring xl:bg-muted xl:ring-0">
               <Icon className="h-3.5 w-3.5" />
             </span>
-            <span className="min-w-0 text-[11px] font-semibold leading-tight text-slate-950 xl:whitespace-normal xl:leading-tight">
+            <span className="min-w-0 text-[11px] font-semibold leading-tight text-foreground xl:whitespace-normal xl:leading-tight">
               {label}
             </span>
           </span>
@@ -1188,19 +1190,19 @@ function BenefitTagFeatureList({
         return (
           <div
             key={tag}
-            className="inline-flex min-w-0 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 xl:flex xl:gap-3 xl:rounded-2xl xl:bg-white xl:px-4 xl:py-3"
+            className="inline-flex min-w-0 items-center gap-2 rounded-full border border-border bg-muted px-3 py-2 xl:flex xl:gap-3 xl:rounded-panel xl:bg-card xl:px-4 xl:py-3"
           >
-            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-slate-900 ring-1 ring-slate-200 xl:h-10 xl:w-10 xl:border xl:border-sky-200 xl:bg-sky-50 xl:text-sky-700 xl:ring-0">
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-card text-foreground ring-1 ring-ring xl:h-10 xl:w-10 xl:border xl:border-input xl:bg-accent xl:text-foreground xl:ring-0">
               <Icon className="h-3.5 w-3.5 xl:h-4.5 xl:w-4.5" />
             </span>
-            <span className="min-w-0 text-xs font-semibold leading-tight text-slate-900 xl:hidden">
+            <span className="min-w-0 text-xs font-semibold leading-tight text-foreground xl:hidden">
               {label}
             </span>
             <div className="hidden min-w-0 xl:block">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 You Get
               </div>
-              <div className="truncate text-sm font-semibold text-slate-900">{label}</div>
+              <div className="truncate text-sm font-semibold text-foreground">{label}</div>
             </div>
           </div>
         );
@@ -1220,40 +1222,40 @@ function PremiumJobDetailsPanel({
 }) {
   if (loading) {
     return (
-      <div className="h-28 animate-pulse rounded-3xl border border-amber-100 bg-amber-50/60" />
+      <div className="h-28 animate-pulse rounded-panel border border-warning/25 bg-warning-muted" />
     );
   }
   if (!premium?.available) return null;
 
   if (!premium.canView || !premium.details) {
     return (
-      <div className="relative isolate overflow-hidden rounded-3xl border border-orange-200 bg-gradient-to-r from-amber-100 via-orange-50 to-pink-100 shadow-[0_18px_50px_-40px_rgba(249,115,22,0.65)]">
+      <div className="relative isolate overflow-hidden rounded-panel border border-warning/25 bg-muted shadow-overlay">
         <div
           className="pointer-events-none absolute -right-8 -top-20 -z-10 h-44 w-44 rounded-full bg-fuchsia-300/30 blur-3xl"
           aria-hidden="true"
         />
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-300 via-orange-400 to-pink-400 text-slate-950 shadow-sm ring-1 ring-white/60">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-muted text-foreground shadow-sm ring-1 ring-white/60">
               <LockKeyhole className="h-5 w-5" aria-hidden="true" />
             </span>
             <div>
-              <div className="text-sm font-bold text-slate-950">Salary and insider details</div>
-              <p className="mt-1 max-w-xl text-sm leading-6 text-slate-600">
+              <div className="text-sm font-bold text-foreground">Salary and insider details</div>
+              <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground">
                 Member access reveals salary, gratuities, contract length, rank and cabin details.
               </p>
             </div>
           </div>
           {premium.access === "visitor" ? (
-            <button
+            <UiButton variant="primary" size="lg"
               type="button"
               onClick={onLogin}
-              className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-pink-500 px-5 text-sm font-bold text-white shadow-md shadow-orange-200/60 transition hover:from-orange-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:ring-offset-2"
+              className="inline-flex h-11 shrink-0 items-center justify-center transition"
             >
               Log in to view
-            </button>
+            </UiButton>
           ) : (
-            <span className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-orange-200 bg-white/75 px-4 text-xs font-bold uppercase tracking-wide text-orange-800 shadow-sm backdrop-blur-sm">
+            <span className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-warning/25 bg-card/75 px-4 text-xs font-bold uppercase tracking-wide text-warning shadow-sm backdrop-blur-sm">
               Member access required
             </span>
           )}
@@ -1281,7 +1283,7 @@ function CountryChips({
         return (
           <span
             key={`${code}:${name}`}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 xl:bg-white"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold text-foreground xl:bg-card"
             title={name}
           >
             <span aria-hidden="true">{flag}</span>
@@ -1497,17 +1499,17 @@ function JobTestimonialStrip({
   return (
     <div
       className={[
-        "relative overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-r from-sky-50 via-white to-amber-50 text-slate-900",
-        isTop ? "p-5 shadow-sm sm:p-6" : "p-5 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.4)]",
+        "relative overflow-hidden rounded-panel border border-border bg-muted text-foreground",
+        isTop ? "p-5 shadow-sm sm:p-6" : "p-5 shadow-overlay",
       ].join(" ")}
     >
-      <div className="absolute right-4 top-4 text-sky-100" aria-hidden="true">
+      <div className="absolute right-4 top-4 text-foreground" aria-hidden="true">
         <Quote className={isTop ? "h-16 w-16" : "h-12 w-12"} />
       </div>
 
       <div className="relative grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
         <div className="flex items-center gap-3">
-          <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full bg-white text-lg font-extrabold text-slate-600 ring-1 ring-slate-200 sm:h-[72px] sm:w-[72px]">
+          <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-lg font-extrabold text-muted-foreground ring-1 ring-ring sm:h-[72px] sm:w-[72px]">
             {testimonial.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -1522,41 +1524,41 @@ function JobTestimonialStrip({
             )}
           </div>
           <div className="min-w-0 sm:hidden">
-            <div className="truncate text-sm font-extrabold text-slate-950">
+            <div className="truncate text-sm font-extrabold text-foreground">
               {testimonial.name}
             </div>
-            <div className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+            <div className="mt-0.5 truncate text-xs font-semibold text-muted-foreground">
               {testimonial.role}
             </div>
           </div>
         </div>
 
         <div className="min-w-0">
-          <div className="mb-2 flex items-center gap-1 text-amber-500" aria-label="5 star review">
+          <div className="mb-2 flex items-center gap-1 text-warning" aria-label="5 star review">
             {Array.from({ length: 5 }).map((_, starIndex) => (
               <Star key={starIndex} className="h-3.5 w-3.5 fill-current" />
             ))}
           </div>
           <p
             className={[
-              "text-pretty font-semibold leading-6 text-slate-950",
+              "text-pretty font-semibold leading-6 text-foreground",
               isTop ? "text-base sm:text-lg" : "text-sm sm:text-base",
             ].join(" ")}
           >
             {`"${testimonial.quote}"`}
           </p>
           <div className="mt-3 hidden min-w-0 sm:block">
-            <div className="truncate text-sm font-extrabold text-slate-950">
+            <div className="truncate text-sm font-extrabold text-foreground">
               {testimonial.name}
             </div>
-            <div className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+            <div className="mt-0.5 truncate text-xs font-semibold text-muted-foreground">
               {testimonial.role}
             </div>
           </div>
         </div>
 
         {country.label ? (
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-100 bg-white/75 px-3 py-1.5 text-xs font-bold text-sky-900 shadow-sm">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-input bg-card/75 px-3 py-1.5 text-xs font-bold text-foreground shadow-sm">
             {country.flag ? <span aria-hidden="true">{country.flag}</span> : null}
             <span>{country.label}</span>
           </div>
@@ -1577,40 +1579,35 @@ function ApplyDisclaimerModal({
   onApply: () => void;
   onClose: () => void;
 }) {
-  if (!open || typeof document === "undefined") return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[10050] flex items-end justify-center bg-slate-950/50 p-2 backdrop-blur-sm sm:items-center sm:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Important notice"
-      onClick={() => {
-        if (loading) return;
-        onClose();
-      }}
-    >
-      <div
-        className="w-full max-w-2xl overflow-hidden rounded-[24px] border border-white/10 bg-white shadow-[0_30px_80px_-55px_rgba(0,0,0,0.85)] sm:rounded-3xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-white px-5 py-4">
+  const openerRef = useRef<HTMLElement | null>(null);
+  return (
+    <DisclaimerDialog.Root open={open} onOpenChange={next => { if (!next && !loading) onClose(); }}>
+      <DisclaimerDialog.Portal>
+        <DisclaimerDialog.Overlay className="fixed inset-0 z-[10050] bg-overlay" />
+        <DisclaimerDialog.Content
+          className="fixed left-1/2 top-1/2 z-[10051] max-h-[90svh] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-dialog border border-border bg-card text-foreground shadow-overlay"
+          onOpenAutoFocus={() => { openerRef.current = document.activeElement as HTMLElement | null; }}
+          onCloseAutoFocus={event => { event.preventDefault(); if (openerRef.current?.isConnected) openerRef.current.focus(); }}
+          aria-describedby={undefined}
+        >
+          <DisclaimerDialog.Title className="sr-only">Important notice</DisclaimerDialog.Title>
+        <div className="flex items-start justify-between gap-4 border-b border-border bg-muted px-5 py-4">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+              <span className="grid h-10 w-10 place-items-center rounded-panel bg-warning-muted text-warning ring-1 ring-warning/25">
                 <AlertTriangle className="h-5 w-5" aria-hidden="true" />
               </span>
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-900">Before you apply</div>
-                <div className="mt-0.5 text-xs text-slate-500">
+                <div className="text-sm font-semibold text-foreground">Before you apply</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
                   A quick note to help us avoid duplicate profiles.
                 </div>
               </div>
             </div>
           </div>
-          <button
+          <UiButton variant="primary" size="md"
             type="button"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-white shadow-sm hover:bg-black disabled:opacity-60"
+            className="grid h-10 w-10 shrink-0 place-items-center disabled:opacity-60"
             aria-label="Close"
             onClick={onClose}
             disabled={loading}
@@ -1618,60 +1615,60 @@ function ApplyDisclaimerModal({
             <span aria-hidden="true" className="text-lg leading-none">
               ×
             </span>
-          </button>
+          </UiButton>
         </div>
 
         <div className="px-5 py-5">
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_18px_45px_-40px_rgba(15,23,42,0.25)]">
+          <div className="rounded-panel border border-border bg-card p-4 shadow-overlay">
             <div className="space-y-3">
-              <div className="rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3">
+              <div className="rounded-panel border border-warning/25 bg-warning-muted px-4 py-3">
                 <div className="flex items-start gap-3">
-                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-2xl bg-white text-amber-700 ring-1 ring-amber-200">
+                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-panel bg-card text-warning ring-1 ring-warning/25">
                     <ClipboardList className="h-4 w-4" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-slate-900">
+                    <div className="text-sm font-semibold text-foreground">
                       Please apply to one position at a time
                     </div>
-                    <div className="mt-1 text-sm leading-6 text-slate-700">
+                    <div className="mt-1 text-sm leading-6 text-foreground">
                       Choose the role that best matches your current experience.
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+              <div className="rounded-panel border border-border bg-card px-4 py-3">
                 <div className="flex items-start gap-3">
-                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-2xl bg-slate-900 text-white shadow-sm">
+                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-panel bg-primary text-primary-foreground shadow-sm">
                     <AlertTriangle className="h-4 w-4" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-slate-900">Duplicate applications may not be processed</div>
-                    <div className="mt-1 text-sm leading-6 text-slate-700">
+                    <div className="text-sm font-semibold text-foreground">Duplicate applications may not be processed</div>
+                    <div className="mt-1 text-sm leading-6 text-foreground">
                       If multiple applications are submitted, we may only process the most recent application.
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="text-xs leading-5 text-slate-500">
+              <div className="text-xs leading-5 text-muted-foreground">
                 Our recruiters can recommend other suitable roles during screening.
               </div>
             </div>
           </div>
 
           <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
-            <button
+            <UiButton variant="secondary" size="lg"
               type="button"
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-60 sm:w-auto"
+              className="inline-flex h-11 items-center justify-center disabled:opacity-60 sm:w-auto"
               onClick={onClose}
               disabled={loading}
             >
               Cancel
-            </button>
-            <button
+            </UiButton>
+            <UiButton variant="primary" size="lg"
               type="button"
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-5 text-sm font-semibold text-white shadow-lg shadow-sky-200/60 ring-1 ring-white/20 hover:from-[#256fd2] hover:to-[#55bbff] focus:outline-none focus:ring-2 focus:ring-sky-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70 sm:w-auto"
+              className="inline-flex h-11 items-center justify-center gap-2 disabled:opacity-70 sm:w-auto"
               onClick={onApply}
               disabled={loading}
             >
@@ -1683,12 +1680,12 @@ function ApplyDisclaimerModal({
                   <span>Continue to Apply</span>
                 </>
               )}
-            </button>
+            </UiButton>
           </div>
         </div>
-      </div>
-    </div>,
-    document.body
+        </DisclaimerDialog.Content>
+      </DisclaimerDialog.Portal>
+    </DisclaimerDialog.Root>
   );
 }
 
@@ -2808,14 +2805,6 @@ export default function JobsBoard() {
     return filtered.slice(0, Math.min(filtered.length, visibleCount));
   }, [filtered, visibleCount]);
 
-  useEffect(() => {
-    if (!selectedId) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeDetails();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeDetails, selectedId]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -3042,9 +3031,9 @@ export default function JobsBoard() {
           label: type.label,
           prefix:
             index % 2 === 0 ? (
-              <Flame className="h-4 w-4 text-orange-500" />
+              <Flame className="h-4 w-4 text-warning" />
             ) : (
-              <AlertTriangle className="h-4 w-4 text-sky-600" />
+              <AlertTriangle className="h-4 w-4 text-foreground" />
             ),
           suffix: String(count),
           onSelect: () => {
@@ -3070,7 +3059,7 @@ export default function JobsBoard() {
           id: `department:${opt.key}`,
           kind: "department",
           label: opt.label,
-          prefix: <UserRound className="h-4 w-4 text-amber-600" />,
+          prefix: <UserRound className="h-4 w-4 text-warning" />,
           suffix: opt.count ? String(opt.count) : "",
           onSelect: () => {
             setDepartmentFilters((prev) => (prev.includes(opt.key) ? prev : [...prev, opt.key]));
@@ -3092,7 +3081,7 @@ export default function JobsBoard() {
           prefix: (
             <span className="flex items-center gap-1">
               <span className="text-base leading-none">{renderCountryFlag(opt.code)}</span>
-              <MapPin className="h-4 w-4 text-emerald-600" />
+              <MapPin className="h-4 w-4 text-success" />
             </span>
           ),
           suffix: opt.count ? String(opt.count) : "",
@@ -3117,7 +3106,7 @@ export default function JobsBoard() {
           kind: "title",
           label: title,
           prefix: (
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Title
             </span>
           ),
@@ -3148,7 +3137,7 @@ export default function JobsBoard() {
           kind: "title",
           label: title,
           prefix: (
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Title
             </span>
           ),
@@ -3171,7 +3160,7 @@ export default function JobsBoard() {
             id: `department:${opt.key}`,
             kind: "department",
             label: opt.label,
-            prefix: <UserRound className="h-4 w-4 text-amber-600" />,
+            prefix: <UserRound className="h-4 w-4 text-warning" />,
             suffix: opt.count ? String(opt.count) : "",
             onSelect: () => {
               setDepartmentFilters((prev) => (prev.includes(opt.key) ? prev : [...prev, opt.key]));
@@ -3194,7 +3183,7 @@ export default function JobsBoard() {
             prefix: (
               <span className="flex items-center gap-1">
                 <span className="text-base leading-none">{renderCountryFlag(opt.code)}</span>
-                <MapPin className="h-4 w-4 text-emerald-600" />
+                <MapPin className="h-4 w-4 text-success" />
               </span>
             ),
             suffix: opt.count ? String(opt.count) : "",
@@ -3221,12 +3210,12 @@ export default function JobsBoard() {
               <img
                 src={opt.logo}
                 alt=""
-                className="h-6 w-6 rounded-full object-cover ring-1 ring-slate-200"
+                className="h-6 w-6 rounded-full object-cover ring-1 ring-ring"
                 loading="lazy"
                 decoding="async"
               />
             ) : (
-              <Building2 className="h-4 w-4 text-slate-500" />
+              <Building2 className="h-4 w-4 text-muted-foreground" />
             ),
             suffix: opt.count ? String(opt.count) : "",
             onSelect: () => {
@@ -3559,22 +3548,18 @@ export default function JobsBoard() {
   }, [selectedId]);
 
   return (
-    <div className="min-h-screen [overflow-x:clip] bg-slate-50 px-2.5 pb-10 pt-20 text-slate-900 sm:px-5 sm:pt-28 lg:px-8">
+    <div className="min-h-screen [overflow-x:clip] bg-muted px-2.5 pb-10 pt-20 text-foreground sm:px-5 sm:pt-28 lg:px-8">
       <StickyJobsHeader />
       <div className="mx-auto w-full max-w-[1280px]">
         <section
-          className="relative overflow-hidden rounded-[28px] px-5 pb-12 pt-9 text-center shadow-[0_30px_80px_-55px_rgba(0,0,0,0.75)] sm:rounded-[36px] sm:px-10 sm:pb-20 sm:pt-14"
+          className="relative border-b border-border px-5 pb-12 pt-9 text-center sm:px-10 sm:pb-16 sm:pt-12"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-[#ff9f2f] via-[#58d0d8] to-[#3ea4e6]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_40%,rgba(255,255,255,0.30),transparent_56%)] opacity-95" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_52%_20%,rgba(255,255,255,0.22),transparent_52%)] opacity-95" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_88%_30%,rgba(0,0,0,0.18),transparent_58%)] opacity-90" />
 
           <div className="relative">
-            <h1 className="mx-auto max-w-[12ch] text-balance text-3xl font-extrabold leading-tight tracking-tight text-white drop-shadow-sm sm:max-w-none sm:text-6xl">
+            <h1 className="mx-auto max-w-[12ch] text-balance text-3xl font-semibold leading-tight tracking-tight text-foreground sm:max-w-none sm:text-4xl">
               Find Your Dream Jobs
             </h1>
-            <p className="mx-auto mt-4 max-w-[28ch] text-pretty text-sm leading-6 text-white/85 sm:max-w-2xl sm:text-base">
+            <p className="mx-auto mt-4 max-w-[28ch] text-pretty text-sm leading-6 text-muted-foreground sm:max-w-2xl sm:text-base">
 	              Browse open positions and view full job details.
 	            </p>
 
@@ -3587,7 +3572,7 @@ export default function JobsBoard() {
 		        </section>
 
         <form
-          className="relative z-10 mx-auto -mt-8 w-full max-w-[820px] rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)] sm:-mt-12 sm:rounded-[28px] sm:p-5"
+          className="relative z-10 mx-auto -mt-8 w-full max-w-[820px] rounded-panel border border-border bg-card p-3 shadow-control sm:-mt-8 sm:rounded-panel sm:p-5"
           onSubmit={(event) => {
             event.preventDefault();
             resetVisibleCount();
@@ -3596,24 +3581,24 @@ export default function JobsBoard() {
           }}
         >
           <div ref={searchRootRef} className="relative">
-            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:gap-3 sm:px-4 sm:py-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-sky-50 text-sky-700 ring-1 ring-sky-100 sm:h-10 sm:w-10">
+            <div className="flex items-center gap-2 rounded-panel border border-border bg-card px-3 py-2.5 shadow-overlay sm:gap-3 sm:px-4 sm:py-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent text-foreground ring-1 ring-ring sm:h-10 sm:w-10">
                 <Search className="h-4 w-4" />
               </span>
               <div className="relative min-w-0 flex-1">
                 {inlineAutocomplete ? (
                   <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 h-10 w-full overflow-hidden whitespace-nowrap text-sm leading-10 text-slate-800"
+                    className="pointer-events-none absolute inset-0 h-10 w-full overflow-hidden whitespace-nowrap text-sm leading-10 text-foreground"
                   >
                     <span className="text-transparent">{filter}</span>
-                    <span className="text-slate-300">{inlineAutocomplete.tail}</span>
+                    <span className="text-muted-foreground">{inlineAutocomplete.tail}</span>
                   </div>
                 ) : null}
-                <input
+                <UiInput
                   ref={searchInputRef}
                   autoComplete="off"
-                  className="relative h-10 w-full border-none bg-transparent text-sm leading-10 text-slate-800 outline-none placeholder:text-slate-400"
+                  className="relative h-10 w-full leading-10"
                   placeholder="Jobs title or keywords"
                   value={filter}
 	                  onFocus={() => {
@@ -3690,16 +3675,16 @@ export default function JobsBoard() {
 	                  }}
 	                />
               </div>
-              <button
+              <UiButton variant="primary" size="md"
                 type="submit"
-                className="hidden h-10 shrink-0 rounded-2xl bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-4 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(47,125,225,0.7)] transition hover:from-[#256fd2] hover:to-[#55bbff] sm:block sm:px-7"
+                className="hidden h-10 shrink-0 transition sm:block"
               >
                 Search
-              </button>
+              </UiButton>
             </div>
 
             {searchSuggestOpen && searchSuggestions.length > 0 ? (
-              <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+              <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-panel border border-border bg-card shadow-xl">
                 <div className="hide-scrollbar max-h-72 overflow-auto p-1">
 	                  {searchSuggestions.map((item, idx) => {
 	                    const active = idx === searchActiveIndex;
@@ -3708,10 +3693,10 @@ export default function JobsBoard() {
 	                        key={item.id}
 	                        type="button"
 	                        className={[
-	                          "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm",
+	                          "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm",
 	                          active
-	                            ? "bg-emerald-50 text-emerald-950"
-	                            : "text-slate-700 hover:bg-slate-50",
+	                            ? "bg-success-muted text-success"
+	                            : "text-foreground hover:bg-muted",
 	                        ].join(" ")}
 	                        onMouseEnter={() => setSearchActiveIndex(idx)}
 	                        onMouseDown={(event) => {
@@ -3731,7 +3716,7 @@ export default function JobsBoard() {
 	                          <span className="min-w-0 truncate">{item.label}</span>
 	                        </span>
 	                        {item.suffix ? (
-	                          <span className="flex-none text-xs font-semibold text-slate-500">
+	                          <span className="flex-none text-xs font-semibold text-muted-foreground">
 	                            {item.suffix}
 	                          </span>
 	                        ) : null}
@@ -3765,9 +3750,9 @@ export default function JobsBoard() {
                       <span className="text-[10px] font-semibold text-white/60">Edit</span>
                     ) : null}
                   </button>
-                  <button
+                  <UiButton variant="ghost" size="md"
                     type="button"
-                    className="grid h-6 w-6 place-items-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-white"
+                    className="grid h-6 w-6 place-items-center transition"
                     aria-label={`Remove filter: ${chip.label}`}
                     onClick={(event) => {
                       event.preventDefault();
@@ -3776,49 +3761,49 @@ export default function JobsBoard() {
                     }}
                   >
                     <X className="h-3.5 w-3.5" />
-                  </button>
+                  </UiButton>
                 </div>
               ))}
-              <button
+              <UiButton variant="secondary" size="sm"
                 type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-xs font-bold text-sky-800 shadow-sm transition hover:border-sky-300 hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                className="inline-flex items-center gap-2 transition"
                 onClick={clearAllFilters}
               >
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                 Clear all filters
-              </button>
+              </UiButton>
             </div>
           ) : null}
 
           <div className="mt-3 xl:hidden">
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-2">
-              <button
+            <div className="flex items-center justify-between gap-3 rounded-panel border border-border bg-muted p-2">
+              <UiButton variant="primary" size="md"
                 type="button"
-                className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-sm"
+                className="inline-flex min-w-0 flex-1 items-center justify-center gap-2"
                 onClick={() => setMobileFiltersOpen((open) => !open)}
                 aria-expanded={mobileFiltersOpen}
               >
                 <SlidersHorizontal className="h-4 w-4 shrink-0" />
                 <span>{mobileFiltersOpen ? "Hide filters" : "Filter Jobs"}</span>
                 {activeFilterChips.length > 0 ? (
-                  <span className="rounded-full bg-white/15 px-2 py-0.5 text-[11px]">
+                  <span className="rounded-full bg-card/15 px-2 py-0.5 text-[11px]">
                     {activeFilterChips.length}
                   </span>
                 ) : null}
-              </button>
+              </UiButton>
               {hasAnyFilter ? (
-                <button
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs font-semibold text-slate-700 shadow-sm"
+                  className="shrink-0"
                   onClick={clearAllFilters}
                 >
                   Clear
-                </button>
+                </UiButton>
               ) : null}
             </div>
 
             {mobileFiltersOpen ? (
-              <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+              <div className="mt-3 rounded-panel border border-border bg-card p-3 shadow-sm">
                 <div className="grid gap-4">
                     <MultiSelectTrigger
                       label="Company"
@@ -3860,12 +3845,12 @@ export default function JobsBoard() {
                       return (
                         <label
                           key={shipType}
-                          className="flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 hover:bg-slate-50"
+                          className="flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted"
                         >
                           <span className="flex min-w-0 items-center gap-2">
                             <input
                               type="checkbox"
-                              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
+                              className="h-4 w-4 rounded border-input text-success focus:ring-success/25"
                               checked={checked}
                               disabled={count === 0}
                               onChange={(event) =>
@@ -3878,11 +3863,11 @@ export default function JobsBoard() {
                                 )
                               }
                             />
-                            <span className={count === 0 ? "truncate text-slate-400" : "truncate"}>
+                            <span className={count === 0 ? "truncate text-muted-foreground" : "truncate"}>
                               {JOB_SHIP_TYPE_LABELS[shipType]}
                             </span>
                           </span>
-                          <span className={count === 0 ? "text-slate-400" : "text-slate-500"}>
+                          <span className={count === 0 ? "text-muted-foreground" : "text-muted-foreground"}>
                             {count}
                           </span>
                         </label>
@@ -3892,7 +3877,7 @@ export default function JobsBoard() {
                     {shipTypeFilters.length > 0 ? (
                       <button
                         type="button"
-                        className="mt-1 w-full rounded-xl px-2 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                        className="mt-1 w-full rounded-md px-2 py-2 text-left text-xs font-semibold text-muted-foreground hover:bg-muted"
                         onClick={() => setShipTypeFilters([])}
                       >
                         Clear ship type
@@ -3912,12 +3897,12 @@ export default function JobsBoard() {
                   return (
                     <div
                       key={key}
-                      className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 hover:bg-slate-50"
+                      className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-muted"
                     >
                       <label className="flex flex-1 cursor-pointer min-w-0 items-center gap-2">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
+                          className="h-4 w-4 rounded border-input text-success focus:ring-success/25"
                           checked={checked}
                           disabled={count === 0}
                           onChange={(event) =>
@@ -3930,12 +3915,12 @@ export default function JobsBoard() {
                             )
                           }
                         />
-                        <span className={count === 0 ? "truncate text-slate-400" : `truncate ${priorityTextClass}`}>
+                        <span className={count === 0 ? "truncate text-muted-foreground" : `truncate ${priorityTextClass}`}>
                           {type.label}
                         </span>
                       </label>
                       <FilterTooltip label={type.label} text={getPriorityTooltip(type)} open={openPriorityTooltip === key} onOpenChange={open => setOpenPriorityTooltip(current => open ? key : current === key ? null : current)} />
-                      <span className={count === 0 ? "text-slate-400" : priorityTextClass}>
+                      <span className={count === 0 ? "text-muted-foreground" : priorityTextClass}>
                         {count}
                       </span>
                     </div>
@@ -3945,7 +3930,7 @@ export default function JobsBoard() {
                 {priorityFilters.length > 0 ? (
                   <button
                     type="button"
-                    className="mt-1 w-full rounded-xl px-2 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    className="mt-1 w-full rounded-md px-2 py-2 text-left text-xs font-semibold text-muted-foreground hover:bg-muted"
                     onClick={() => setPriorityFilters([])}
                   >
                     Clear priority
@@ -3963,24 +3948,24 @@ export default function JobsBoard() {
 
         <div className="mt-5 grid gap-6 sm:mt-8 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start">
 				          <aside className="sticky top-24 hidden self-start xl:block">
-					            <div className="hide-scrollbar max-h-[calc(100vh-7rem)] overflow-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+					            <div className="hide-scrollbar max-h-[calc(100vh-7rem)] overflow-auto rounded-panel border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Filter</div>
-                  <div className="mt-1 text-xs text-slate-500">
+                  <div className="text-sm font-semibold text-foreground">Filter</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
                     {filtered.length.toLocaleString()}{" "}
                     {filtered.length === 1 ? "job" : "jobs"}
                   </div>
                 </div>
                 {hasAnyFilter ? (
-                  <button
+                  <UiButton variant="secondary" size="sm"
                     type="button"
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-800 shadow-sm transition hover:border-sky-300 hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    className="inline-flex shrink-0 items-center gap-1.5 transition"
                     onClick={clearAllFilters}
                   >
                     <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                     Clear all
-                  </button>
+                  </UiButton>
                 ) : null}
               </div>
 
@@ -4054,19 +4039,19 @@ export default function JobsBoard() {
 
               <div className="mt-5">
                 <FilterSectionLabel icon={Compass} label="Ship Type" />
-                <div className="mt-2 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+                <div className="mt-2 grid gap-2 rounded-panel border border-border bg-card p-3">
                   {JOB_SHIP_TYPES.map((shipType) => {
                     const count = shipTypeCounts.get(shipType) ?? 0;
                     const checked = shipTypeFilters.includes(shipType);
                     return (
                       <label
                         key={shipType}
-                        className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50"
+                        className="flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-muted"
                       >
                         <span className="flex items-center gap-3">
                           <input
                             type="checkbox"
-                            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
+                            className="h-4 w-4 rounded border-input text-success focus:ring-success/25"
                             checked={checked}
                             disabled={count === 0}
                             onChange={(event) =>
@@ -4079,11 +4064,11 @@ export default function JobsBoard() {
                               )
                             }
                           />
-                          <span className={count === 0 ? "text-slate-400" : ""}>
+                          <span className={count === 0 ? "text-muted-foreground" : ""}>
                             {JOB_SHIP_TYPE_LABELS[shipType]}
                           </span>
                         </span>
-                        <span className={count === 0 ? "text-slate-400" : "text-slate-500"}>
+                        <span className={count === 0 ? "text-muted-foreground" : "text-muted-foreground"}>
                           {count}
                         </span>
                       </label>
@@ -4093,7 +4078,7 @@ export default function JobsBoard() {
                   {shipTypeFilters.length > 0 ? (
                     <button
                       type="button"
-                      className="mt-1 w-full rounded-xl px-2 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      className="mt-1 w-full rounded-md px-2 py-2 text-left text-xs font-semibold text-muted-foreground hover:bg-muted"
                       onClick={() => setShipTypeFilters([])}
                     >
                       Clear
@@ -4104,7 +4089,7 @@ export default function JobsBoard() {
 
               <div className="mt-5">
                 <FilterSectionLabel icon={AlertTriangle} label="Priority" />
-                <div className="mt-2 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+                <div className="mt-2 grid gap-2 rounded-panel border border-border bg-card p-3">
                   {publicPriorityTypes.map((type) => {
                     const key = normalizePriorityKey(type.key);
                     const count = priorityCounts.get(key) ?? 0;
@@ -4113,13 +4098,13 @@ export default function JobsBoard() {
                     return (
                       <div
                         key={key}
-                        className="flex items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50"
+                        className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-muted"
                       >
                         <FilterTooltip label={type.label} text={getPriorityTooltip(type)} open={openPriorityTooltip === key} onOpenChange={open => setOpenPriorityTooltip(current => open ? key : current === key ? null : current)}>
                         <label className="flex flex-1 cursor-pointer items-center gap-3">
                           <input
                             type="checkbox"
-                            className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-200"
+                            className="h-4 w-4 rounded border-input text-success focus:ring-success/25"
                             checked={checked}
                             disabled={count === 0}
                             onChange={(event) =>
@@ -4132,12 +4117,12 @@ export default function JobsBoard() {
                               )
                             }
                           />
-                          <span className={count === 0 ? "text-slate-400" : priorityTextClass}>
+                          <span className={count === 0 ? "text-muted-foreground" : priorityTextClass}>
                             {type.label}
                           </span>
                         </label>
                         </FilterTooltip>
-                        <span className={count === 0 ? "text-slate-400" : priorityTextClass}>
+                        <span className={count === 0 ? "text-muted-foreground" : priorityTextClass}>
                           {count}
                         </span>
                       </div>
@@ -4147,7 +4132,7 @@ export default function JobsBoard() {
                   {priorityFilters.length > 0 ? (
                     <button
                       type="button"
-                      className="mt-1 w-full rounded-xl px-2 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      className="mt-1 w-full rounded-md px-2 py-2 text-left text-xs font-semibold text-muted-foreground hover:bg-muted"
                       onClick={() => setPriorityFilters([])}
                     >
                       Clear
@@ -4163,27 +4148,27 @@ export default function JobsBoard() {
 		          </aside>
 
 	          <main className="min-w-0">
-            <div className="min-w-0 rounded-[24px] border border-slate-200 bg-white p-3 text-slate-900 shadow-sm sm:rounded-3xl sm:p-6">
+            <div className="min-w-0 rounded-panel border border-border bg-card p-3 text-foreground shadow-sm sm:rounded-panel sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-sm text-slate-600">
-                  <span className="font-semibold text-slate-900">
+                <div className="text-sm text-muted-foreground">
+                  <span className="font-semibold text-foreground">
                     {filtered.length.toLocaleString()}
                   </span>{" "}
                   jobs
                 </div>
                 {hasAnyFilter ? (
-                  <button
+                  <UiButton variant="secondary" size="sm"
                     type="button"
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 xl:hidden"
+                    className="xl:hidden"
                     onClick={clearAllFilters}
                   >
                     Clear all
-                  </button>
+                  </UiButton>
                 ) : null}
               </div>
 
               {error ? (
-                <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <div className="mt-4 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
                   {error}
                 </div>
               ) : null}
@@ -4200,7 +4185,7 @@ export default function JobsBoard() {
                 {loading ? (
                   <JobsListSkeleton />
                 ) : filtered.length === 0 ? (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+                  <div className="rounded-panel border border-border bg-muted px-4 py-10 text-center text-sm text-muted-foreground">
                     No positions found.
                   </div>
                 ) : (
@@ -4233,10 +4218,10 @@ export default function JobsBoard() {
                         tabIndex={0}
                         aria-pressed={isSelected}
                         className={[
-                          "group w-full cursor-pointer rounded-[22px] border bg-white p-4 text-left shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/25 xl:flex xl:items-start xl:justify-between xl:gap-4 xl:rounded-3xl xl:p-5",
+                          "group w-full cursor-pointer rounded-[22px] border bg-card p-4 text-left shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-success/25 xl:flex xl:items-start xl:justify-between xl:gap-4 xl:rounded-panel xl:p-5",
                           isSelected
-                            ? "border-emerald-200 ring-inset ring-2 ring-emerald-500/20"
-                            : "border-slate-200 hover:border-emerald-200",
+                            ? "border-success/25 ring-inset ring-2 ring-success/25"
+                            : "border-border hover:border-success/25",
                         ].join(" ")}
                         onClick={() => {
                           setSelectedId(job.id);
@@ -4250,7 +4235,7 @@ export default function JobsBoard() {
                         }}
                       >
                         <div className="min-w-0 xl:flex xl:items-start xl:gap-4">
-                          <div className="hidden mt-0.5 h-[calc(var(--spacing)*21)] w-[calc(var(--spacing)*21)] shrink-0 place-items-center overflow-hidden rounded-full bg-white text-sm font-bold text-slate-600 ring-1 ring-slate-200 xl:grid">
+                          <div className="hidden mt-0.5 h-[calc(var(--spacing)*21)] w-[calc(var(--spacing)*21)] shrink-0 place-items-center overflow-hidden rounded-full bg-card text-sm font-bold text-muted-foreground ring-1 ring-ring xl:grid">
                             {companyLogoUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
@@ -4266,7 +4251,7 @@ export default function JobsBoard() {
 
                           <div className="min-w-0 xl:flex-1">
                             <div className="flex min-w-0 items-start gap-3 xl:block">
-                              <div className="mt-0.5 grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white text-sm font-bold text-slate-600 ring-1 ring-slate-200 xl:hidden">
+                              <div className="mt-0.5 grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-panel bg-card text-sm font-bold text-muted-foreground ring-1 ring-ring xl:hidden">
                             {companyLogoUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
@@ -4281,7 +4266,7 @@ export default function JobsBoard() {
                               </div>
 
                               <div className="min-w-0 flex-1">
-                              <div className="min-w-0 break-words text-[19px] font-extrabold leading-[1.18] text-slate-950 xl:hidden">
+                              <div className="min-w-0 break-words text-[19px] font-extrabold leading-[1.18] text-foreground xl:hidden">
                                 <span className="flex flex-wrap items-center gap-2">
                                   {priorityLabel ? (
                                     <span
@@ -4307,7 +4292,7 @@ export default function JobsBoard() {
                                     {priorityLabel}
                                   </span>
                                 ) : null}
-                                <div className="hidden min-w-0 flex-1 break-words text-[18px] font-extrabold leading-snug text-slate-900 xl:block">
+                                <div className="hidden min-w-0 flex-1 break-words text-[18px] font-extrabold leading-snug text-foreground xl:block">
                                   {job.name || "Position"}
                                 </div>
                               </div>
@@ -4317,8 +4302,8 @@ export default function JobsBoard() {
                             <BenefitTagDatapoints tags={benefitTags} benefitLabels={benefitLabels} />
                             <div className="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-semibold xl:mt-5">
 			                              {department ? (
-			                                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-gradient-to-r from-amber-100 to-[#ffc45c]/70 px-2.5 py-1.5 text-amber-950 shadow-sm shadow-amber-200/40">
-			                                  <UserRound className="h-3.5 w-3.5 text-amber-600" />
+			                                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1.5 text-foreground shadow-sm">
+			                                  <UserRound className="h-3.5 w-3.5 text-warning" />
                                   <span className="max-w-[210px] truncate whitespace-nowrap xl:max-w-[260px]">
 		                                    {department}
 		                                  </span>
@@ -4327,9 +4312,9 @@ export default function JobsBoard() {
 		                              {shipTypeLabels.map((shipTypeLabel) => (
 		                                <span
 		                                  key={shipTypeLabel}
-		                                  className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-gradient-to-r from-cyan-100 to-sky-100 px-2.5 py-1.5 text-cyan-950 shadow-sm shadow-cyan-200/40"
+		                                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1.5 text-foreground shadow-sm"
 		                                >
-		                                  <Compass className="h-3.5 w-3.5 text-cyan-600" />
+		                                  <Compass className="h-3.5 w-3.5 text-foreground" />
                                   <span className="max-w-[210px] truncate whitespace-nowrap xl:max-w-[320px]">
 		                                    {shipTypeLabel}
 		                                  </span>
@@ -4354,19 +4339,19 @@ export default function JobsBoard() {
               </div>
 
               {!loading && filtered.length > 0 ? (
-                <div className="mt-6 flex flex-col items-center justify-center gap-3 text-center text-xs text-slate-500">
+                <div className="mt-6 flex flex-col items-center justify-center gap-3 text-center text-xs text-muted-foreground">
                   <div>
                     Showing{" "}
-                    <span className="font-semibold text-slate-700">
+                    <span className="font-semibold text-foreground">
                       {Math.min(filtered.length, visibleCount)}
                     </span>{" "}
                     of{" "}
-                    <span className="font-semibold text-slate-700">{filtered.length}</span>
+                    <span className="font-semibold text-foreground">{filtered.length}</span>
                   </div>
                   {visibleCount < filtered.length ? (
-                    <button
+                    <UiButton variant="primary" size="lg"
                       type="button"
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#0ea5e9] via-[#2f7de1] to-[#2563eb] px-7 text-sm font-extrabold text-white shadow-lg shadow-sky-200/70 ring-1 ring-white/30 transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2"
+                      className="inline-flex h-12 items-center justify-center gap-2 transition hover:brightness-105"
                       onClick={() =>
                         setVisibleCount((current) =>
                           Math.min(filtered.length, current + getVisibleCountForLimit(displayLimit))
@@ -4375,7 +4360,7 @@ export default function JobsBoard() {
                     >
                       <Plus className="h-4 w-4" aria-hidden="true" />
                       <span>Load more{displayLimit === "all" ? "" : ` ${displayLimit}`}</span>
-                    </button>
+                    </UiButton>
                   ) : null}
                 </div>
               ) : null}
@@ -4398,7 +4383,7 @@ export default function JobsBoard() {
                 <DropdownMenu.Trigger asChild>
                   <button
                     type="button"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/40 bg-white/90 text-slate-800 shadow-sm backdrop-blur transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-white/70"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/40 bg-card/90 text-foreground shadow-sm backdrop-blur transition hover:bg-card focus:outline-none focus:ring-2 focus:ring-white/70"
                     aria-label="Share job"
                     title="Share job"
                   >
@@ -4409,16 +4394,16 @@ export default function JobsBoard() {
                   <DropdownMenu.Content
                     align="end"
                     sideOffset={8}
-                    className="z-[12000] min-w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-950/15"
+                    className="z-[12000] min-w-44 rounded-md border border-border bg-card p-1.5 shadow-xl shadow-slate-950/15"
                   >
                     <DropdownMenu.Item
                       onSelect={handleCopyShareLink}
-                      className="flex h-10 cursor-default select-none items-center gap-2.5 rounded-lg px-3 text-sm font-semibold text-slate-700 outline-none transition data-[highlighted]:bg-gradient-to-r data-[highlighted]:from-amber-100 data-[highlighted]:to-pink-50 data-[highlighted]:text-slate-950"
+                      className="flex h-10 cursor-default select-none items-center gap-2.5 rounded-lg px-3 text-sm font-semibold text-foreground outline-none transition data-[highlighted]:bg-muted data-[highlighted]:text-foreground"
                     >
                       {shareCopied ? (
-                        <Check className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+                        <Check className="h-4 w-4 text-success" aria-hidden="true" />
                       ) : (
-                        <Copy className="h-4 w-4 text-orange-500" aria-hidden="true" />
+                        <Copy className="h-4 w-4 text-warning" aria-hidden="true" />
                       )}
                       {shareCopied ? "Link copied" : "Copy link"}
                     </DropdownMenu.Item>
@@ -4428,7 +4413,7 @@ export default function JobsBoard() {
               <button
                 type="button"
                 aria-label="Close"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm hover:bg-black focus:outline-none focus:ring-2 focus:ring-white/60 focus:ring-offset-2 focus:ring-offset-transparent"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-white/60 focus:ring-offset-2 focus:ring-offset-transparent"
                 onClick={closeDetails}
               >
                 <span aria-hidden="true" className="text-lg leading-none">
@@ -4438,7 +4423,7 @@ export default function JobsBoard() {
             </>
           }
           stickyHeader={
-            <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 px-4 py-4 backdrop-blur sm:px-6 sm:py-5 xl:px-6 xl:pb-5 xl:pt-6">
+            <div className="sticky top-0 z-20 border-b border-border/80 bg-card/95 px-4 py-4 backdrop-blur sm:px-6 sm:py-5 xl:px-6 xl:pb-5 xl:pt-6">
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center xl:gap-4">
                 <div className="min-w-0">
                   <div className="mb-2">
@@ -4452,7 +4437,7 @@ export default function JobsBoard() {
                           ? asString(details["company_logo_url"]).trim()
                           : asString(selectedSummary?.company_logo_url).trim();
                       return (
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                           {company ? (
                             <span className="inline-flex flex-wrap items-center gap-2 pr-2">
                               {companyLogo ? (
@@ -4460,14 +4445,14 @@ export default function JobsBoard() {
                                 <img
                                   src={companyLogo}
                                   alt={company}
-                                  className="h-7 w-7 flex-none rounded-full bg-white object-cover shadow-sm ring-1 ring-slate-200 sm:h-8 sm:w-8"
+                                  className="h-7 w-7 flex-none rounded-full bg-card object-cover shadow-sm ring-1 ring-ring sm:h-8 sm:w-8"
                                   loading="lazy"
                                   decoding="async"
                                 />
                               ) : (
-                                <Building2 className="h-5 w-5 text-slate-500" />
+                                <Building2 className="h-5 w-5 text-muted-foreground" />
                               )}
-                              <span className="max-w-[190px] truncate whitespace-nowrap text-sm font-semibold text-slate-800 uppercase tracking-wide sm:max-w-[340px]">
+                              <span className="max-w-[190px] truncate whitespace-nowrap text-sm font-semibold text-foreground uppercase tracking-wide sm:max-w-[340px]">
                                 {company}
                               </span>
                               <button
@@ -4482,7 +4467,7 @@ export default function JobsBoard() {
                                   pendingCompanyNavigationRef.current = params.toString();
                                   router.push(`/?${params.toString()}`, { scroll: false });
                                 }}
-                                className="shrink-0 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+                                className="shrink-0 rounded-full border border-input bg-accent px-3 py-1.5 text-[11px] font-semibold text-foreground transition hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
                               >
                                 See all jobs
                               </button>
@@ -4494,7 +4479,7 @@ export default function JobsBoard() {
                   </div>
                   <div
                     id="job-details-title"
-                    className="mt-1 break-words text-[22px] font-extrabold leading-tight text-slate-950 sm:mt-2 sm:text-2xl"
+                    className="mt-1 break-words text-[22px] font-extrabold leading-tight text-foreground sm:mt-2 sm:text-2xl"
                   >
                     <div className="flex flex-wrap items-center gap-3">
                       <span className="min-w-0 break-words">
@@ -4505,8 +4490,8 @@ export default function JobsBoard() {
                       </span>
                     </div>
                   </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap">
                       Position
                     </span>
                               {modalPriorityLabel ? (
@@ -4556,14 +4541,14 @@ export default function JobsBoard() {
                               className={[
                                 "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10px] font-semibold shadow-sm",
                                 badge.key === "department"
-                                  ? "border-amber-200 bg-gradient-to-r from-amber-100 to-[#ffc45c]/70 text-amber-950 shadow-amber-200/40"
-                                  : "border-cyan-200 bg-gradient-to-r from-cyan-100 to-sky-100 text-cyan-950 shadow-cyan-200/40",
+                                  ? "border-border bg-muted text-foreground"
+                                  : "border-border bg-muted text-foreground",
                               ].join(" ")}
                             >
                               {badge.key === "department" ? (
-                                <UserRound className="h-3.5 w-3.5 text-amber-600" />
+                                <UserRound className="h-3.5 w-3.5 text-warning" />
                               ) : (
-                                <Compass className="h-3.5 w-3.5 text-cyan-600" />
+                                <Compass className="h-3.5 w-3.5 text-foreground" />
                               )}
                               <span className="min-w-0 max-w-[320px] whitespace-nowrap truncate">
                                 {badge.label}
@@ -4580,7 +4565,7 @@ export default function JobsBoard() {
                   <div className="ml-auto flex w-full flex-col items-center sm:w-auto sm:items-end sm:justify-self-end">
                     <button
                       type="button"
-                      className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2f7de1] to-[#64c8ff] px-5 text-sm font-semibold text-white shadow-lg shadow-sky-200/60 ring-1 ring-white/20 hover:from-[#256fd2] hover:to-[#55bbff] focus:outline-none focus:ring-2 focus:ring-sky-300/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70 sm:h-14 sm:w-auto sm:rounded-full sm:px-8 sm:text-base xl:h-16 xl:px-10 xl:shadow-xl xl:shadow-sky-200/70"
+                      className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-panel bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-lg ring-1 ring-white/20 focus:outline-none focus:ring-2 focus:ring-ring/60 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-70 sm:h-14 sm:w-auto sm:rounded-full sm:px-8 sm:text-base xl:h-16 xl:px-10 xl:shadow-xl"
                       disabled={applyNavigating}
                       onClick={() => {
                         if (typeof window === "undefined") return;
@@ -4599,7 +4584,7 @@ export default function JobsBoard() {
                     </button>
                   </div>
                 ) : (
-                  <div className="inline-flex h-12 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 px-5 text-sm font-semibold text-amber-900 shadow-sm sm:h-14 sm:rounded-full sm:px-8 sm:justify-self-end xl:h-16">
+                  <div className="inline-flex h-12 items-center justify-center rounded-panel border border-warning/25 bg-warning-muted px-5 text-sm font-semibold text-warning shadow-sm sm:h-14 sm:rounded-full sm:px-8 sm:justify-self-end xl:h-16">
                     Not active
                   </div>
                 )}
@@ -4608,17 +4593,17 @@ export default function JobsBoard() {
           }
         >
           {modalIsHidden ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+            <div className="rounded-panel border border-warning/25 bg-warning-muted px-4 py-4 text-sm text-warning">
               This ad is not active.
             </div>
           ) : detailsLoading || (!details && !error) ? (
             <JobDetailsSkeleton />
           ) : !details ? (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+            <div className="rounded-panel border border-border bg-muted px-4 py-10 text-center text-sm text-muted-foreground">
               No details returned.
             </div>
           ) : (
-            <div className="space-y-5 xl:space-y-6 xl:rounded-2xl xl:border xl:border-slate-200 xl:bg-white xl:p-5">
+            <div className="space-y-5 xl:space-y-6 xl:rounded-panel xl:border xl:border-border xl:bg-card xl:p-5">
               <PremiumJobDetailsPanel
                 premium={premium}
                 loading={premiumLoading}
@@ -4636,7 +4621,7 @@ export default function JobsBoard() {
 
               {modalBenefitTags.length > 0 ? (
                 <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     <span className="xl:hidden">Benefits</span>
                     <span className="hidden xl:inline">Company Benefits</span>
                   </div>
@@ -4702,10 +4687,10 @@ export default function JobsBoard() {
                 if (processable.length === 0 && blocked.length === 0) return null;
 
                 return (
-                  <div className="space-y-4 border-t border-slate-200 pt-5 xl:border-t-0 xl:pt-0">
+                  <div className="space-y-4 border-t border-border pt-5 xl:border-t-0 xl:pt-0">
                     {processable.length > 0 ? (
                       <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                           Nationalities we process
                         </div>
                         <div className="mt-2">
@@ -4716,7 +4701,7 @@ export default function JobsBoard() {
 
                     {blocked.length > 0 ? (
                       <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                           Nationalities we can’t process
                         </div>
                         <div className="mt-2">
@@ -4728,15 +4713,15 @@ export default function JobsBoard() {
                 );
               })()}
 
-              <div className="border-t border-slate-200 pt-5 xl:border-t-0 xl:pt-0">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <div className="border-t border-border pt-5 xl:border-t-0 xl:pt-0">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Description
                 </div>
-                <div className="mt-3 xl:mt-4 xl:overflow-hidden xl:rounded-[28px] xl:border xl:border-slate-200 xl:bg-white xl:p-8 xl:shadow-[0_18px_40px_-34px_rgba(15,23,42,0.24)]">
+                <div className="mt-3 xl:mt-4 xl:overflow-hidden xl:rounded-dialog xl:border xl:border-border xl:bg-card xl:p-8 xl:shadow-overlay">
                   {modalDescription.bodyHtml ? (
                     <RichText content={modalDescription.bodyHtml} />
                   ) : (
-                    <div className="whitespace-pre-wrap text-[15px] leading-7 text-slate-800">
+                    <div className="whitespace-pre-wrap text-[15px] leading-7 text-foreground">
                       {modalDescription.bodyText || "—"}
                     </div>
                   )}

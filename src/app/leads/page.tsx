@@ -1,5 +1,8 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { NativeSelect as UiSelect } from "@/components/ui/select";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Skeleton from "@/components/Skeleton";
@@ -1125,7 +1128,7 @@ export default function LeadsPage() {
           type="button"
           className={`rounded-md border px-3 py-1.5 text-sm ${
             viewMode === "group"
-              ? "border-slate-900 bg-slate-900 text-white"
+              ? "border-input bg-primary text-primary-foreground"
               : "border-input"
           }`}
           onClick={() => setViewMode("group")}
@@ -1136,7 +1139,7 @@ export default function LeadsPage() {
           type="button"
           className={`rounded-md border px-3 py-1.5 text-sm ${
             viewMode === "filtered"
-              ? "border-slate-900 bg-slate-900 text-white"
+              ? "border-input bg-primary text-primary-foreground"
               : "border-input"
           }`}
           onClick={() => setViewMode("filtered")}
@@ -1155,8 +1158,8 @@ export default function LeadsPage() {
       <section className="flex flex-wrap items-end gap-4">
         <label className="flex flex-col gap-2 text-sm font-medium">
           Group
-          <select
-            className="h-10 min-w-[260px] rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+          <UiSelect
+            className="h-10 min-w-[260px]"
             value={selectedGroupId}
             onChange={(event) => setSelectedGroupId(event.target.value)}
             disabled={loadingGroups}
@@ -1167,24 +1170,24 @@ export default function LeadsPage() {
                 {group.name ?? group.id}
               </option>
             ))}
-          </select>
+          </UiSelect>
         </label>
 
-        <button
-          className="h-10 rounded-md border border-input px-4 text-sm"
+        <UiButton variant="secondary" size="md"
+          className="h-10"
           onClick={() => loadGroups()}
           disabled={loadingGroups}
           type="button"
         >
           {loadingGroups ? "Refreshing..." : "Refresh groups"}
-        </button>
+        </UiButton>
 
         <label className="flex flex-1 flex-col gap-2 text-sm font-medium">
           Search
           <div className="relative flex flex-1 items-center gap-2">
             <div className="relative w-full">
-              <input
-                className="h-10 w-full min-w-[240px] rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+              <UiInput
+                className="h-10 w-full min-w-[240px]"
                 type="text"
                 value={searchQuery}
                 onChange={(event) => {
@@ -1211,13 +1214,13 @@ export default function LeadsPage() {
               ) : null}
             </div>
             {searchQuery ? (
-              <button
+              <UiButton variant="secondary" size="md"
                 type="button"
-                className="h-10 rounded-md border border-input px-3 text-sm"
+                className="h-10"
                 onClick={() => setSearchQuery("")}
               >
                 Clear
-              </button>
+              </UiButton>
             ) : null}
           </div>
           {loadingAllSubscribers && searchQuery ? (
@@ -1238,8 +1241,8 @@ export default function LeadsPage() {
 
           <label className="flex flex-col gap-2 text-sm font-medium">
             Before date
-            <input
-              className="h-10 min-w-[200px] rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+            <UiInput
+              className="h-10 min-w-[200px]"
               type="date"
               value={purgeBeforeDate}
               onChange={(event) => setPurgeBeforeDate(event.target.value)}
@@ -1257,8 +1260,8 @@ export default function LeadsPage() {
 
           <label className="flex flex-col gap-2 text-sm font-medium">
             Action
-            <select
-              className="h-10 min-w-[220px] rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+            <UiSelect
+              className="h-10 min-w-[220px]"
               value={purgeAction}
               onChange={(event) =>
                 setPurgeAction(
@@ -1270,21 +1273,21 @@ export default function LeadsPage() {
             >
               <option value="remove_from_group">Remove from selected group</option>
               <option value="delete_subscriber">Delete subscriber permanently</option>
-            </select>
+            </UiSelect>
           </label>
 
-          <button
+          <UiButton variant="secondary" size="md"
             type="button"
-            className="h-10 rounded-md border border-input px-4 text-sm"
+            className="h-10"
             disabled={purgeLoading || !selectedGroupId || !purgeBeforeDate}
             onClick={() => runGroupPurge(true)}
           >
             {purgeLoading ? "Working..." : "Preview"}
-          </button>
+          </UiButton>
 
-          <button
+          <UiButton variant="secondary" size="md"
             type="button"
-            className="h-10 rounded-md border border-rose-200 bg-rose-50 px-4 text-sm text-rose-700"
+            className="h-10 text-destructive"
             disabled={purgeLoading || !selectedGroupId || !purgeBeforeDate}
             onClick={async () => {
               const actionLabel =
@@ -1306,11 +1309,11 @@ export default function LeadsPage() {
             }}
           >
             {purgeLoading ? "Working..." : "Delete"}
-          </button>
+          </UiButton>
         </div>
 
         {purgeError ? (
-          <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="mt-3 rounded-md border border-destructive/25 bg-danger-muted px-3 py-2 text-sm text-destructive">
             {purgeError}
           </div>
         ) : null}
@@ -1351,8 +1354,8 @@ export default function LeadsPage() {
               ) : null}
             </div>
           </div>
-          <button
-            className="h-10 rounded-md border border-input px-4 text-sm"
+          <UiButton variant="secondary" size="md"
+            className="h-10"
             onClick={async () => {
               setFilteredRefreshing(true);
               await loadFilteredLeads(false, true);
@@ -1362,9 +1365,9 @@ export default function LeadsPage() {
             type="button"
           >
             {filteredLoading || filteredRefreshing ? "Refreshing..." : "Refresh"}
-          </button>
-          <button
-            className="h-10 rounded-md border border-amber-200 bg-amber-50 px-4 text-sm text-amber-700"
+          </UiButton>
+          <UiButton variant="secondary" size="md"
+            className="h-10 text-warning"
             onClick={async () => {
               if (filteredPollRef.current) {
                 window.clearTimeout(filteredPollRef.current);
@@ -1396,12 +1399,12 @@ export default function LeadsPage() {
             type="button"
           >
             {filteredLoading || filteredRefreshing ? "Syncing..." : "Rebuild from MailerLite"}
-          </button>
+          </UiButton>
           <label className="flex flex-1 flex-col gap-2 text-sm font-medium">
             Search
             <div className="relative flex flex-1 items-center gap-2">
-              <input
-                className="h-10 w-full min-w-[240px] rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+              <UiInput
+                className="h-10 w-full min-w-[240px]"
                 type="text"
                 value={filteredSearch}
                 onChange={(event) => {
@@ -1412,16 +1415,16 @@ export default function LeadsPage() {
                 autoComplete="off"
               />
               {filteredSearch ? (
-                <button
+                <UiButton variant="secondary" size="md"
                   type="button"
-                  className="h-10 rounded-md border border-input px-3 text-sm"
+                  className="h-10"
                   onClick={() => {
                     setFilteredSearch("");
                     setFilteredPage(1);
                   }}
                 >
                   Clear
-                </button>
+                </UiButton>
               ) : null}
             </div>
           </label>
@@ -1429,12 +1432,12 @@ export default function LeadsPage() {
       )}
 
       {viewMode === "group" && error ? (
-        <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-md border border-destructive/25 bg-destructive px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       ) : null}
       {viewMode === "filtered" && filteredError ? (
-        <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-md border border-destructive/25 bg-destructive px-4 py-3 text-sm text-destructive">
           {filteredError}
         </div>
       ) : null}
@@ -1460,9 +1463,9 @@ export default function LeadsPage() {
               </span>
             ) : null}
             <span>{selectedIds.size} selected</span>
-            <button
+            <UiButton variant="secondary" size="sm"
               type="button"
-              className="rounded-md border border-input px-2 py-1 text-xs"
+              className=""
               disabled={selectedIds.size === 0 || bulkSendLoading}
               onClick={(event) => {
                 event.stopPropagation();
@@ -1470,10 +1473,10 @@ export default function LeadsPage() {
               }}
             >
               {bulkSendLoading ? "Sending..." : "Send selected"}
-            </button>
-            <button
+            </UiButton>
+            <UiButton variant="secondary" size="sm"
               type="button"
-              className="rounded-md border border-input px-2 py-1 text-xs"
+              className=""
               disabled={selectedIds.size === 0 || bulkPipelineLoading}
               onClick={(event) => {
                 event.stopPropagation();
@@ -1481,7 +1484,7 @@ export default function LeadsPage() {
               }}
             >
               {bulkPipelineLoading ? "Adding..." : "Add selected to Pipeline"}
-            </button>
+            </UiButton>
           </div>
         </div>
 
@@ -1534,7 +1537,7 @@ export default function LeadsPage() {
                     key={subscriber.id}
                     className={`cursor-pointer border-t border-border transition ${
                       inPipeline
-                        ? "bg-emerald-50/60 hover:bg-emerald-50"
+                        ? "bg-success-muted hover:bg-success-muted"
                         : "hover:bg-muted/50"
                     }`}
                     onClick={() => loadSubscriberDetails(subscriber)}
@@ -1566,7 +1569,7 @@ export default function LeadsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-2">
-                      <span className="text-[13px] font-medium text-slate-700">
+                      <span className="text-[13px] font-medium text-foreground">
                         {subscriber.email ?? "—"}
                       </span>
                     </td>
@@ -1578,9 +1581,9 @@ export default function LeadsPage() {
                           : "—")}
                     </td>
                     <td className="px-4 py-2">
-                      <button
+                      <UiButton variant="secondary" size="sm"
                         type="button"
-                        className="h-9 rounded-md border border-input px-3 text-xs"
+                        className="h-9"
                         onClick={(event) => {
                           event.stopPropagation();
                           sendToBreezy(subscriber);
@@ -1590,14 +1593,14 @@ export default function LeadsPage() {
                         {breezyActionLoading[subscriber.id]
                           ? "Sending..."
                           : "Send to Zapier"}
-                      </button>
+                      </UiButton>
                     </td>
                     <td className="px-4 py-2">
                       <button
                         type="button"
                         className={`h-9 rounded-md border px-3 text-xs ${
                           inPipeline
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            ? "border-success/25 bg-success-muted text-success"
                             : "border-input"
                         }`}
                         onClick={(event) => {
@@ -1630,29 +1633,29 @@ export default function LeadsPage() {
           {pipelineMessage ? (
             <div className="text-xs text-muted-foreground">{pipelineMessage}</div>
           ) : pipelineIndexError ? (
-            <div className="text-xs text-rose-600">{pipelineIndexError}</div>
+            <div className="text-xs text-destructive">{pipelineIndexError}</div>
           ) : breezyActionMessage ? (
             <div className="text-xs text-muted-foreground">
               {breezyActionMessage}
             </div>
           ) : null}
           <div className="flex gap-2">
-            <button
-              className="h-9 rounded-md border border-input px-3 text-xs"
+            <UiButton variant="secondary" size="sm"
+              className="h-9"
               disabled={!prevCursor || loadingSubscribers || !!searchQuery.trim()}
               onClick={() => loadSubscribers(selectedGroupId, prevCursor)}
               type="button"
             >
               Previous
-            </button>
-            <button
-              className="h-9 rounded-md border border-input px-3 text-xs"
+            </UiButton>
+            <UiButton variant="secondary" size="sm"
+              className="h-9"
               disabled={!nextCursor || loadingSubscribers || !!searchQuery.trim()}
               onClick={() => loadSubscribers(selectedGroupId, nextCursor)}
               type="button"
             >
               Next
-            </button>
+            </UiButton>
           </div>
         </div>
       </section>
@@ -1710,7 +1713,7 @@ export default function LeadsPage() {
                       key={subscriber.id}
                       className={`border-t border-border transition ${
                         inPipeline
-                          ? "bg-emerald-50/60 hover:bg-emerald-50"
+                          ? "bg-success-muted hover:bg-success-muted"
                           : "hover:bg-muted/50"
                       }`}
                       onClick={() => loadSubscriberDetails(subscriber)}
@@ -1726,7 +1729,7 @@ export default function LeadsPage() {
                             <span className="text-sm font-medium text-foreground">
                               {getSubscriberName(subscriber).full ?? "Unknown"}
                             </span>
-                            <span className="text-[13px] font-medium text-slate-700">
+                            <span className="text-[13px] font-medium text-foreground">
                               {subscriber.email ?? "—"}
                             </span>
                           </div>
@@ -1736,8 +1739,8 @@ export default function LeadsPage() {
                     <span
                       className={`rounded-full px-2 py-1 text-xs font-semibold ${
                         lead.category === "main"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-amber-100 text-amber-700"
+                          ? "bg-success-muted text-success"
+                          : "bg-warning-muted text-warning"
                       }`}
                     >
                       {categoryLabel}
@@ -1779,7 +1782,7 @@ export default function LeadsPage() {
                           type="button"
                           className={`h-9 rounded-md border px-3 text-xs ${
                             inPipeline
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              ? "border-success/25 bg-success-muted text-success"
                               : "border-input"
                           }`}
                           onClick={(event) => {
@@ -1808,16 +1811,16 @@ export default function LeadsPage() {
             Page {filteredPage} of {Math.max(1, Math.ceil(filteredTotal / filteredPageSize))}
           </div>
           <div className="flex gap-2">
-            <button
-              className="h-9 rounded-md border border-input px-3 text-xs"
+            <UiButton variant="secondary" size="sm"
+              className="h-9"
               disabled={filteredPage <= 1 || filteredLoading}
               onClick={() => setFilteredPage((prev) => Math.max(1, prev - 1))}
               type="button"
             >
               Previous
-            </button>
-            <button
-              className="h-9 rounded-md border border-input px-3 text-xs"
+            </UiButton>
+            <UiButton variant="secondary" size="sm"
+              className="h-9"
               disabled={
                 filteredLoading ||
                 filteredPage * filteredPageSize >= filteredTotal
@@ -1828,7 +1831,7 @@ export default function LeadsPage() {
               type="button"
             >
               Next
-            </button>
+            </UiButton>
           </div>
         </div>
       </section>
@@ -1836,7 +1839,7 @@ export default function LeadsPage() {
 
       {selectedSubscriber ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-3xl rounded-xl border border-border bg-card shadow-lg">
+          <div className="w-full max-w-3xl rounded-md border border-border bg-card shadow-lg">
             <div className="flex items-center justify-between border-b border-border px-6 py-4">
               <div>
                 <h2 className="text-lg font-semibold">Subscriber details</h2>
@@ -1853,13 +1856,13 @@ export default function LeadsPage() {
                   </p>
                 </div>
               </div>
-              <button
+              <UiButton variant="secondary" size="sm"
                 type="button"
-                className="rounded-md border border-input px-3 py-1.5 text-xs"
+                className=""
                 onClick={() => setSelectedSubscriber(null)}
               >
                 Close
-              </button>
+              </UiButton>
             </div>
 
             <div className="max-h-[70vh] overflow-y-auto px-6 py-4 text-sm">
@@ -1871,7 +1874,7 @@ export default function LeadsPage() {
                   <Skeleton className="h-24 w-full rounded-md" />
                 </div>
               ) : detailsError ? (
-                <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-700">
+                <div className="rounded-md border border-destructive/25 bg-destructive px-4 py-3 text-sm text-destructive">
                   {detailsError}
                 </div>
               ) : subscriberDetails ? (

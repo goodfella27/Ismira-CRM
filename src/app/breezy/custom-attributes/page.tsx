@@ -1,5 +1,8 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { NativeSelect as UiSelect } from "@/components/ui/select";
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCw, Search, Copy, Check } from "lucide-react";
 
@@ -292,18 +295,18 @@ export default function BreezyCustomAttributesPage() {
     <div className="mx-auto w-full">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Custom fields
           </h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-muted-foreground">
             Browse Breezy custom attributes (candidate + position). Useful as form schema.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
+          <UiButton variant="secondary" size="md"
             type="button"
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex items-center gap-2 transition disabled:opacity-60"
             onClick={() => void loadCompanies()}
             disabled={loadingCompanies}
           >
@@ -311,20 +314,20 @@ export default function BreezyCustomAttributesPage() {
               className={loadingCompanies ? "h-4 w-4 animate-spin" : "h-4 w-4"}
             />
             Refresh companies
-          </button>
+          </UiButton>
         </div>
       </div>
 
-      <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mt-8 rounded-panel border border-border bg-card p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Company
             </div>
             <div className="mt-2 flex gap-2">
               {companies.length > 0 ? (
-                <select
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                <UiSelect
+                  className="h-11 w-full"
                   value={companyId}
                   onChange={(event) => setCompanyId(event.target.value)}
                 >
@@ -339,18 +342,18 @@ export default function BreezyCustomAttributesPage() {
                       </option>
                     );
                   })}
-                </select>
+                </UiSelect>
               ) : (
-                <input
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                <UiInput
+                  className="h-11 w-full"
                   value={companyId}
                   onChange={(event) => setCompanyId(event.target.value)}
                   placeholder="Paste Breezy Company ID…"
                 />
               )}
-              <button
+              <UiButton variant="secondary" size="lg"
                 type="button"
-                className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                className="inline-flex h-11 shrink-0 items-center justify-center transition disabled:opacity-60"
                 onClick={() => void loadAll()}
                 disabled={(loadingCandidate && loadingPosition) || !companyId.trim()}
                 title="Reload attributes"
@@ -362,22 +365,22 @@ export default function BreezyCustomAttributesPage() {
                       : "h-4 w-4"
                   }
                 />
-              </button>
+              </UiButton>
             </div>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-muted-foreground">
               Candidate attributes: {candidateAttributes.length} · Position attributes:{" "}
               {positionAttributes.length}
             </p>
           </div>
 
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Filter fields
             </div>
-            <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                className="h-11 w-full border-none bg-transparent text-sm text-slate-800 outline-none"
+            <div className="mt-2 flex items-center gap-2 rounded-panel border border-border bg-card px-4">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <UiInput
+                className="h-11 w-full"
                 placeholder="Search by scope, label, type, id…"
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
@@ -387,13 +390,13 @@ export default function BreezyCustomAttributesPage() {
         </div>
 
         {error ? (
-          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="mt-4 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         ) : null}
 
-        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
-          <div className="grid grid-cols-12 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <div className="mt-6 overflow-hidden rounded-panel border border-border">
+          <div className="grid grid-cols-12 bg-muted px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <div className="col-span-2">Scope</div>
             <div className="col-span-5">Field</div>
             <div className="col-span-2">Type</div>
@@ -402,11 +405,11 @@ export default function BreezyCustomAttributesPage() {
           </div>
 
           {loadingCandidate || loadingPosition ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-500">
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               Loading fields…
             </div>
           ) : filtered.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-500">
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               No fields found.
             </div>
           ) : (
@@ -421,7 +424,7 @@ export default function BreezyCustomAttributesPage() {
                     key={`${scope}-${id || label}-${index}`}
                     className={[
                       "grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm transition",
-                      id ? "cursor-pointer hover:bg-slate-50" : "",
+                      id ? "cursor-pointer hover:bg-muted" : "",
                     ].join(" ")}
                     onClick={() => {
                       setSelected(attr);
@@ -429,25 +432,25 @@ export default function BreezyCustomAttributesPage() {
                       setShowRaw(false);
                     }}
                   >
-                    <div className="col-span-2 text-xs font-semibold text-slate-700">
+                    <div className="col-span-2 text-xs font-semibold text-foreground">
                       {scope}
                     </div>
                     <div className="col-span-5">
-                      <div className="font-semibold text-slate-900">{label}</div>
+                      <div className="font-semibold text-foreground">{label}</div>
                       {id ? (
-                        <div className="mt-1 font-mono text-xs text-slate-500">
+                        <div className="mt-1 font-mono text-xs text-muted-foreground">
                           {id}
                         </div>
                       ) : null}
                     </div>
-                    <div className="col-span-2 text-xs text-slate-700">{type}</div>
-                    <div className="col-span-2 text-xs text-slate-700">
+                    <div className="col-span-2 text-xs text-foreground">{type}</div>
+                    <div className="col-span-2 text-xs text-foreground">
                       {options.length ? `${options.length}` : "—"}
                     </div>
                     <div className="col-span-1 flex justify-end">
-                      <button
+                      <UiButton variant="secondary" size="sm"
                         type="button"
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                        className="inline-flex items-center gap-2 transition"
                         onClick={(event) => {
                           event.stopPropagation();
                           if (id) void copy(id);
@@ -460,7 +463,7 @@ export default function BreezyCustomAttributesPage() {
                         ) : (
                           <Copy className="h-3.5 w-3.5" />
                         )}
-                      </button>
+                      </UiButton>
                     </div>
                   </div>
                 );
@@ -481,98 +484,98 @@ export default function BreezyCustomAttributesPage() {
             setShowRaw(false);
           }}
         >
-          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-overlay backdrop-blur-sm" />
           <div
-            className="relative z-10 w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_30px_80px_-50px_rgba(15,23,42,0.6)]"
+            className="relative z-10 w-full max-w-4xl overflow-hidden rounded-panel border border-border bg-card shadow-overlay"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex flex-col gap-3 border-b border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 border-b border-border bg-card px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {selectedTitle}
                 </div>
                 <div
                   id="breezy-attr-modal-title"
-                  className="mt-1 text-sm font-semibold text-slate-900"
+                  className="mt-1 text-sm font-semibold text-foreground"
                 >
                   {asString(selected.label).trim() || asString(selected.name).trim() || getId(selected) || "Field"}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 transition disabled:opacity-60"
                   onClick={() => void copyJson(selected)}
                 >
                   Copy JSON
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 transition disabled:opacity-60"
                   onClick={() =>
                     downloadJson(`breezy-custom-attribute-${getId(selected) || "field"}.json`, selected)
                   }
                 >
                   Download
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 transition"
                   onClick={() => setShowRaw((v) => !v)}
                 >
                   {showRaw ? "Hide raw" : "Show raw"}
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 transition"
                   onClick={() => {
                     setSelected(null);
                     setShowRaw(false);
                   }}
                 >
                   Close
-                </button>
+                </UiButton>
               </div>
             </div>
 
             <div className="max-h-[75vh] overflow-auto px-5 py-5">
               {showRaw ? (
-                <div className="rounded-2xl border border-slate-200 bg-slate-950 p-4">
-                  <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap text-xs text-slate-100">
+                <div className="rounded-panel border border-border bg-primary p-4">
+                  <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">
                     {JSON.stringify(selected, null, 2)}
                   </pre>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm">
+                <div className="rounded-panel border border-border bg-muted/60 p-4 text-sm">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Label
                       </div>
-                      <div className="mt-1 font-semibold text-slate-900">
+                      <div className="mt-1 font-semibold text-foreground">
                         {asString(selected.label).trim() || "—"}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Type
                       </div>
-                      <div className="mt-1 text-slate-800">
+                      <div className="mt-1 text-foreground">
                         {formatAttributeType(selected) || "—"}
                       </div>
                     </div>
                   </div>
                   {extractOptions(selected).length ? (
                     <div className="mt-4">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Options
                       </div>
-                      <div className="mt-2 text-sm text-slate-800">
+                      <div className="mt-2 text-sm text-foreground">
                         {extractOptions(selected).join(", ")}
                       </div>
                     </div>
                   ) : null}
-                  <div className="mt-4 text-xs text-slate-500">
+                  <div className="mt-4 text-xs text-muted-foreground">
                     Use “Show raw” to inspect all available fields and validation metadata.
                   </div>
                 </div>

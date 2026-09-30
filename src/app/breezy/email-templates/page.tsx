@@ -1,5 +1,8 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { NativeSelect as UiSelect } from "@/components/ui/select";
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Check, RefreshCw, Search } from "lucide-react";
 
@@ -182,7 +185,7 @@ function RichText({ content }: { content: string }) {
     return (
       <div
         className={[
-          "text-sm text-slate-800",
+          "text-sm text-foreground",
           "[&_p]:mt-2 [&_p]:leading-6",
           "[&_h1]:mt-4 [&_h1]:text-lg [&_h1]:font-semibold",
           "[&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold",
@@ -192,8 +195,8 @@ function RichText({ content }: { content: string }) {
           "[&_ol]:mt-2 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5",
           "[&_li]:leading-6",
           "[&_strong]:font-semibold",
-          "[&_a]:font-semibold [&_a]:text-emerald-700 [&_a:hover]:underline",
-          "[&_img]:my-3 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-2xl [&_img]:border [&_img]:border-slate-200",
+          "[&_a]:font-semibold [&_a]:text-success [&_a:hover]:underline",
+          "[&_img]:my-3 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-panel [&_img]:border [&_img]:border-border",
           "[&_figure]:my-3",
           "[&_br]:leading-6",
         ].join(" ")}
@@ -203,7 +206,7 @@ function RichText({ content }: { content: string }) {
   }
 
   return (
-    <div className="whitespace-pre-wrap text-sm leading-6 text-slate-800">
+    <div className="whitespace-pre-wrap text-sm leading-6 text-foreground">
       {safeText || "—"}
     </div>
   );
@@ -591,18 +594,18 @@ export default function BreezyEmailTemplatesPage() {
     <div className="mx-auto w-full">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Email templates
           </h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-muted-foreground">
             Sync Breezy email templates into the database and organize them into folders.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
+          <UiButton variant="secondary" size="md"
             type="button"
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex items-center gap-2 transition disabled:opacity-60"
             onClick={() => void loadCompanies()}
             disabled={loadingCompanies}
           >
@@ -610,20 +613,20 @@ export default function BreezyEmailTemplatesPage() {
               className={loadingCompanies ? "h-4 w-4 animate-spin" : "h-4 w-4"}
             />
             Refresh companies
-          </button>
+          </UiButton>
         </div>
       </div>
 
-      <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mt-8 rounded-panel border border-border bg-card p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Company
             </div>
             <div className="mt-2 flex gap-2">
               {companies.length > 0 ? (
-                <select
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                <UiSelect
+                  className="h-11 w-full"
                   value={companyId}
                   onChange={(event) => setCompanyId(event.target.value)}
                 >
@@ -638,18 +641,18 @@ export default function BreezyEmailTemplatesPage() {
                       </option>
                     );
                   })}
-                </select>
+                </UiSelect>
               ) : (
-                <input
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                <UiInput
+                  className="h-11 w-full"
                   value={companyId}
                   onChange={(event) => setCompanyId(event.target.value)}
                   placeholder="Paste Breezy Company ID…"
                 />
               )}
-              <button
+              <UiButton variant="secondary" size="lg"
                 type="button"
-                className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                className="inline-flex h-11 shrink-0 items-center justify-center transition disabled:opacity-60"
                 onClick={() => void loadTemplates()}
                 disabled={loadingTemplates || syncing || !companyId.trim()}
                 title="Reload templates"
@@ -657,28 +660,28 @@ export default function BreezyEmailTemplatesPage() {
                 <RefreshCw
                   className={loadingTemplates ? "h-4 w-4 animate-spin" : "h-4 w-4"}
                 />
-              </button>
-              <button
+              </UiButton>
+              <UiButton variant="primary" size="lg"
                 type="button"
-                className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+                className="inline-flex h-11 shrink-0 items-center justify-center transition disabled:opacity-60"
                 onClick={() => void syncTemplates()}
                 disabled={syncing || loadingTemplates || !companyId.trim()}
                 title="Sync from Breezy into the database"
               >
                 <RefreshCw className={syncing ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
                 <span className="ml-2 hidden sm:inline">Sync</span>
-              </button>
+              </UiButton>
             </div>
           </div>
 
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Filter templates
             </div>
-            <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                className="h-11 w-full border-none bg-transparent text-sm text-slate-800 outline-none"
+            <div className="mt-2 flex items-center gap-2 rounded-panel border border-border bg-card px-4">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <UiInput
+                className="h-11 w-full"
                 placeholder="Search by name, subject, id…"
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
@@ -688,32 +691,32 @@ export default function BreezyEmailTemplatesPage() {
         </div>
 
         {error ? (
-          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="mt-4 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         ) : null}
 
         {templatesWarning ? (
-          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="mt-4 rounded-panel border border-warning/25 bg-warning-muted px-4 py-3 text-sm text-warning">
             {templatesWarning}
           </div>
         ) : null}
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[260px_1fr]">
-          <div className="overflow-hidden rounded-2xl border border-slate-200">
-            <div className="flex items-center justify-between bg-slate-50 px-4 py-3">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="overflow-hidden rounded-panel border border-border">
+            <div className="flex items-center justify-between bg-muted px-4 py-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Folders
               </div>
-              <button
+              <UiButton variant="secondary" size="sm"
                 type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                className="inline-flex items-center gap-2 transition disabled:opacity-60"
                 onClick={() => setFolderModalOpen(true)}
                 disabled={!companyId.trim()}
                 title="Create folder"
               >
                 + Folder
-              </button>
+              </UiButton>
             </div>
 
             <div className="divide-y divide-slate-200">
@@ -721,12 +724,12 @@ export default function BreezyEmailTemplatesPage() {
                 type="button"
                 className={[
                   "flex w-full items-center justify-between px-4 py-3 text-left text-sm transition",
-                  selectedFolderId === "all" ? "bg-emerald-50/70" : "hover:bg-slate-50",
+                  selectedFolderId === "all" ? "bg-success-muted" : "hover:bg-muted",
                 ].join(" ")}
                 onClick={() => setSelectedFolderId("all")}
               >
-                <span className="font-semibold text-slate-900">All templates</span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                <span className="font-semibold text-foreground">All templates</span>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-foreground">
                   {folderCounts.all}
                 </span>
               </button>
@@ -740,15 +743,15 @@ export default function BreezyEmailTemplatesPage() {
                     type="button"
                     className={[
                       "flex w-full items-center justify-between px-4 py-3 text-left text-sm transition",
-                      active ? "bg-emerald-50/70" : "hover:bg-slate-50",
+                      active ? "bg-success-muted" : "hover:bg-muted",
                     ].join(" ")}
                     onClick={() => setSelectedFolderId(folder.id)}
                     title={folder.name}
                   >
-                    <span className="truncate font-semibold text-slate-900">
+                    <span className="truncate font-semibold text-foreground">
                       {folder.name}
                     </span>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-foreground">
                       {count}
                     </span>
                   </button>
@@ -760,21 +763,21 @@ export default function BreezyEmailTemplatesPage() {
                 className={[
                   "flex w-full items-center justify-between px-4 py-3 text-left text-sm transition",
                   selectedFolderId === "unsorted"
-                    ? "bg-emerald-50/70"
-                    : "hover:bg-slate-50",
+                    ? "bg-success-muted"
+                    : "hover:bg-muted",
                 ].join(" ")}
                 onClick={() => setSelectedFolderId("unsorted")}
               >
-                <span className="font-semibold text-slate-900">Unsorted</span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                <span className="font-semibold text-foreground">Unsorted</span>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-foreground">
                   {folderCounts.unsorted}
                 </span>
               </button>
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200">
-          <div className="grid grid-cols-12 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="overflow-hidden rounded-panel border border-border">
+          <div className="grid grid-cols-12 bg-muted px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <div className="col-span-4">Template</div>
             <div className="col-span-2">Folder</div>
             <div className="col-span-4">Subject / Preview</div>
@@ -783,11 +786,11 @@ export default function BreezyEmailTemplatesPage() {
           </div>
 
           {loadingTemplates ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-500">
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               Loading templates…
             </div>
           ) : filteredTemplates.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-500">
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               No templates found.
             </div>
           ) : (
@@ -822,27 +825,27 @@ export default function BreezyEmailTemplatesPage() {
                     key={id || `${name}-${index}`}
                     className={[
                       "grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm transition",
-                      id ? "cursor-pointer hover:bg-slate-50" : "",
-                      active ? "bg-emerald-50/70" : "",
+                      id ? "cursor-pointer hover:bg-muted" : "",
+                      active ? "bg-success-muted" : "",
                     ].join(" ")}
                     onClick={() => (id ? void loadTemplateDetails(id) : undefined)}
                   >
                     <div className="col-span-4">
-                      <div className="font-semibold text-slate-900">{name}</div>
+                      <div className="font-semibold text-foreground">{name}</div>
                     </div>
-                    <div className="col-span-2 truncate text-xs font-semibold text-slate-700">
+                    <div className="col-span-2 truncate text-xs font-semibold text-foreground">
                       {folderName?.trim() || "—"}
                     </div>
-                    <div className="col-span-4 text-xs text-slate-600">
+                    <div className="col-span-4 text-xs text-muted-foreground">
                       {subject || preview || "—"}
                     </div>
-                    <div className="col-span-1 font-mono text-xs text-slate-700">
+                    <div className="col-span-1 font-mono text-xs text-foreground">
                       {id || "—"}
                     </div>
                     <div className="col-span-1 flex justify-end">
-                      <button
+                      <UiButton variant="secondary" size="sm"
                         type="button"
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                        className="inline-flex items-center gap-2 transition"
                         onClick={(event) => {
                           event.stopPropagation();
                           if (id) void copy(id);
@@ -855,7 +858,7 @@ export default function BreezyEmailTemplatesPage() {
                         ) : (
                           <Copy className="h-3.5 w-3.5" />
                         )}
-                      </button>
+                      </UiButton>
                     </div>
                   </div>
                 );
@@ -881,19 +884,19 @@ export default function BreezyEmailTemplatesPage() {
             setShowRaw(false);
           }}
         >
-          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-overlay backdrop-blur-sm" />
           <div
-            className="relative z-10 w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_30px_80px_-50px_rgba(15,23,42,0.6)]"
+            className="relative z-10 w-full max-w-4xl overflow-hidden rounded-panel border border-border bg-card shadow-overlay"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex flex-col gap-3 border-b border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 border-b border-border bg-card px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Template
                 </div>
                 <div
                   id="breezy-template-modal-title"
-                  className="mt-1 text-sm font-semibold text-slate-900"
+                  className="mt-1 text-sm font-semibold text-foreground"
                 >
                   {detailsLoading
                     ? "Loading…"
@@ -903,9 +906,9 @@ export default function BreezyEmailTemplatesPage() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 transition disabled:opacity-60"
                   onClick={() => void loadTemplateDetails(selectedTemplateId)}
                   disabled={detailsLoading}
                 >
@@ -915,19 +918,19 @@ export default function BreezyEmailTemplatesPage() {
                     }
                   />
                   Refresh
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 transition disabled:opacity-60"
                   onClick={() => (details ? void copyJson(details) : undefined)}
                   disabled={!details || detailsLoading}
                   title="Copy JSON to clipboard"
                 >
                   Copy JSON
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 transition disabled:opacity-60"
                   onClick={() =>
                     details
                       ? downloadJson(
@@ -940,17 +943,17 @@ export default function BreezyEmailTemplatesPage() {
                   title="Download JSON"
                 >
                   Download
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 transition"
                   onClick={() => setShowRaw((v) => !v)}
                 >
                   {showRaw ? "Hide raw" : "Show raw"}
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 transition"
                   onClick={() => {
                     setSelectedTemplateId(null);
                     setDetails(null);
@@ -961,25 +964,25 @@ export default function BreezyEmailTemplatesPage() {
                   }}
                 >
                   Close
-                </button>
+                </UiButton>
               </div>
             </div>
 
             {detailsWarning || templatesWarning ? (
-              <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800">
+              <div className="border-b border-warning/25 bg-warning-muted px-5 py-3 text-sm text-warning">
                 {detailsWarning || templatesWarning}
               </div>
             ) : null}
 
-            <div className="border-b border-slate-200 bg-white px-5 py-4">
+            <div className="border-b border-border bg-card px-5 py-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Folder
                   </div>
                   <div className="mt-2 flex items-center gap-2">
-                    <select
-                      className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
+                    <UiSelect
+                      className="h-11 w-full disabled:opacity-60"
                       value={detailsFolderId ?? ""}
                       onChange={(event) => {
                         const next = event.target.value || null;
@@ -993,28 +996,28 @@ export default function BreezyEmailTemplatesPage() {
                           {folder.name}
                         </option>
                       ))}
-                    </select>
-                    <button
+                    </UiSelect>
+                    <UiButton variant="secondary" size="lg"
                       type="button"
-                      className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                      className="inline-flex h-11 shrink-0 items-center justify-center transition disabled:opacity-60"
                       onClick={() => setFolderModalOpen(true)}
                       disabled={!detailsCanEdit || !companyId.trim()}
                       title="Create folder"
                     >
                       + Folder
-                    </button>
+                    </UiButton>
                   </div>
                   {!detailsCanEdit ? (
-                    <div className="mt-2 text-xs text-slate-500">
+                    <div className="mt-2 text-xs text-muted-foreground">
                       Folder changes require an Admin role.
                     </div>
                   ) : null}
                 </div>
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Template ID
                   </div>
-                  <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-xs text-slate-700">
+                  <div className="mt-2 rounded-panel border border-border bg-muted px-4 py-3 font-mono text-xs text-foreground">
                     {selectedTemplateId}
                   </div>
                 </div>
@@ -1023,34 +1026,34 @@ export default function BreezyEmailTemplatesPage() {
 
             <div className="max-h-[75vh] overflow-auto px-5 py-5">
               {detailsLoading ? (
-                <div className="text-sm text-slate-500">Fetching Breezy data…</div>
+                <div className="text-sm text-muted-foreground">Fetching Breezy data…</div>
               ) : details ? (
                 <div className="grid gap-4">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm">
+                  <div className="rounded-panel border border-border bg-muted/60 p-4 text-sm">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
-                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                           Name
                         </div>
-                        <div className="mt-1 font-semibold text-slate-900">
+                        <div className="mt-1 font-semibold text-foreground">
                           {asString(details.name).trim() || "—"}
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                           ID
                         </div>
-                        <div className="mt-1 font-mono text-xs text-slate-800">
+                        <div className="mt-1 font-mono text-xs text-foreground">
                           {getId(details) || "—"}
                         </div>
                       </div>
                     </div>
                     {asString(details.subject).trim() ? (
                       <div className="mt-3">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                           Subject
                         </div>
-                        <div className="mt-1 text-slate-800">
+                        <div className="mt-1 text-foreground">
                           {asString(details.subject).trim()}
                         </div>
                       </div>
@@ -1058,8 +1061,8 @@ export default function BreezyEmailTemplatesPage() {
                   </div>
 
                   {pickBody(details) ? (
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="rounded-panel border border-border bg-card p-4">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Body
                       </div>
                       <div className="mt-2">
@@ -1067,21 +1070,21 @@ export default function BreezyEmailTemplatesPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                    <div className="rounded-panel border border-border bg-card p-4 text-sm text-muted-foreground">
                       No body content found in this template.
                     </div>
                   )}
 
                   {showRaw ? (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-950 p-4">
-                      <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap text-xs text-slate-100">
+                    <div className="rounded-panel border border-border bg-primary p-4">
+                      <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">
                         {JSON.stringify(details, null, 2)}
                       </pre>
                     </div>
                   ) : null}
                 </div>
               ) : (
-                <div className="text-sm text-slate-500">No details returned.</div>
+                <div className="text-sm text-muted-foreground">No details returned.</div>
               )}
             </div>
           </div>
@@ -1100,28 +1103,28 @@ export default function BreezyEmailTemplatesPage() {
             setNewFolderName("");
           }}
         >
-          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-overlay backdrop-blur-sm" />
           <div
-            className="relative z-10 w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_30px_80px_-50px_rgba(15,23,42,0.6)]"
+            className="relative z-10 w-full max-w-lg overflow-hidden rounded-panel border border-border bg-card shadow-overlay"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="border-b border-slate-200 bg-white px-5 py-4">
+            <div className="border-b border-border bg-card px-5 py-4">
               <div
                 id="breezy-folder-modal-title"
-                className="text-sm font-semibold text-slate-900"
+                className="text-sm font-semibold text-foreground"
               >
                 Create folder
               </div>
-              <div className="mt-1 text-xs text-slate-500">
+              <div className="mt-1 text-xs text-muted-foreground">
                 Folders are stored in LinAs CRM (not synced back to Breezy).
               </div>
             </div>
             <div className="p-5">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Folder name
               </div>
-              <input
-                className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
+              <UiInput
+                className="mt-2 h-11 w-full disabled:opacity-60"
                 value={newFolderName}
                 onChange={(event) => setNewFolderName(event.target.value)}
                 placeholder="e.g. Interview invitations"
@@ -1129,9 +1132,9 @@ export default function BreezyEmailTemplatesPage() {
               />
 
               <div className="mt-4 flex flex-wrap justify-end gap-2">
-                <button
+                <UiButton variant="secondary" size="md"
                   type="button"
-                  className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="inline-flex items-center justify-center transition disabled:opacity-60"
                   onClick={() => {
                     if (creatingFolder) return;
                     setFolderModalOpen(false);
@@ -1140,15 +1143,15 @@ export default function BreezyEmailTemplatesPage() {
                   disabled={creatingFolder}
                 >
                   Cancel
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="primary" size="md"
                   type="button"
-                  className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                  className="inline-flex items-center justify-center transition disabled:opacity-60"
                   onClick={() => void createFolder()}
                   disabled={creatingFolder || !newFolderName.trim() || !companyId.trim()}
                 >
                   {creatingFolder ? "Creating…" : "Create"}
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>

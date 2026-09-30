@@ -1,5 +1,8 @@
 "use client";
 
+import { Button as UiButton } from "@/components/ui/button";
+import { Input as UiInput } from "@/components/ui/input";
+import { NativeSelect as UiSelect } from "@/components/ui/select";
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Check, RefreshCw, Search } from "lucide-react";
 
@@ -243,18 +246,18 @@ export default function BreezyPipelinesPage() {
     <div className="mx-auto w-full">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Pipelines
           </h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-muted-foreground">
             Browse Breezy pipelines and stage definitions (API-only; not stored in the database).
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
+          <UiButton variant="secondary" size="md"
             type="button"
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex items-center gap-2 transition disabled:opacity-60"
             onClick={() => void loadCompanies()}
             disabled={loadingCompanies}
           >
@@ -262,20 +265,20 @@ export default function BreezyPipelinesPage() {
               className={loadingCompanies ? "h-4 w-4 animate-spin" : "h-4 w-4"}
             />
             Refresh companies
-          </button>
+          </UiButton>
         </div>
       </div>
 
-      <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mt-8 rounded-panel border border-border bg-card p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Company
             </div>
             <div className="mt-2 flex gap-2">
               {companies.length > 0 ? (
-                <select
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                <UiSelect
+                  className="h-11 w-full"
                   value={companyId}
                   onChange={(event) => setCompanyId(event.target.value)}
                 >
@@ -290,18 +293,18 @@ export default function BreezyPipelinesPage() {
                       </option>
                     );
                   })}
-                </select>
+                </UiSelect>
               ) : (
-                <input
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                <UiInput
+                  className="h-11 w-full"
                   value={companyId}
                   onChange={(event) => setCompanyId(event.target.value)}
                   placeholder="Paste Breezy Company ID…"
                 />
               )}
-              <button
+              <UiButton variant="secondary" size="lg"
                 type="button"
-                className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                className="inline-flex h-11 shrink-0 items-center justify-center transition disabled:opacity-60"
                 onClick={() => void loadList()}
                 disabled={loadingList || !companyId.trim()}
                 title="Reload pipelines"
@@ -309,18 +312,18 @@ export default function BreezyPipelinesPage() {
                 <RefreshCw
                   className={loadingList ? "h-4 w-4 animate-spin" : "h-4 w-4"}
                 />
-              </button>
+              </UiButton>
             </div>
           </div>
 
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Filter pipelines
             </div>
-            <div className="mt-2 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                className="h-11 w-full border-none bg-transparent text-sm text-slate-800 outline-none"
+            <div className="mt-2 flex items-center gap-2 rounded-panel border border-border bg-card px-4">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <UiInput
+                className="h-11 w-full"
                 placeholder="Search by name or id…"
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
@@ -330,13 +333,13 @@ export default function BreezyPipelinesPage() {
         </div>
 
         {error ? (
-          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="mt-4 rounded-panel border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         ) : null}
 
-        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
-          <div className="grid grid-cols-12 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <div className="mt-6 overflow-hidden rounded-panel border border-border">
+          <div className="grid grid-cols-12 bg-muted px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <div className="col-span-7">Pipeline</div>
             <div className="col-span-3">Stages</div>
             <div className="col-span-1">ID</div>
@@ -344,11 +347,11 @@ export default function BreezyPipelinesPage() {
           </div>
 
           {loadingList ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-500">
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               Loading pipelines…
             </div>
           ) : filtered.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-500">
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               No pipelines found.
             </div>
           ) : (
@@ -364,24 +367,24 @@ export default function BreezyPipelinesPage() {
                     key={id || `${name}-${index}`}
                     className={[
                       "grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm transition",
-                      id ? "cursor-pointer hover:bg-slate-50" : "",
-                      active ? "bg-emerald-50/70" : "",
+                      id ? "cursor-pointer hover:bg-muted" : "",
+                      active ? "bg-success-muted" : "",
                     ].join(" ")}
                     onClick={() => (id ? void loadDetails(id) : undefined)}
                   >
                     <div className="col-span-7">
-                      <div className="font-semibold text-slate-900">{name}</div>
+                      <div className="font-semibold text-foreground">{name}</div>
                     </div>
-                    <div className="col-span-3 text-xs text-slate-600">
+                    <div className="col-span-3 text-xs text-muted-foreground">
                       {typeof stageCount === "number" ? stageCount : "—"}
                     </div>
-                    <div className="col-span-1 font-mono text-xs text-slate-700">
+                    <div className="col-span-1 font-mono text-xs text-foreground">
                       {id || "—"}
                     </div>
                     <div className="col-span-1 flex justify-end">
-                      <button
+                      <UiButton variant="secondary" size="sm"
                         type="button"
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                        className="inline-flex items-center gap-2 transition"
                         onClick={(event) => {
                           event.stopPropagation();
                           if (id) void copy(id);
@@ -394,7 +397,7 @@ export default function BreezyPipelinesPage() {
                         ) : (
                           <Copy className="h-3.5 w-3.5" />
                         )}
-                      </button>
+                      </UiButton>
                     </div>
                   </div>
                 );
@@ -416,44 +419,44 @@ export default function BreezyPipelinesPage() {
             setShowRaw(false);
           }}
         >
-          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-overlay backdrop-blur-sm" />
           <div
-            className="relative z-10 w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_30px_80px_-50px_rgba(15,23,42,0.6)]"
+            className="relative z-10 w-full max-w-4xl overflow-hidden rounded-panel border border-border bg-card shadow-overlay"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex flex-col gap-3 border-b border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 border-b border-border bg-card px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Pipeline
                 </div>
                 <div
                   id="breezy-pipeline-modal-title"
-                  className="mt-1 text-sm font-semibold text-slate-900"
+                  className="mt-1 text-sm font-semibold text-foreground"
                 >
                   {detailsLoading ? "Loading…" : asString(details?.name).trim() || selectedId}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 transition disabled:opacity-60"
                   onClick={() => void loadDetails(selectedId)}
                   disabled={detailsLoading}
                 >
                   <RefreshCw className={detailsLoading ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
                   Refresh
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 transition disabled:opacity-60"
                   onClick={() => (details ? void copyJson(details) : undefined)}
                   disabled={!details || detailsLoading}
                 >
                   Copy JSON
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 transition disabled:opacity-60"
                   onClick={() =>
                     details
                       ? downloadJson(`breezy-pipeline-${getId(details) || selectedId}.json`, details)
@@ -462,17 +465,17 @@ export default function BreezyPipelinesPage() {
                   disabled={!details || detailsLoading}
                 >
                   Download
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 transition"
                   onClick={() => setShowRaw((v) => !v)}
                 >
                   {showRaw ? "Hide raw" : "Show raw"}
-                </button>
-                <button
+                </UiButton>
+                <UiButton variant="secondary" size="sm"
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 transition"
                   onClick={() => {
                     setSelectedId(null);
                     setDetails(null);
@@ -480,49 +483,49 @@ export default function BreezyPipelinesPage() {
                   }}
                 >
                   Close
-                </button>
+                </UiButton>
               </div>
             </div>
 
             <div className="max-h-[75vh] overflow-auto px-5 py-5">
               {detailsLoading ? (
-                <div className="text-sm text-slate-500">Fetching Breezy data…</div>
+                <div className="text-sm text-muted-foreground">Fetching Breezy data…</div>
               ) : details ? (
                 showRaw ? (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-950 p-4">
-                    <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap text-xs text-slate-100">
+                  <div className="rounded-panel border border-border bg-primary p-4">
+                    <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">
                       {JSON.stringify(details, null, 2)}
                     </pre>
                   </div>
                 ) : (
                   <div className="grid gap-4">
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm">
+                    <div className="rounded-panel border border-border bg-muted/60 p-4 text-sm">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div>
-                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Name
                           </div>
-                          <div className="mt-1 font-semibold text-slate-900">
+                          <div className="mt-1 font-semibold text-foreground">
                             {asString(details.name).trim() || "—"}
                           </div>
                         </div>
                         <div>
-                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             ID
                           </div>
-                          <div className="mt-1 font-mono text-xs text-slate-800">
+                          <div className="mt-1 font-mono text-xs text-foreground">
                             {getId(details) || selectedId}
                           </div>
                         </div>
                       </div>
-                      <div className="mt-4 text-xs text-slate-500">
+                      <div className="mt-4 text-xs text-muted-foreground">
                         Use “Show raw” to inspect all pipeline configuration and stage data.
                       </div>
                     </div>
                   </div>
                 )
               ) : (
-                <div className="text-sm text-slate-500">No details returned.</div>
+                <div className="text-sm text-muted-foreground">No details returned.</div>
               )}
             </div>
           </div>

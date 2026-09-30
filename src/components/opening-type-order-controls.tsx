@@ -11,7 +11,7 @@ export function OpeningTypeOrderControls({ label, index, count, disabled, onMove
 }) {
   return (
     <div className="flex items-center justify-between gap-3 sm:col-span-4">
-      <span className="text-xs font-medium text-slate-500">Display order: {index + 1}</span>
+      <span className="text-xs font-medium text-muted-foreground">Display order: {index + 1}</span>
       <div className="flex gap-1">
         <button
           type="button"
@@ -19,7 +19,7 @@ export function OpeningTypeOrderControls({ label, index, count, disabled, onMove
           title="Move up"
           disabled={disabled || index === 0}
           onClick={() => onMove(-1)}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted disabled:opacity-30"
         >
           <ArrowUp className="h-4 w-4" />
         </button>
@@ -29,7 +29,7 @@ export function OpeningTypeOrderControls({ label, index, count, disabled, onMove
           title="Move down"
           disabled={disabled || index === count - 1}
           onClick={() => onMove(1)}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted disabled:opacity-30"
         >
           <ArrowDown className="h-4 w-4" />
         </button>

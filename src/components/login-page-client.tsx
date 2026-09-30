@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, Mail } from "lucide-react";
+import { Lock } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 import { AuthLayout } from "@/components/auth-layout";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -51,14 +54,13 @@ export function LoginPageClient() {
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-2">
-          <div className="flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3">
-            <Mail className="h-4 w-4 text-slate-400" />
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
               id="email"
               type="email"
               autoComplete="email"
               required
-              className="w-full border-none bg-transparent text-sm outline-none"
               placeholder="name@company.com"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -67,14 +69,13 @@ export function LoginPageClient() {
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center gap-2 rounded-full border border-slate-200 px-4 py-3">
-            <Lock className="h-4 w-4 text-slate-400" />
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
               id="password"
               type="password"
               autoComplete="current-password"
               required
-              className="w-full border-none bg-transparent text-sm outline-none"
               placeholder="••••••••"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -83,30 +84,30 @@ export function LoginPageClient() {
         </div>
 
         {error ? (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+          <div className="rounded-md border border-destructive/20 bg-danger-muted px-3 py-2 text-xs text-destructive">
             {error}
           </div>
         ) : null}
 
         {confirmed ? (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+          <div className="rounded-md border border-success/20 bg-success-muted px-3 py-2 text-xs text-success">
             Email confirmed. You can now log in.
           </div>
         ) : null}
 
-        <button
+        <Button
           type="submit"
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-[#3f3d8a] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#353377] disabled:opacity-70"
+          className="w-full" size="lg"
           disabled={loading}
         >
           <Lock className="h-4 w-4" />
           {loading ? "Signing in..." : "Log in"}
-        </button>
+        </Button>
       </form>
 
-      <div className="text-center text-sm text-slate-500">
+      <div className="text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}
-        <Link className="font-semibold text-emerald-600" href="/register">
+        <Link className="font-semibold text-foreground underline underline-offset-4" href="/register">
           Create one
         </Link>
       </div>
