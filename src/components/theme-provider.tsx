@@ -1,4 +1,6 @@
 "use client";
+import { usePathname } from "next/navigation";
+import { isPublicUiRoute } from "@/lib/theme";
 import {
   createContext,
   useContext,
@@ -31,7 +33,7 @@ function subscribe(listener: () => void) {
   };
 }
 function applyTheme() {
-  const theme = resolveTheme(
+  const theme = isPublicUiRoute(window.location.pathname) ? "light" : resolveTheme(
     getSnapshot(),
     window.matchMedia("(prefers-color-scheme: dark)").matches,
   );
@@ -53,6 +55,7 @@ const ThemeContext = createContext({
   setPreference,
 });
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const selected = useSyncExternalStore(
     subscribe,
     getSnapshot,
@@ -73,7 +76,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       media.removeEventListener("change", applyTheme);
       window.removeEventListener("storage", sync);
     };
-  }, []);
+  }, [pathname]);
   return (
     <ThemeContext.Provider value={{ preference: selected, setPreference }}>
       {children}

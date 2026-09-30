@@ -49,13 +49,13 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 10px;
-  --radius-2xl: 14px;
-  --radius-3xl: 14px;
-  --radius-4xl: 16px;
+  --radius-sm: var(--ui-radius-sm, 4px);
+  --radius-md: var(--ui-radius-md, 6px);
+  --radius-lg: var(--ui-radius-lg, 8px);
+  --radius-xl: var(--ui-radius-xl, 10px);
+  --radius-2xl: var(--ui-radius-2xl, 14px);
+  --radius-3xl: var(--ui-radius-3xl, 14px);
+  --radius-4xl: var(--ui-radius-4xl, 16px);
 }
 
 :root {

@@ -166,8 +166,10 @@ export function TaskNotificationBell({ className }: { className?: string }) {
 
   useEffect(() => {
     if (!userId) return;
+    // Both responsive headers mount a bell. Each effect owns its channel,
+    // including remounts while asynchronous removal is still pending.
     const channel = supabase
-      .channel(`task-notifications-${userId}`)
+      .channel(`task-notifications-${userId}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {

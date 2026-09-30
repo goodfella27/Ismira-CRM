@@ -81,7 +81,7 @@ Import components from `@/components/ui/<name>`.
 
 ## Migration and maintenance
 
-The previous mint/navy shell, global theme override, ornamental gradients, and duplicated compact-control styles have been replaced at their source. The workspace, HR portal, CRM screens, application form, jobs views and authentication pages consume the shared theme. Complex drag targets, document editors, photo overlays, charts, and business-specific status controls keep their specialized structure and meaningful colors.
+The previous mint/navy shell, global theme override, ornamental gradients, and duplicated compact-control styles have been replaced at their source. The workspace, HR portal, CRM screens and admin authentication pages consume the shared theme. Public jobs, application, CV and candidate forms retain their original presentation. Public-only components live in `src/components/public`; `public-theme.css` restores their original font, palette and corner sizes, including portaled content. Admin dark-mode preferences do not apply to these routes. Complex drag targets, document editors, photo overlays, charts, and business-specific status controls keep their specialized structure and meaningful colors.
 
 Do not add another blanket stylesheet over these components. Extend a shared variant when multiple screens need it. Keep content widths, form handlers, drag geometry, permissions and API contracts separate from appearance changes.
 

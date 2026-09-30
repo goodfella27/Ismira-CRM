@@ -75,10 +75,10 @@ export default function StickyJobsHeader() {
       <div
         className={[
           "pointer-events-auto w-[calc(100vw-1.25rem)] max-w-[1280px] xl:w-full",
-          "rounded-[999px] border border-white/40 bg-card/35",
-          "shadow-overlay",
+          "rounded-[999px] border border-white/40 bg-white/35",
+          "shadow-[0_18px_60px_-30px_rgba(15,23,42,0.45)]",
           "backdrop-blur-xl",
-          "ring-1 ring-ring/60",
+          "ring-1 ring-slate-200/60",
         ].join(" ")}
       >
         <div className="flex items-center justify-between gap-2 px-3 py-2 sm:gap-4 sm:px-6 sm:py-3">
@@ -89,13 +89,13 @@ export default function StickyJobsHeader() {
           <div className="flex min-w-0 items-center gap-1 sm:gap-3">
             {access === null ? (
               <span
-                className="h-9 w-20 animate-pulse rounded-full border border-white/50 bg-card/40 sm:h-10"
+                className="h-9 w-20 animate-pulse rounded-full border border-white/50 bg-white/40 sm:h-10"
                 aria-hidden="true"
               />
             ) : !access.authenticated ? (
               <Link
                 href="/admin?next=%2F"
-                className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-card/70 px-3 text-xs font-semibold text-foreground transition hover:bg-card sm:h-10 sm:px-4"
+                className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 text-xs font-semibold text-slate-800 transition hover:bg-white sm:h-10 sm:px-4"
               >
                 <LogIn className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Log in</span>
@@ -103,7 +103,7 @@ export default function StickyJobsHeader() {
             ) : access.canAccessHrPortal ? (
               <Link
                 href="/pipeline"
-                className="inline-flex h-9 items-center gap-2 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary sm:h-10 sm:px-4"
+                className="inline-flex h-9 items-center gap-2 rounded-full bg-slate-950 px-3 text-xs font-semibold text-white transition hover:bg-slate-800 sm:h-10 sm:px-4"
               >
                 <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">
@@ -112,9 +112,9 @@ export default function StickyJobsHeader() {
               </Link>
             ) : (
               <div className="flex items-center gap-1">
-                <span className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card/70 px-3 text-[11px] font-bold uppercase tracking-wide text-foreground sm:h-10">
+                <span className="inline-flex h-9 items-center gap-1.5 rounded-full border border-slate-200 bg-white/70 px-3 text-[11px] font-bold uppercase tracking-wide text-slate-700 sm:h-10">
                   {access.role !== "Visitor" ? (
-                    <Crown className="h-3.5 w-3.5 text-warning" />
+                    <Crown className="h-3.5 w-3.5 text-amber-600" />
                   ) : null}
                   {access.role}
                 </span>
@@ -122,7 +122,7 @@ export default function StickyJobsHeader() {
                   type="button"
                   aria-label="Log out"
                   onClick={() => void signOut()}
-                  className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground transition hover:bg-card/70 hover:text-foreground sm:h-10 sm:w-10"
+                  className="grid h-9 w-9 place-items-center rounded-full text-slate-600 transition hover:bg-white/70 hover:text-slate-950 sm:h-10 sm:w-10"
                 >
                   <LogOut className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -135,10 +135,10 @@ export default function StickyJobsHeader() {
               rel="noreferrer"
               className={[
                 "inline-flex items-center justify-center rounded-full",
-                "bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground sm:px-5 sm:text-sm",
-                "shadow-overlay",
+                "bg-gradient-to-r from-[#ff9f2f] to-[#ffbf5f] px-3 py-2 text-xs font-semibold text-white sm:px-5 sm:text-sm",
+                "shadow-[0_12px_24px_-16px_rgba(255,159,47,0.78)]",
                 "transition hover:from-[#ff8f14] hover:to-[#ffb23a]",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/25",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50",
               ].join(" ")}
             >
               <span className="sm:hidden">Website</span>
@@ -151,7 +151,7 @@ export default function StickyJobsHeader() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Facebook"
-                className="grid h-8 w-8 place-items-center rounded-full text-foreground transition hover:bg-card/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10 sm:w-10"
+                className="grid h-8 w-8 place-items-center rounded-full text-slate-700 transition hover:bg-white/50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 sm:h-10 sm:w-10"
               >
                 <Facebook className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </a>
@@ -160,7 +160,7 @@ export default function StickyJobsHeader() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Instagram"
-                className="grid h-8 w-8 place-items-center rounded-full text-foreground transition hover:bg-card/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10 sm:w-10"
+                className="grid h-8 w-8 place-items-center rounded-full text-slate-700 transition hover:bg-white/50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 sm:h-10 sm:w-10"
               >
                 <Instagram className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </a>
@@ -169,7 +169,7 @@ export default function StickyJobsHeader() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="LinkedIn"
-                className="grid h-8 w-8 place-items-center rounded-full text-foreground transition hover:bg-card/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10 sm:w-10"
+                className="grid h-8 w-8 place-items-center rounded-full text-slate-700 transition hover:bg-white/50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 sm:h-10 sm:w-10"
               >
                 <Linkedin className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </a>

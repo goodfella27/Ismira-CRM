@@ -1,7 +1,5 @@
 "use client";
 
-import { Input as UiInput } from "@/components/ui/input";
-import { Textarea as UiTextarea } from "@/components/ui/textarea";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useParams } from "next/navigation";
 
@@ -140,34 +138,34 @@ export default function CvBuilderPage() {
   };
 
   return (
-    <div className="min-h-screen bg-muted px-6 py-10">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-200 via-teal-200 to-slate-200 px-6 py-10">
       <div className="mx-auto flex w-full max-w-3xl flex-col items-center">
-        <div className="w-full rounded-dialog bg-card/90 p-8 shadow-overlay ring-1 ring-success/25 backdrop-blur">
+        <div className="w-full rounded-[28px] bg-white/90 p-8 shadow-[0_30px_70px_-55px_rgba(15,23,42,0.6)] ring-1 ring-emerald-200/70 backdrop-blur">
           {loading ? (
-            <div className="text-center text-sm text-muted-foreground">
+            <div className="text-center text-sm text-slate-500">
               Loading form…
             </div>
           ) : error ? (
-            <div className="text-center text-sm text-destructive">{error}</div>
+            <div className="text-center text-sm text-rose-600">{error}</div>
           ) : success ? (
             <div className="text-center">
-              <div className="text-xl font-semibold text-foreground">
+              <div className="text-xl font-semibold text-slate-900">
                 CV received
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-2 text-sm text-slate-600">
                 Your CV has been generated and sent to the team.
               </p>
             </div>
           ) : (
             <div>
               <div className="text-center">
-                <div className="text-xs uppercase tracking-[0.2em] text-success">
+                <div className="text-xs uppercase tracking-[0.2em] text-emerald-600">
                   ISMIRA CRM
                 </div>
-                <h1 className="mt-3 text-3xl font-semibold text-foreground">
+                <h1 className="mt-3 text-3xl font-semibold text-slate-900">
                   Build your CV
                 </h1>
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="mt-2 text-sm text-slate-500">
                   {form?.candidateName
                     ? `Hi ${form.candidateName}, fill in your CV details below.`
                     : "Fill in your CV details below."}
@@ -175,102 +173,102 @@ export default function CvBuilderPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-                <label className="block rounded-panel border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
-                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                <label className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                  <span className="text-xs font-semibold uppercase text-slate-500">
                     Profile photo
                   </span>
                   <input
                     name="photo"
                     type="file"
                     accept="image/*"
-                    className="mt-2 w-full text-sm text-muted-foreground"
+                    className="mt-2 w-full text-sm text-slate-600"
                   />
                 </label>
 
-                <label className="block rounded-panel border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
-                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                <label className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                  <span className="text-xs font-semibold uppercase text-slate-500">
                     Full name
                   </span>
-                  <UiInput
+                  <input
                     name="full_name"
                     type="text"
-                    className="mt-2 w-full"
+                    className="mt-2 w-full rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                     placeholder="Your full name"
                     required
                   />
                 </label>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block rounded-panel border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
-                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                  <label className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                    <span className="text-xs font-semibold uppercase text-slate-500">
                       Email
                     </span>
-                    <UiInput
+                    <input
                       name="email"
                       type="email"
-                      className="mt-2 w-full"
+                      className="mt-2 w-full rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                       placeholder="Email address"
                     />
                   </label>
-                  <label className="block rounded-panel border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
-                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                  <label className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                    <span className="text-xs font-semibold uppercase text-slate-500">
                       Phone
                     </span>
-                    <UiInput
+                    <input
                       name="phone"
                       type="tel"
-                      className="mt-2 w-full"
+                      className="mt-2 w-full rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                       placeholder="Phone number"
                     />
                   </label>
                 </div>
 
-                <label className="block rounded-panel border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
-                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                <label className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                  <span className="text-xs font-semibold uppercase text-slate-500">
                     Professional title
                   </span>
-                  <UiInput
+                  <input
                     name="title"
                     type="text"
-                    className="mt-2 w-full"
+                    className="mt-2 w-full rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                     placeholder="Graphic Designer"
                   />
                 </label>
 
-                <label className="block rounded-panel border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
-                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                <label className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                  <span className="text-xs font-semibold uppercase text-slate-500">
                     Location / Address
                   </span>
-                  <UiInput
+                  <input
                     name="location"
                     type="text"
-                    className="mt-2 w-full"
+                    className="mt-2 w-full rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                     placeholder="City, Country"
                   />
                 </label>
 
-                <label className="block rounded-panel border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
-                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                <label className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                  <span className="text-xs font-semibold uppercase text-slate-500">
                     Summary
                   </span>
-                  <UiTextarea
+                  <textarea
                     name="summary"
                     rows={4}
-                    className="mt-2 w-full"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                     placeholder="Short professional summary"
                   />
                 </label>
 
-                <label className="block rounded-panel border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
-                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                <label className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                  <span className="text-xs font-semibold uppercase text-slate-500">
                     Skills / Expertise
                   </span>
                   <div className="mt-2 space-y-2">
                     {skills.map((entry, index) => (
                       <div key={`skill-${index}`} className="flex items-center gap-2">
-                        <UiInput
+                        <input
                           type="text"
-                          className="flex-1"
+                          className="flex-1 rounded-full border border-slate-200 px-3 py-2 text-xs"
                           placeholder="Skill name"
                           value={entry.name}
                           onChange={(event) =>
@@ -299,13 +297,13 @@ export default function CvBuilderPage() {
                             )
                           }
                         />
-                        <span className="w-10 text-[11px] text-muted-foreground">
+                        <span className="w-10 text-[11px] text-slate-500">
                           {entry.level}%
                         </span>
                         {skills.length > 1 ? (
                           <button
                             type="button"
-                            className="text-xs text-destructive"
+                            className="text-xs text-rose-500"
                             onClick={() =>
                               setSkills((prev) => prev.filter((_, idx) => idx !== index))
                             }
@@ -317,7 +315,7 @@ export default function CvBuilderPage() {
                     ))}
                     <button
                       type="button"
-                      className="text-xs font-semibold text-success"
+                      className="text-xs font-semibold text-emerald-600"
                       onClick={() =>
                         setSkills((prev) => [...prev, { name: "", level: 70 }])
                       }
@@ -327,17 +325,17 @@ export default function CvBuilderPage() {
                   </div>
                 </label>
 
-                <div className="rounded-panel border border-border bg-card px-4 py-4 text-sm text-foreground shadow-sm">
-                  <div className="text-xs font-semibold uppercase text-muted-foreground">
+                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-700 shadow-sm">
+                  <div className="text-xs font-semibold uppercase text-slate-500">
                     Experience
                   </div>
                   <div className="mt-3 space-y-4">
                     {experiences.map((entry, index) => (
-                      <div key={`exp-${index}`} className="rounded-md border border-border p-3">
+                      <div key={`exp-${index}`} className="rounded-xl border border-slate-200 p-3">
                         <div className="grid gap-2 sm:grid-cols-2">
-                          <UiInput
+                          <input
                             type="text"
-                            className="h-9"
+                            className="h-9 rounded-md border border-slate-200 px-3 text-xs"
                             placeholder="Role"
                             value={entry.role}
                             onChange={(event) =>
@@ -350,9 +348,9 @@ export default function CvBuilderPage() {
                               )
                             }
                           />
-                          <UiInput
+                          <input
                             type="text"
-                            className="h-9"
+                            className="h-9 rounded-md border border-slate-200 px-3 text-xs"
                             placeholder="Company"
                             value={entry.company}
                             onChange={(event) =>
@@ -369,7 +367,7 @@ export default function CvBuilderPage() {
                         <div className="mt-2 grid gap-2 sm:grid-cols-2">
                           <input
                             type="month"
-                            className="h-9 rounded-md border border-border px-3 text-xs"
+                            className="h-9 rounded-md border border-slate-200 px-3 text-xs"
                             value={entry.start}
                             onChange={(event) =>
                               setExperiences((prev) =>
@@ -383,7 +381,7 @@ export default function CvBuilderPage() {
                           />
                           <input
                             type="month"
-                            className="h-9 rounded-md border border-border px-3 text-xs"
+                            className="h-9 rounded-md border border-slate-200 px-3 text-xs"
                             value={entry.end}
                             onChange={(event) =>
                               setExperiences((prev) =>
@@ -396,8 +394,8 @@ export default function CvBuilderPage() {
                             }
                           />
                         </div>
-                        <UiTextarea
-                          className="mt-2 min-h-[70px]"
+                        <textarea
+                          className="mt-2 min-h-[70px] rounded-md border border-slate-200 px-3 py-2 text-xs"
                           placeholder="Responsibilities / achievements"
                           value={entry.details}
                           onChange={(event) =>
@@ -413,7 +411,7 @@ export default function CvBuilderPage() {
                         {experiences.length > 1 ? (
                           <button
                             type="button"
-                            className="mt-2 text-xs text-destructive"
+                            className="mt-2 text-xs text-rose-500"
                             onClick={() =>
                               setExperiences((prev) =>
                                 prev.filter((_, idx) => idx !== index)
@@ -427,7 +425,7 @@ export default function CvBuilderPage() {
                     ))}
                     <button
                       type="button"
-                      className="text-xs font-semibold text-success"
+                      className="text-xs font-semibold text-emerald-600"
                       onClick={() =>
                         setExperiences((prev) => [
                           ...prev,
@@ -440,20 +438,20 @@ export default function CvBuilderPage() {
                   </div>
                 </div>
 
-                <div className="rounded-panel border border-border bg-card px-4 py-4 text-sm text-foreground shadow-sm">
-                  <div className="text-xs font-semibold uppercase text-muted-foreground">
+                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-700 shadow-sm">
+                  <div className="text-xs font-semibold uppercase text-slate-500">
                     Education
                   </div>
                   <div className="mt-3 space-y-4">
                     {education.map((entry, index) => (
                       <div
                         key={`edu-${index}`}
-                        className="rounded-md border border-border p-3"
+                        className="rounded-xl border border-slate-200 p-3"
                       >
                         <div className="grid gap-2 sm:grid-cols-2">
-                          <UiInput
+                          <input
                             type="text"
-                            className="h-9"
+                            className="h-9 rounded-md border border-slate-200 px-3 text-xs"
                             placeholder="Institution"
                             value={entry.institution}
                             onChange={(event) =>
@@ -466,9 +464,9 @@ export default function CvBuilderPage() {
                               )
                             }
                           />
-                          <UiInput
+                          <input
                             type="text"
-                            className="h-9"
+                            className="h-9 rounded-md border border-slate-200 px-3 text-xs"
                             placeholder="Degree"
                             value={entry.degree}
                             onChange={(event) =>
@@ -485,7 +483,7 @@ export default function CvBuilderPage() {
                         <div className="mt-2 grid gap-2 sm:grid-cols-2">
                           <input
                             type="month"
-                            className="h-9 rounded-md border border-border px-3 text-xs"
+                            className="h-9 rounded-md border border-slate-200 px-3 text-xs"
                             value={entry.start}
                             onChange={(event) =>
                               setEducation((prev) =>
@@ -499,7 +497,7 @@ export default function CvBuilderPage() {
                           />
                           <input
                             type="month"
-                            className="h-9 rounded-md border border-border px-3 text-xs"
+                            className="h-9 rounded-md border border-slate-200 px-3 text-xs"
                             value={entry.end}
                             onChange={(event) =>
                               setEducation((prev) =>
@@ -512,8 +510,8 @@ export default function CvBuilderPage() {
                             }
                           />
                         </div>
-                        <UiTextarea
-                          className="mt-2 min-h-[70px]"
+                        <textarea
+                          className="mt-2 min-h-[70px] rounded-md border border-slate-200 px-3 py-2 text-xs"
                           placeholder="Description"
                           value={entry.details}
                           onChange={(event) =>
@@ -529,7 +527,7 @@ export default function CvBuilderPage() {
                         {education.length > 1 ? (
                           <button
                             type="button"
-                            className="mt-2 text-xs text-destructive"
+                            className="mt-2 text-xs text-rose-500"
                             onClick={() =>
                               setEducation((prev) =>
                                 prev.filter((_, idx) => idx !== index)
@@ -543,7 +541,7 @@ export default function CvBuilderPage() {
                     ))}
                     <button
                       type="button"
-                      className="text-xs font-semibold text-success"
+                      className="text-xs font-semibold text-emerald-600"
                       onClick={() =>
                         setEducation((prev) => [
                           ...prev,
@@ -563,16 +561,16 @@ export default function CvBuilderPage() {
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block rounded-panel border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
-                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                  <label className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                    <span className="text-xs font-semibold uppercase text-slate-500">
                       Languages
                     </span>
                     <div className="mt-2 space-y-2">
                       {languages.map((entry, index) => (
                         <div key={`lang-${index}`} className="flex items-center gap-2">
-                          <UiInput
+                          <input
                             type="text"
-                            className="flex-1"
+                            className="flex-1 rounded-full border border-slate-200 px-3 py-2 text-xs"
                             placeholder="Language"
                             value={entry.name}
                             onChange={(event) =>
@@ -601,13 +599,13 @@ export default function CvBuilderPage() {
                               )
                             }
                           />
-                          <span className="w-10 text-[11px] text-muted-foreground">
+                          <span className="w-10 text-[11px] text-slate-500">
                             {entry.level}%
                           </span>
                           {languages.length > 1 ? (
                             <button
                               type="button"
-                              className="text-xs text-destructive"
+                              className="text-xs text-rose-500"
                               onClick={() =>
                                 setLanguages((prev) =>
                                   prev.filter((_, idx) => idx !== index)
@@ -621,7 +619,7 @@ export default function CvBuilderPage() {
                       ))}
                       <button
                         type="button"
-                        className="text-xs font-semibold text-success"
+                        className="text-xs font-semibold text-emerald-600"
                         onClick={() =>
                           setLanguages((prev) => [...prev, { name: "", level: 70 }])
                         }
@@ -630,21 +628,21 @@ export default function CvBuilderPage() {
                       </button>
                     </div>
                   </label>
-                  <label className="block rounded-panel border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm">
-                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                  <label className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                    <span className="text-xs font-semibold uppercase text-slate-500">
                       Certifications
                     </span>
-                    <UiTextarea
+                    <textarea
                       name="certifications"
                       rows={3}
-                      className="mt-2 w-full"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                       placeholder="Certificates or licenses"
                     />
                   </label>
                 </div>
 
                 {error ? (
-                  <div className="rounded-md border border-destructive/25 bg-danger-muted px-4 py-3 text-sm text-destructive">
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
                     {error}
                   </div>
                 ) : null}

@@ -24,16 +24,16 @@ export function LanguageSelect({ value, onChange, label }: {
   label: string;
 }) {
   return <Select.Root value={value} onValueChange={value => onChange(value as ApplicationLanguage)}>
-    <Select.Trigger aria-label={label} className="flex min-w-40 items-center justify-between gap-3 rounded-md border border-input bg-popover px-3 py-2 text-sm font-semibold text-foreground outline-none transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:border-ring data-[state=open]:bg-muted [&>span]:flex [&>span]:items-center [&>span]:gap-3">
+    <Select.Trigger aria-label={label} className="flex min-w-40 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-[#103c4a] outline-none transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500 data-[state=open]:border-slate-400 data-[state=open]:bg-slate-50 [&>span]:flex [&>span]:items-center [&>span]:gap-3">
       <Select.Value />
       <Select.Icon><ChevronDown size={16} /></Select.Icon>
     </Select.Trigger>
     <Select.Portal>
-      <Select.Content position="popper" align="end" sideOffset={10} collisionPadding={16} className="z-50 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-panel border border-input bg-popover p-2 shadow-overlay">
+      <Select.Content position="popper" align="end" sideOffset={10} collisionPadding={16} className="z-50 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_16px_48px_rgba(15,23,42,0.16)]">
         <Select.Viewport className="max-h-[var(--radix-select-content-available-height)]">
           <Select.Group>
-            <Select.Label className="px-3 pb-3 pt-2 text-xs font-semibold text-muted-foreground">{label}</Select.Label>
-            {languages.map(language => <Select.Item key={language.value} value={language.value} className="relative flex cursor-pointer select-none items-center rounded-md px-3 py-2 pr-10 text-sm font-medium text-foreground outline-none data-[state=checked]:bg-accent data-[highlighted]:bg-accent">
+            <Select.Label className="px-3 pb-3 pt-2 text-xs font-semibold text-slate-500">{label}</Select.Label>
+            {languages.map(language => <Select.Item key={language.value} value={language.value} className="relative flex cursor-pointer select-none items-center rounded-xl px-3 py-3 pr-10 text-sm font-medium text-[#103c4a] outline-none data-[state=checked]:bg-sky-50 data-[highlighted]:bg-slate-100">
               <Select.ItemText><span lang={language.value} className="flex items-center gap-3"><Flag country={language.country} />{language.label}</span></Select.ItemText>
               <Select.ItemIndicator className="absolute right-3"><Check size={18} /></Select.ItemIndicator>
             </Select.Item>)}

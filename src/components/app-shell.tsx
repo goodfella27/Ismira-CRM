@@ -1,4 +1,5 @@
 "use client";
+import { isPublicUiRoute } from "@/lib/theme";
 
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -82,7 +83,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (publicShellRoute) {
     return (
       <AppDialogsProvider>
-        <main className="min-h-screen bg-transparent">
+        <main data-public-ui={isPublicUiRoute(pathname) ? "" : undefined} className="min-h-screen bg-transparent">
           <BrandingTitleSync fallbackTitle="LinAs CRM" />
           {children}
         </main>
