@@ -1,3 +1,4 @@
+import { requireCurrentAdmin } from "@/lib/auth/access";
 import { NextResponse } from "next/server";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -40,6 +41,9 @@ export async function GET(request: Request) {
   const bucket = searchParams.get("bucket") ?? "candidate-documents";
   if (!path) {
     return NextResponse.json({ error: "Missing path" }, { status: 400 });
+  }
+  if (bucket === "application-cvs") {
+    try { await requireCurrentAdmin(); } catch { return NextResponse.json({ error: "Admin access required." }, { status: 403 }); }
   }
   const isOwnProfile =
     bucket === "candidate-documents" &&

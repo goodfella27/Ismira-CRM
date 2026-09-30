@@ -28,7 +28,7 @@ export const PROTECTED_ROUTES = [
   "/pipeline",
   "/profile",
 ];
-export const ADMIN_ONLY_ROUTES = ["/company"];
+export const ADMIN_ONLY_ROUTES = ["/company", "/breezy/application-routing", "/breezy/applications"];
 
 export function isRouteMatch(pathname: string, route: string) {
   if (route === "/") return pathname === "/";

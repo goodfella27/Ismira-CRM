@@ -81,6 +81,13 @@ const items = [
     icon: Webhook,
     description: "Endpoint subscriptions",
   },
+  {
+    label: "Application routing",
+    href: "/breezy/application-routing",
+    icon: Workflow,
+    description: "Application communication groups",
+  },
+  { label: "Applications", href: "/breezy/applications", icon: ClipboardList, description: "Applications saved in this CRM" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -92,7 +99,7 @@ export default function BreezyShell({ children }: { children: ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreWrapRef = useRef<HTMLDivElement | null>(null);
 
-  const primaryItems = [items[0], items[1], items[4], items[5], items[6]].filter(Boolean);
+  const primaryItems = [items[0], items[1], items[4], items[5], items[6], items[11], items[10]].filter(Boolean);
   const moreItems = items.filter((item) => !primaryItems.includes(item));
 
   useEffect(() => {

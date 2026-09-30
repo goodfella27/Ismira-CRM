@@ -68,3 +68,9 @@ test("unknown paths are not treated as protected CRM routes", () => {
   assert.equal(context.exports.isProtectedRoute("/pipeline"), true);
   assert.equal(context.exports.isProtectedRoute("/companies"), true);
 });
+
+test("application routing is a protected admin-only page", () => {
+  assert.equal(context.exports.isProtectedRoute('/breezy/application-routing'), true);
+  assert.equal(context.exports.isAdminOnlyRoute('/breezy/application-routing'), true);
+  assert.equal(context.exports.isAdminOnlyRoute('/breezy/positions'), false);
+});

@@ -18,7 +18,7 @@ test('each step validates its own fields and supports multilingual names',()=>{
   for(let step=0;step<4;step++) assert.equal(Object.keys(form.validateApplication(valid,step)).length,0);
   assert.equal(Object.keys(form.validateApplication(form.EMPTY_APPLICATION,0)).length,4);
   assert.equal(form.validateApplication({...valid,email:'not-email'},0).email,'email');
-  assert.equal(form.validateApplication({...valid,isAdult:'No'},2).isAdult,'adult');
+  assert.equal(form.validateApplication({...valid,isAdult:'No'},2).isAdult,undefined);
   assert.equal(form.validateApplication({...valid,consent:false},3).consent,'required');
 });
 test('all five CEFR values are valid; CV is optional but checked when supplied',()=>{
@@ -38,26 +38,40 @@ test('security question accepts only the signed answer and rejects tampering',()
 });
 test('translations cover every English field and all options',()=>{
   const {applicationTranslations:t}=load('src/app/apply/translations.ts');
-  for(const lang of ['ru','es']) {
+  assert.deepEqual(Object.keys(t).sort(), ['de','en','lt','pl','ru','uk']);
+  for(const lang of ['lt','pl','uk','de','ru']) {
     assert.deepEqual(Object.keys(t[lang]).sort(),Object.keys(t.en).sort());
     assert.deepEqual(Object.keys(t[lang].errors).sort(),Object.keys(t.en.errors).sort());
     assert.equal(t[lang].levels.length,5); assert.equal(t[lang].steps.length,4); assert.equal(t[lang].experienceOptions.length,3);
   }
 });
-test('multistep submission without a CV creates a candidate using mocked Breezy',async()=>{
-  const calls=[];
-  const route=load('src/app/api/jobs/form/submit/route.ts',{
-    'next/server':{NextResponse:{json:(body,init)=>Response.json(body,init)}},
-    '@/lib/application-form':form,'@/lib/application-challenge':challenge,
-    '@/lib/breezy':{requireBreezyIds:()=>({companyId:'company',positionId:'position'}),findCandidatesByEmail:async()=>({candidateId:null}),breezyFetch:async(url,init)=>{calls.push({url,init});return Response.json({_id:'mock-candidate'});}}
-  });
-  const item=challenge.createApplicationChallenge();const payload=new FormData();
-  for(const [key,value] of Object.entries(valid))payload.set(key,typeof value==='boolean'?'yes':value);
-  payload.set('formVersion','multistep');payload.set('challengeToken',item.token);payload.set('challengeAnswer',String(item.question.split(' + ').map(Number).reduce((a,b)=>a+b,0)));
-  const response=await route.POST(new Request('http://localhost/api/jobs/form/submit',{method:'POST',body:payload}));
-  assert.equal(response.status,200);assert.equal((await response.json()).ok,true);assert.equal(calls.length,1);
-  assert.ok(calls[0].url.endsWith('/candidates'));assert.equal(JSON.parse(calls[0].init.body).name,'María Иванова');
-  payload.set('challengeAnswer','99');
-  const rejected=await route.POST(new Request('http://localhost/api/jobs/form/submit',{method:'POST',body:payload}));
-  assert.equal(rejected.status,400);assert.equal(calls.length,1);
+
+async function submitLocal(overrides={},save=async()=>({applicationId:'local-id',deliveryId:null})) {
+ const stored=[];
+ const route=load('src/app/api/jobs/form/submit/route.ts',{
+  'next/server':{NextResponse:{json:(body,init)=>Response.json(body,init)}},
+  '@/lib/application-form':form,'@/lib/application-challenge':challenge,
+  '@/app/apply/countries':load('src/app/apply/countries.ts'),
+  '@/lib/application-submissions':{saveApplication:async(...args)=>{stored.push(args);return save(...args);}},
+  '@/lib/application-mailerlite':{deliverApplicationCommunication:async()=>{throw new Error('offline');}},
+ });
+ const item=challenge.createApplicationChallenge();const payload=new FormData();
+ for(const [key,value] of Object.entries({...valid,...overrides}))payload.set(key,typeof value==='boolean'?'yes':value);
+ payload.set('formVersion','multistep');payload.set('challengeToken',item.token);payload.set('challengeAnswer',String(item.question.split(' + ').map(Number).reduce((a,b)=>a+b,0)));
+ const response=await route.POST(new Request('http://localhost/api/jobs/form/submit',{method:'POST',body:payload}));
+ return {response,stored};
+}
+test('every communication segment saves all fields locally without any Breezy dependency',async()=>{
+ for(const [citizenship,isAdult] of [['IN','Yes'],['LT','Yes'],['AT','Yes'],['ZW','No']]){
+  const {response,stored}=await submitLocal({citizenship,isAdult});
+  assert.equal(response.status,200);assert.equal((await response.json()).applicationId,'local-id');
+  assert.equal(stored.length,1);assert.equal(stored[0][0].citizenship,citizenship);assert.equal(stored[0][0].isAdult,isAdult);assert.equal(stored[0][0].email,valid.email);assert.equal(stored[0][0].desiredPosition,valid.desiredPosition);
+ }
+});
+test('invalid citizenship and missing required fields are rejected before storage',async()=>{
+ for(const bad of [{citizenship:'XX'},{email:'broken'},{firstName:''}]){const {response,stored}=await submitLocal(bad);assert.equal(response.status,400);assert.equal(stored.length,0);}
+});
+test('MailerLite failure does not fail a locally saved application; storage failure does',async()=>{
+ const ok=await submitLocal({},async()=>({applicationId:'local-id',deliveryId:'queued'}));assert.equal(ok.response.status,200);
+ const failed=await submitLocal({},async()=>{throw new Error('database offline');});assert.equal(failed.response.status,503);
 });

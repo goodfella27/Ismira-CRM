@@ -3,11 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Anchor, ArrowLeft, ArrowRight, Check, CheckCircle2, Clock3, Globe2, Loader2, ShieldCheck, UploadCloud, X } from "lucide-react";
+import { Anchor, ArrowLeft, ArrowRight, Check, CheckCircle2, Clock3, Loader2, ShieldCheck, UploadCloud, X } from "lucide-react";
 import logo from "@/images/ismira_logo.png";
 import { APPLICATION_EXPERIENCE, APPLICATION_LEVELS, APPLICATION_STEPS, EMPTY_APPLICATION, validateApplication, validateApplicationCV, type ApplicationLanguage, type ApplicationValues } from "@/lib/application-form";
 import { applicationTranslations } from "./translations";
 import { applicationCountryCodes } from "./countries";
+import { LanguageSelect } from "./language-select";
 
 const inputStyle = "w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-base text-slate-900 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 aria-[invalid=true]:border-rose-500";
 type ErrorKey = keyof typeof applicationTranslations.en.errors;
@@ -91,8 +92,10 @@ export default function ApplicationForm() {
     try {
       const payload = new FormData();
       for (const [key,value] of Object.entries(values)) payload.set(key, typeof value === "boolean" ? value ? "yes" : "no" : value.trim());
-      payload.set("citizenship", new Intl.DisplayNames(["en"],{type:"region"}).of(values.citizenship) || values.citizenship);
+      payload.set("citizenship", values.citizenship);
       payload.set("formVersion","multistep"); payload.set("language",language);
+      const positionId = new URLSearchParams(window.location.search).get("positionId");
+      if (positionId) payload.set("positionId", positionId);
       payload.set("challengeToken",challenge.token); payload.set("challengeAnswer",answer.trim());
       if (cv) payload.set("cv",cv,cv.name);
       const response = await fetch("/api/jobs/form/submit",{method:"POST",body:payload});
@@ -108,7 +111,7 @@ export default function ApplicationForm() {
   }
 
   return <div lang={language} className="min-h-screen bg-[#f4f7fa] text-slate-900">
-    <header className="border-b border-slate-200 bg-white px-5 sm:px-10"><div className="mx-auto flex min-h-24 max-w-6xl items-center justify-between gap-4 py-4"><Link href="/" aria-label="Ismira"><Image src={logo} alt="Ismira" priority className="h-10 w-auto sm:h-12" /></Link><div className="flex items-center gap-6"><Link href="/" className="hidden items-center gap-2 text-sm font-medium text-slate-600 hover:text-sky-700 sm:flex"><ArrowLeft size={16}/>{t.backJobs}</Link><label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"><Globe2 size={17} className="text-slate-500"/><span className="sr-only">{t.language}</span><select aria-label={t.language} value={language} onChange={event => setLanguage(event.target.value as ApplicationLanguage)} className="max-w-32 bg-transparent text-sm outline-none focus:ring-2 focus:ring-sky-400"><option value="en">English</option><option value="ru">Русский</option><option value="es">Español</option></select></label></div></div></header>
+    <header className="border-b border-slate-200 bg-white px-5 sm:px-10"><div className="mx-auto flex min-h-24 max-w-6xl items-center justify-between gap-4 py-4"><Link href="/" aria-label="Ismira"><Image src={logo} alt="Ismira" priority className="h-10 w-auto sm:h-12" /></Link><div className="flex items-center gap-6"><Link href="/" className="hidden items-center gap-2 text-sm font-medium text-slate-600 hover:text-sky-700 sm:flex"><ArrowLeft size={16}/>{t.backJobs}</Link><LanguageSelect value={language} onChange={setLanguage} label={t.language} /></div></div></header>
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-12">
       <div className="grid overflow-hidden rounded-3xl bg-white shadow-[0_12px_60px_-30px_rgba(15,23,42,0.25)] lg:grid-cols-[340px_minmax(0,1fr)]">
         <aside className="relative flex flex-col bg-[#103c4a] px-6 py-7 text-white sm:px-9 lg:py-11">

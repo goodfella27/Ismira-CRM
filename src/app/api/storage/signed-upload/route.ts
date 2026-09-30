@@ -34,6 +34,9 @@ export async function POST(request: Request) {
         ? body.bucket.trim()
         : "candidate-documents";
 
+    if (bucket === "application-cvs") {
+      return NextResponse.json({ error: "Use the application form to upload a CV." }, { status: 403 });
+    }
     const path = `intake/${user.id}/${Date.now()}-${randomUUID()}-${safeName}`;
 
     const admin = createSupabaseAdminClient();

@@ -1,4 +1,4 @@
-export type ApplicationLanguage = "en" | "ru" | "es";
+export type ApplicationLanguage = "en" | "lt" | "pl" | "uk" | "de" | "ru";
 export const APPLICATION_EXPERIENCE = ["Ship or land-based experience (2+ years)", "Some experience (under 2 years)", "No direct experience"] as const;
 export const APPLICATION_LEVELS = ["A1", "A2", "B1", "B2", "C1"] as const;
 export const MAX_APPLICATION_CV_BYTES = 8 * 1024 * 1024;
@@ -26,7 +26,7 @@ export function validateApplication(values: ApplicationValues, step: number) {
     if (values.desiredPosition && (values.desiredPosition.trim().length < 2 || values.desiredPosition.length > 120)) errors.desiredPosition = "invalid";
   }
   if (step === 2) {
-    if (values.isAdult && values.isAdult !== "Yes") errors.isAdult = "adult";
+    if (values.isAdult && !["Yes", "No"].includes(values.isAdult)) errors.isAdult = "invalid";
     if (values.englishLevel && !(APPLICATION_LEVELS as readonly string[]).includes(values.englishLevel)) errors.englishLevel = "invalid";
   }
   return errors;
