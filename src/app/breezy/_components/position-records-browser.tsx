@@ -1,16 +1,16 @@
 "use client";
+import tableStyles from "./positions-crm-table.module.css";
 import { Button as UiButton } from "@/components/ui/button";
 import { Input as UiInput } from "@/components/ui/input";
 import { Textarea as UiTextarea } from "@/components/ui/textarea";
 import { OpeningTypeOrderControls } from "@/components/opening-type-order-controls";
 import { getPriorityTooltip } from "@/lib/breezy-priority-types";
-import { getPriorityBadgeClass } from "@/lib/opening-type-colors";
+import { getOpeningTypeColor, getPriorityBadgeClass } from "@/lib/opening-type-colors";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Select } from "radix-ui";
 import {
-  AlignJustify,
   AlertCircle,
   BadgeDollarSign,
   BedDouble,
@@ -2186,66 +2186,50 @@ export default function BreezyPositionRecordsBrowser({
           tabIndex={id ? 0 : -1}
           aria-pressed={active}
           className={[
-            "group align-middle transition",
+            "group align-middle transition-colors",
             id ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-success/25" : "",
-            active ? "bg-success-muted" : "hover:bg-muted",
+            active ? "bg-accent" : "hover:bg-muted/60",
           ].join(" ")}
           onClick={() => (id ? void loadPositionDetails(id, name) : undefined)}
           onKeyDown={(event) => {
-            if (!id) return;
+            if (!id || event.target !== event.currentTarget) return;
             if (event.key !== "Enter" && event.key !== " ") return;
             event.preventDefault();
             void loadPositionDetails(id, name);
           }}
         >
-          <td className="whitespace-nowrap px-4 py-3">
+          <td className={tableStyles.companyCell}>
             <div className="flex items-center gap-3" title={company || "Position"}>
-              <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-card text-sm font-bold text-muted-foreground shadow-sm">
+              <div className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-md border border-border bg-white text-xs font-medium text-slate-600">
                 {companyLogoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={companyLogoUrl}
                     alt={company || name}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain"
                     loading="lazy"
                   />
                 ) : (
                   avatar
                 )}
               </div>
-              <span className="sr-only">{company || "Position"}</span>
+              <span className="truncate text-sm font-medium text-foreground">{company || "Position"}</span>
             </div>
           </td>
 
-          <td className="min-w-[320px] px-4 py-3">
-            <div className="min-w-0">
-              <div className="flex min-w-0 items-center gap-2">
-                {priorityLabel ? (
-                  <span
-                    className={[
-                      "inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide shadow-sm",
-                      getPriorityBadgeClass(priorityKey, availablePriorityTypes),
-                    ].join(" ")}
-                  >
-                    <span className="max-w-[220px] truncate whitespace-nowrap">{priorityLabel}</span>
-                  </span>
-                ) : null}
-                <div title={name} className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
-                  {name}
-                </div>
-              </div>
-            </div>
+          <td>
+            <div title={name} className="truncate text-sm font-normal text-foreground">{name}</div>
+          </td>
+          <td>
+            {priorityLabel ? <span className={tableStyles.tag} data-tone={getOpeningTypeColor(priorityKey, availablePriorityTypes)}>{priorityLabel}</span> : <span className="text-muted-foreground">—</span>}
           </td>
 
-          <td className="whitespace-nowrap px-4 py-3 text-right">
+          <td className="whitespace-nowrap text-left">
             {showOnIsmiraWeb ? (
               <span
-                className="relative inline-flex items-center gap-1.5 rounded-full border border-border bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground shadow-sm"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
                 title="Shown externally on Ismira Web"
               >
-                <span className="absolute -left-1 -top-1 grid h-3.5 w-3.5 place-items-center rounded-full border border-white bg-emerald-500">
-                  <Check className="h-2.5 w-2.5 text-white" aria-hidden="true" />
-                </span>
                 <Globe2 className="h-3.5 w-3.5" aria-hidden="true" />
                 <span className="whitespace-nowrap">Ismira Web</span>
               </span>
@@ -2254,33 +2238,33 @@ export default function BreezyPositionRecordsBrowser({
             )}
           </td>
 
-          <td className="whitespace-nowrap px-4 py-3 text-right">
+          <td className="whitespace-nowrap text-left">
             {department ? (
-              <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1 text-[11px] font-semibold text-foreground ring-1 ring-ring">
-                <Layers className="h-3.5 w-3.5 text-foreground" />
-                <span className="max-w-[220px] truncate whitespace-nowrap">{department}</span>
+              <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-xs font-normal text-muted-foreground">
+                <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="max-w-[170px] truncate whitespace-nowrap">{department}</span>
               </span>
             ) : (
               <span className="text-xs font-medium text-muted-foreground">-</span>
             )}
           </td>
 
-          <td className="whitespace-nowrap px-4 py-3 text-right">
+          <td className="whitespace-nowrap text-left">
             <span
-              className={`rounded-full px-3 py-1 text-[11px] font-semibold capitalize ${statusTone}`}
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-normal capitalize ${statusTone}`}
             >
               {statusLabel}
             </span>
           </td>
 
-          <td className="whitespace-nowrap px-4 py-3 text-right">
+          <td className="whitespace-nowrap text-left">
             {id ? (
               <div className="relative inline-flex">
-                <UiButton variant="primary" size="md"
+                <UiButton variant="ghost" size="icon"
                   type="button"
                   aria-haspopup="menu"
                   aria-expanded={cardMenuOpenId === rowKey}
-                  className="inline-flex h-10 w-10 items-center justify-center transition disabled:opacity-60"
+                  className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground transition hover:text-foreground disabled:opacity-60"
                   onClick={(event) => {
                     event.stopPropagation();
                     const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
@@ -2302,8 +2286,9 @@ export default function BreezyPositionRecordsBrowser({
                   }}
                   disabled={cardActionSavingId === id}
                   title="Actions"
+                  aria-label={`Actions for ${name}`}
                 >
-                  <AlignJustify className="h-5 w-5" />
+                  <MoreHorizontal className="h-4 w-4" />
                 </UiButton>
 
                 {cardMenuOpenId === rowKey ? (
@@ -3610,36 +3595,30 @@ export default function BreezyPositionRecordsBrowser({
             </div>
           ) : null}
 
-          <div className="mt-5 overflow-hidden rounded-panel border border-border bg-card shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="min-w-full table-auto">
-                <thead className="bg-muted">
-                  <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    <th scope="col" className="px-4 py-3">
-                      Company
-                    </th>
-                    <th scope="col" className="px-4 py-3">
-                      Position
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-right">
-                      External
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-right">
-                      Department
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-right">
-                      Status
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-right">
-                      Actions
-                    </th>
+          <div className="mt-5 overflow-hidden rounded-xl border border-border bg-card">
+            <div className="overflow-x-auto" role="region" aria-label="Positions table" tabIndex={0}>
+              <table className={tableStyles.table}>
+                <caption className="sr-only">{recordType === "pool" ? "Candidate pools" : "Job openings"}</caption>
+                <colgroup>
+                  <col style={{width: 220}}/><col style={{width: 360}}/><col style={{width: 180}}/>
+                  <col style={{width: 140}}/><col style={{width: 220}}/><col style={{width: 120}}/><col style={{width: 72}}/>
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th scope="col"><span><Building2/>Company</span></th>
+                    <th scope="col"><span><FileText/>Position</span></th>
+                    <th scope="col"><span><FolderKanban/>Opening type</span></th>
+                    <th scope="col"><span><Globe2/>External</span></th>
+                    <th scope="col"><span><Layers/>Department</span></th>
+                    <th scope="col"><span><CheckCircle2/>Status</span></th>
+                    <th scope="col"><span className="sr-only">Actions</span><MoreHorizontal className="mx-auto h-4 w-4"/></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {loadingPositions ? (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={7}
                         className="bg-card px-4 py-10 text-center text-sm text-muted-foreground"
                       >
                         Loading positions…
@@ -3648,7 +3627,7 @@ export default function BreezyPositionRecordsBrowser({
                   ) : filteredPositions.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={7}
                         className="bg-card px-4 py-10 text-center text-sm text-muted-foreground"
                       >
                         No {recordType === "pool" ? "pools" : "positions"} found.

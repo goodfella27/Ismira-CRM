@@ -1,0 +1,21 @@
+/* Admin-only CRM table. Public job cards keep their original presentation. */
+.table { width: 100%; min-width: 1312px; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+.table th, .table td { height: 44px; padding: 8px 14px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); vertical-align: middle; }
+.table th { height: 42px; background: var(--card); color: var(--muted-foreground); font-weight: 400; text-align: left; white-space: nowrap; }
+.table th > span { display: flex; align-items: center; gap: 8px; }
+.table th svg { width: 15px; height: 15px; flex-shrink: 0; }
+.table th:last-child, .table td:last-child { border-right: 0; text-align: center; }
+.table tbody tr:last-child td { border-bottom: 0; }
+.table th:first-child, .companyCell { position: sticky; left: 0; z-index: 1; background: var(--card); }
+.table tr:hover .companyCell { background: var(--muted); }
+.table tr[aria-pressed="true"] .companyCell { background: var(--accent); }
+.companyCell > div { min-width: 0; }
+.tag { display: inline-flex; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--tag-color) 30%, transparent); background: color-mix(in srgb, var(--tag-color) 12%, var(--card)); color: var(--tag-color); padding: 2px 8px; font-size: 12px; line-height: 18px; font-weight: 400; }
+.tag[data-tone="sky"] { --tag-color: #147c98; }
+.tag[data-tone="orange"] { --tag-color: #a96315; }
+.tag[data-tone="violet"] { --tag-color: #7850b8; }
+.tag[data-tone="pink"] { --tag-color: #aa457e; }
+:global(.dark) .tag[data-tone="sky"] { --tag-color: #80c9dc; }
+:global(.dark) .tag[data-tone="orange"] { --tag-color: #e1b073; }
+:global(.dark) .tag[data-tone="violet"] { --tag-color: #b9a3e6; }
+:global(.dark) .tag[data-tone="pink"] { --tag-color: #d8a0ca; }

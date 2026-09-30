@@ -95,3 +95,7 @@ Menus and dialogs must work with keyboard navigation, Escape, visible focus, and
 - Browser: catalog inspected at 390, 768 and 1440px; light/dark theme; select keyboard interaction; dialog Escape and focus return. Public application form inspected on desktop/mobile; switching English to Lithuanian preserves entered values, and all six languages remain in the menu.
 - Independent review found and prompted fixes for stacked public Apply dialogs, imperative-dialog focus restoration, and inverse theme contrast.
 - Live candidate screens were not opened: automatic approval review blocked that inspection because it could expose private candidate/CV data. No real application was submitted or MailerLite email triggered. Live-data workflows and drag/drop still need a user-assisted acceptance pass before deployment.
+
+### Admin positions table
+
+The positions/pools browser uses an independently implemented CRM table inspired by Kobra's public CRM Table preview (not the paid registry component). It keeps the existing data, filters, pagination and row actions. Company names and logos occupy a pinned first column; opening type has its own column. Scoped CSS provides 44px rows, subtle grid lines and theme-aware tinted tags. Narrow screens scroll horizontally. The public jobs board is unchanged.
