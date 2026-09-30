@@ -3136,7 +3136,7 @@ export default function BreezyPositionRecordsBrowser({
     const update = () => {
       const width = node.getBoundingClientRect().width;
       const tile = 180;
-      const gap = 12;
+      const gap = 8;
       const max = 10;
       const computed = Math.max(1, Math.min(max, Math.floor((width + gap) / (tile + gap))));
       setCollapsedCompaniesLimit(computed);
@@ -3382,12 +3382,12 @@ export default function BreezyPositionRecordsBrowser({
 
 	        <div className="mt-5">
 	          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="text-xs font-medium text-muted-foreground">
               Companies
             </div>
 
             {showAllCompanies ? (
-              <div className="mt-3 grid gap-3 grid-cols-[repeat(auto-fit,minmax(160px,1fr))]">
+              <div className="mt-2 grid gap-2 grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
                 {companyFilterOptions.map((item) => {
                   const active =
                     item.name.trim().toLowerCase() === jobCompanyFilter.trim().toLowerCase();
@@ -3400,10 +3400,10 @@ export default function BreezyPositionRecordsBrowser({
                       key={item.name}
                       type="button"
                       className={[
-                        "flex items-center gap-3 rounded-panel border bg-card px-4 py-3 text-left shadow-sm transition hover:bg-muted",
+                        "flex h-10 min-w-0 items-center gap-2 rounded-md border px-2.5 text-left transition-colors hover:bg-muted",
                         active
-                          ? "border-success/25 bg-success-muted text-success shadow-md ring-2 ring-success/25"
-                          : "border-border text-foreground",
+                          ? "border-ring bg-accent text-foreground"
+                          : "border-border bg-card text-foreground",
                       ].join(" ")}
                       onClick={() =>
                         setJobCompanyFilter((prev) =>
@@ -3412,43 +3412,32 @@ export default function BreezyPositionRecordsBrowser({
                             : item.name
                         )
                       }
-                      title={item.name}
+                      title={active ? `${item.name} — click to clear` : item.name}
+                      aria-pressed={active}
                     >
-                      <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-sm font-bold text-foreground ring-1 ring-ring">
+                      <span className="grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded border border-border bg-white text-xs font-medium text-slate-600">
                         {logoUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={logoUrl}
                             alt={item.name}
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-contain"
                             loading="lazy"
                           />
                         ) : (
                           initial
                         )}
                       </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">{item.name}</span>
-                        {active ? (
-                          <span className="block truncate text-xs text-success">
-                            Selected (click to clear)
-                          </span>
-                        ) : companyCountsLoading ? (
-                          <span className="block truncate text-xs text-muted-foreground">Loading…</span>
-                        ) : item.count ? (
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {item.count} openings
-                          </span>
-                        ) : (
-                          <span className="block truncate text-xs text-muted-foreground">Filter</span>
-                        )}
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium">{item.name}</span>
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground" aria-label={companyCountsLoading ? "Loading count" : `${item.count ?? 0} openings`}>
+                        {companyCountsLoading ? "…" : item.count ?? 0}
                       </span>
                     </button>
                   );
                 })}
               </div>
             ) : (
-              <div ref={collapsedCompaniesRowRef} className="mt-3 flex gap-3">
+              <div ref={collapsedCompaniesRowRef} className="mt-2 flex gap-2">
                 {collapsedCompanyOptions.slice(0, collapsedCompaniesLimit).map((item) => {
                   const active =
                     item.name.trim().toLowerCase() === jobCompanyFilter.trim().toLowerCase();
@@ -3461,10 +3450,10 @@ export default function BreezyPositionRecordsBrowser({
                       key={item.name}
                       type="button"
                       className={[
-                        "flex min-w-[180px] items-center gap-3 rounded-panel border bg-card px-4 py-3 text-left shadow-sm transition hover:bg-muted",
+                        "flex h-10 min-w-0 flex-1 basis-[180px] items-center gap-2 rounded-md border px-2.5 text-left transition-colors hover:bg-muted",
                         active
-                          ? "border-success/25 bg-success-muted text-success shadow-md ring-2 ring-success/25"
-                          : "border-border text-foreground",
+                          ? "border-ring bg-accent text-foreground"
+                          : "border-border bg-card text-foreground",
                       ].join(" ")}
                       onClick={() =>
                         setJobCompanyFilter((prev) =>
@@ -3473,36 +3462,25 @@ export default function BreezyPositionRecordsBrowser({
                             : item.name
                         )
                       }
-                      title={item.name}
+                      title={active ? `${item.name} — click to clear` : item.name}
+                      aria-pressed={active}
                     >
-                      <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-sm font-bold text-foreground ring-1 ring-ring">
+                      <span className="grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded border border-border bg-white text-xs font-medium text-slate-600">
                         {logoUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={logoUrl}
                             alt={item.name}
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-contain"
                             loading="lazy"
                           />
                         ) : (
                           initial
                         )}
                       </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">{item.name}</span>
-                        {active ? (
-                          <span className="block truncate text-xs text-success">
-                            Selected (click to clear)
-                          </span>
-                        ) : companyCountsLoading ? (
-                          <span className="block truncate text-xs text-muted-foreground">Loading…</span>
-                        ) : item.count ? (
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {item.count} openings
-                          </span>
-                        ) : (
-                          <span className="block truncate text-xs text-muted-foreground">Filter</span>
-                        )}
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium">{item.name}</span>
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground" aria-label={companyCountsLoading ? "Loading count" : `${item.count ?? 0} openings`}>
+                        {companyCountsLoading ? "…" : item.count ?? 0}
                       </span>
                     </button>
                   );
@@ -3510,11 +3488,11 @@ export default function BreezyPositionRecordsBrowser({
               </div>
             )}
 
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               {jobCompanyFilter.trim() ? (
                 <button
                   type="button"
-                  className="text-sm font-semibold text-muted-foreground hover:underline"
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
                   onClick={() => setJobCompanyFilter("")}
                 >
                   Clear filter
@@ -3526,7 +3504,7 @@ export default function BreezyPositionRecordsBrowser({
               {companyFilterOptions.length > 10 ? (
                 <button
                   type="button"
-                  className="text-sm font-semibold text-success hover:underline"
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
                   onClick={() => setShowAllCompanies((prev) => !prev)}
                 >
                   {showAllCompanies ? "Show less" : "Show all"}
@@ -3537,24 +3515,24 @@ export default function BreezyPositionRecordsBrowser({
 
           {recordType === "position" &&
           (priorityCountsLoading || openingTypeFilterOptions.length > 0) ? (
-            <div className="mt-5">
+            <div className="mt-3 border-t border-border pt-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <div className="text-xs font-medium text-muted-foreground">
                   Opening type
                 </div>
                 {openingTypeFilter ? (
                   <button
                     type="button"
-                    className="text-sm font-semibold text-muted-foreground hover:underline"
+                    className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
                     onClick={() => setOpeningTypeFilter("")}
                   >
                     Clear type
                   </button>
                 ) : null}
               </div>
-              <div className="mt-3 flex flex-wrap gap-3">
+              <div className="mt-2 flex flex-wrap gap-2">
                 {priorityCountsLoading && openingTypeFilterOptions.length === 0 ? (
-                  <span className="inline-flex h-11 items-center rounded-panel border border-border bg-card px-4 text-sm font-semibold text-muted-foreground shadow-sm">
+                  <span className="inline-flex h-8 items-center rounded-md border border-border bg-card px-2.5 text-xs text-muted-foreground">
                     Loading types…
                   </span>
                 ) : (
@@ -3564,27 +3542,17 @@ export default function BreezyPositionRecordsBrowser({
                       <button
                         key={item.key}
                         type="button"
-                        className={[
-                          "inline-flex h-11 items-center gap-2 rounded-panel border px-4 text-sm font-semibold shadow-sm transition",
-                          active
-                            ? "border-input bg-accent text-foreground ring-2 ring-ring/15"
-                            : "border-border bg-card text-foreground hover:bg-muted",
-                        ].join(" ")}
+                        aria-pressed={active}
+                        data-tone={getOpeningTypeColor(item.key, availablePriorityTypes)}
+                        className={`${tableStyles.tag} ${tableStyles.filterTag}`}
                         onClick={() =>
                           setOpeningTypeFilter((prev) =>
                             normalizePriorityKey(prev) === item.key ? "" : item.key
                           )
                         }
                       >
-                        <span
-                          className={[
-                            "h-2.5 w-2.5 rounded-full shadow-sm",
-                            getPriorityBadgeClass(item.key, availablePriorityTypes) || "bg-accent",
-                          ].join(" ")}
-                          aria-hidden="true"
-                        />
                         <span>{item.label}</span>
-                        <span className={active ? "text-foreground" : "text-muted-foreground"}>
+                        <span className="ml-1.5 border-l border-current/20 pl-1.5 tabular-nums opacity-80">
                           {item.count}
                         </span>
                       </button>
