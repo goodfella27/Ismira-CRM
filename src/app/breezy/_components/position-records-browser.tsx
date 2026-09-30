@@ -3291,7 +3291,7 @@ export default function BreezyPositionRecordsBrowser({
               "rounded-panel border border-border bg-card p-6 shadow-sm",
             ].join(" ")}
           >
-		        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+		        <div className="grid gap-4">
 
 		          <div>
 		            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -3319,53 +3319,7 @@ export default function BreezyPositionRecordsBrowser({
 		            </div>
 		          </div>
 
-		          <div className="flex items-center justify-end gap-2">
-		            <UiButton variant="secondary" size="lg"
-		              type="button"
-		              className="inline-flex h-11 w-11 shrink-0 items-center justify-center transition disabled:opacity-60"
-		              onClick={() => { requestCache.clear(); void loadPositions(); }}
-		              disabled={loadingPositions || !companyId.trim()}
-		              title="Reload openings"
-		            >
-		              <RefreshCw
-		                className={loadingPositions ? "h-4 w-4 animate-spin" : "h-4 w-4"}
-		              />
-		            </UiButton>
-		            {recordType === "position" ? (
-		              <UiButton variant="primary" size="lg"
-		                type="button"
-	                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 transition disabled:opacity-60"
-	                onClick={() => {
-	                  setCreateOpeningError(null);
-	                  setCreateOpeningDraft({
-	                    name: "",
-	                    company: "",
-	                    department: "",
-	                    priority: "",
-	                    location_name: "",
-	                    benefit_tags: withRequiredBenefitTags([]),
-	                    processable_country_codes: processableCountryCodes,
-	                    summary: "",
-	                    description: "",
-	                    responsibilities: "",
-	                    requirements: "",
-	                    hidden: false,
-	                    hero_image_url: "",
-	                  });
-	                  setCreateCompanyQuery("");
-	                  setCreateCompanyPickerOpen(false);
-	                  setCreatePriorityQuery("");
-	                  setCreatePriorityPickerOpen(false);
-	                  setCreateOpeningOpen(true);
-	                }}
-	                disabled={loadingPositions || !companyId.trim()}
-	                title="Create a new opening"
-	              >
-	                <Plus className="h-4 w-4" />
-	                New opening
-	              </UiButton>
-	            ) : null}
-	          </div>
+
 	        </div>
 
         {error ? (
@@ -3513,9 +3467,9 @@ export default function BreezyPositionRecordsBrowser({
             </div>
           </div>
 
-          {recordType === "position" &&
-          (priorityCountsLoading || openingTypeFilterOptions.length > 0) ? (
-            <div className="mt-3 border-t border-border pt-3">
+          {recordType === "position" ? (
+            <div className="mt-3 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-3">
+              <div className="min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-xs font-medium text-muted-foreground">
                   Opening type
@@ -3560,6 +3514,39 @@ export default function BreezyPositionRecordsBrowser({
                   })
                 )}
               </div>
+              </div>
+              <UiButton variant="primary" size="lg"
+		                type="button"
+	                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 transition disabled:opacity-60"
+	                onClick={() => {
+	                  setCreateOpeningError(null);
+	                  setCreateOpeningDraft({
+	                    name: "",
+	                    company: "",
+	                    department: "",
+	                    priority: "",
+	                    location_name: "",
+	                    benefit_tags: withRequiredBenefitTags([]),
+	                    processable_country_codes: processableCountryCodes,
+	                    summary: "",
+	                    description: "",
+	                    responsibilities: "",
+	                    requirements: "",
+	                    hidden: false,
+	                    hero_image_url: "",
+	                  });
+	                  setCreateCompanyQuery("");
+	                  setCreateCompanyPickerOpen(false);
+	                  setCreatePriorityQuery("");
+	                  setCreatePriorityPickerOpen(false);
+	                  setCreateOpeningOpen(true);
+	                }}
+	                disabled={loadingPositions || !companyId.trim()}
+	                title="Create a new opening"
+	              >
+	                <Plus className="h-4 w-4" />
+	                New opening
+	              </UiButton>
             </div>
           ) : null}
 

@@ -11,10 +11,13 @@ export function NativeSelect({
   ...props
 }: React.ComponentProps<"select">) {
   return (
-    <select
-      className={cn(controlClass, "h-11 pr-8 sm:h-9", className)}
-      {...props}
-    />
+    <span className="relative block w-full">
+      <select
+        className={cn(controlClass, "peer h-11 appearance-none pr-10 sm:h-9", className)}
+        {...props}
+      />
+      <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground peer-disabled:opacity-50" />
+    </span>
   );
 }
 export function SelectTrigger({
@@ -26,7 +29,7 @@ export function SelectTrigger({
     <Primitive.Trigger
       className={cn(
         controlClass,
-        "flex min-h-11 items-center justify-between gap-2 py-2 text-left sm:min-h-9 [&>span]:min-w-0 [&>span]:truncate",
+        "flex min-h-11 items-center justify-between gap-3 rounded-lg border-input bg-card py-2 pl-3 pr-3 text-left shadow-control transition-colors hover:border-ring focus-visible:border-ring sm:min-h-9 [&>span]:min-w-0 [&>span]:truncate",
         className,
       )}
       {...props}
@@ -49,7 +52,7 @@ export function SelectContent({
         position="popper"
         sideOffset={5}
         className={cn(
-          "z-[10020] max-h-[var(--radix-select-content-available-height)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-panel border border-border bg-popover p-1 text-popover-foreground shadow-overlay",
+          "z-[10020] max-h-[var(--radix-select-content-available-height)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-overlay",
           className,
         )}
         {...props}
@@ -83,5 +86,29 @@ export function SelectItem({
         <Check size={14} />
       </Primitive.ItemIndicator>
     </Primitive.Item>
+  );
+}
+
+/** Styled single-value select for settings with explicit option children. */
+export function OptionSelect({ children, value, onValueChange, disabled, name, required, ...triggerProps }: {
+  children: React.ReactNode;
+  value: string;
+  onValueChange: (value: string) => void;
+  disabled?: boolean;
+  name?: string;
+  required?: boolean;
+} & Omit<React.ComponentProps<typeof SelectTrigger>, "children" | "value" | "onChange" | "name">) {
+  const options = React.Children.toArray(children).filter(React.isValidElement) as React.ReactElement<React.ComponentProps<"option">>[];
+  return (
+    <Select value={`option:${value}`} onValueChange={next => onValueChange(next.slice(7))} disabled={disabled} required={required}>
+      {name ? <input type="hidden" name={name} value={value} disabled={disabled} /> : null}
+      <SelectTrigger {...triggerProps}><SelectValue /></SelectTrigger>
+      <SelectContent>
+        {options.map(option => {
+          const optionValue = String(option.props.value ?? option.props.children ?? "");
+          return <SelectItem key={optionValue} value={`option:${optionValue}`} disabled={option.props.disabled}>{option.props.children}</SelectItem>;
+        })}
+      </SelectContent>
+    </Select>
   );
 }
