@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
+import { requireBreezyCompanyId } from "@/lib/breezy";
 import { ensureCompanyMembership } from "@/lib/company/membership";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -17,16 +17,6 @@ function asString(value: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function pickBody(template: Record<string, unknown> | null) {
-  if (!template) return "";
-  return (
-    asString(template.body).trim() ||
-    asString(template.content).trim() ||
-    asString(template.html).trim() ||
-    ""
-  );
 }
 
 async function requireUser() {
@@ -47,17 +37,6 @@ function getBreezyCompanyIdFromRequest(request: Request) {
   } catch {
     return "";
   }
-}
-
-async function fetchBreezyTemplate(breezyCompanyId: string, templateId: string) {
-  const url = `https://api.breezy.hr/v3/company/${encodeURIComponent(
-    breezyCompanyId
-  )}/template/${encodeURIComponent(templateId)}`;
-  const res = await breezyFetch(url);
-  const type = res.headers.get("content-type") ?? "";
-  const isJson = type.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
-  return { res, body };
 }
 
 export async function GET(
@@ -91,101 +70,15 @@ export async function GET(
       .eq("breezy_template_id", id)
       .maybeSingle();
 
-    if (error) {
-      if (isMissingTemplatesTableError(error.message ?? "")) {
-        const breezy = await fetchBreezyTemplate(breezyCompanyId, id);
-        if (!breezy.res.ok) {
-          return NextResponse.json(
-            { error: "Breezy request failed", status: breezy.res.status, details: breezy.body },
-            { status: breezy.res.status }
-          );
-        }
-        return NextResponse.json(
-          {
-            template: isRecord(breezy.body) ? breezy.body : { data: breezy.body },
-            folder_id: null,
-            meta: { id, canEdit: false },
-            warning:
-              "Database tables `breezy_templates` and `breezy_template_folders` are not set up. Apply `supabase/breezy_templates.sql` in your Supabase project to enable caching and folders.",
-          },
-          { status: 200 }
-        );
-      }
-      throw new Error(error.message ?? "Failed to load cached template");
-    }
-
-    const row = data as Record<string, unknown> | null;
-    const raw = row && row.raw ? row.raw : null;
-    const folderId = asString(row?.folder_id).trim() || null;
-    const syncedAt = asString(row?.synced_at).trim() || null;
-    const updatedAt = asString(row?.updated_at).trim() || null;
-
-    if (raw) {
-      return NextResponse.json(
-        {
-          template: isRecord(raw) ? raw : { data: raw },
-          folder_id: folderId,
-          meta: { id, synced_at: syncedAt, updated_at: updatedAt, canEdit },
-        },
-        { status: 200 }
-      );
-    }
-
-    const breezy = await fetchBreezyTemplate(breezyCompanyId, id);
-    if (!breezy.res.ok) {
-      return NextResponse.json(
-        { error: "Breezy request failed", status: breezy.res.status, details: breezy.body },
-        { status: breezy.res.status }
-      );
-    }
-
-    const now = new Date().toISOString();
-    const payload = breezy.body;
-    const record = isRecord(payload) ? (payload as Record<string, unknown>) : null;
-    const name = asString(record?.name).trim() || null;
-    const subject = asString(record?.subject).trim() || null;
-    const body = pickBody(record) || null;
-
-    const { error: upsertError } = await admin.from("breezy_templates").upsert(
-      [
-        {
-          company_id: companyId,
-          breezy_company_id: breezyCompanyId,
-          breezy_template_id: id,
-          name,
-          subject,
-          body,
-          raw: payload,
-          synced_at: syncedAt ?? now,
-        },
-      ],
-      { onConflict: "company_id,breezy_company_id,breezy_template_id", defaultToNull: false }
-    );
-
-    if (upsertError) {
-      if (isMissingTemplatesTableError(upsertError.message ?? "")) {
-        return NextResponse.json(
-          {
-            template: isRecord(payload) ? payload : { data: payload },
-            folder_id: folderId,
-            meta: { id, canEdit: false },
-            warning:
-              "Database tables `breezy_templates` and `breezy_template_folders` are not set up. Apply `supabase/breezy_templates.sql` in your Supabase project to enable caching and folders.",
-          },
-          { status: 200 }
-        );
-      }
-      throw new Error(upsertError.message ?? "Failed to store template");
-    }
-
-    return NextResponse.json(
-      {
-        template: isRecord(payload) ? payload : { data: payload },
-        folder_id: folderId,
-        meta: { id, synced_at: syncedAt ?? now, updated_at: null, canEdit },
-      },
-      { status: 200 }
-    );
+    if (error) throw new Error(error.message ?? "Failed to load template");
+    if (!data) return NextResponse.json({ error: "Template not found in Supabase" }, { status: 404 });
+    const row = data as Record<string, unknown>;
+    const raw = isRecord(row.raw) ? row.raw : {};
+    return NextResponse.json({
+      template: { ...raw, id, _id: id, name: row.name ?? raw.name, subject: row.subject ?? raw.subject, body: row.body ?? raw.body },
+      folder_id: row.folder_id ?? null,
+      meta: { id, synced_at: row.synced_at, updated_at: row.updated_at, canEdit, source: "supabase" },
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     const status = /not authenticated/i.test(message) ? 401 : 500;

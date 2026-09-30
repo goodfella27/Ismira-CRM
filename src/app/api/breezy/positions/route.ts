@@ -44,8 +44,6 @@ export async function GET(request: Request) {
 
     const positions = Array.isArray(data)
       ? data.map((row) => ({
-          id: row.breezy_position_id,
-          _id: row.breezy_position_id,
           name: row.name,
           state: row.state,
           friendly_id: row.friendly_id,
@@ -53,6 +51,8 @@ export async function GET(request: Request) {
           ...(typeof row.details === "object" && row.details !== null && !Array.isArray(row.details)
             ? row.details
             : {}),
+          id: row.breezy_position_id,
+          _id: row.breezy_position_id,
         }))
       : [];
 

@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { ensureCompanyMembership } from "@/lib/company/membership";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -22,7 +20,7 @@ async function requireUser() {
   if (error) throw new Error(error.message ?? "Not authenticated.");
   const user = data.user ?? null;
   if (!user) throw new Error("Not authenticated.");
-  return user;
+  return supabase;
 }
 
 function chunk<T>(items: T[], size: number) {
@@ -33,9 +31,8 @@ function chunk<T>(items: T[], size: number) {
 
 export async function GET(request: Request) {
   try {
-    const user = await requireUser();
-    const admin = createSupabaseAdminClient();
-    await ensureCompanyMembership(admin, user.id);
+    // Use the authenticated client so candidate and attachment visibility follows RLS.
+    const admin = await requireUser();
 
     const { searchParams } = new URL(request.url);
     const companyId = (searchParams.get("companyId") ?? "").trim();
@@ -49,15 +46,19 @@ export async function GET(request: Request) {
       );
     }
 
+    const email = (searchParams.get("q") ?? "").trim();
+
     // Pull Breezy-imported candidates for this company + position.
     // We rely on the stored JSON in candidates.data.breezy.
-    const { data: candidates, error: candidateError } = await admin
+    let candidateQuery = admin
       .from("candidates")
       .select("id,pipeline_id,stage_id,created_at,updated_at,data")
       .like("id", "breezy_%")
       .contains("data", { breezy: { company_id: companyId, position_id: positionId } })
       .order("created_at", { ascending: false })
       .limit(limit);
+    if (email) candidateQuery = candidateQuery.ilike("data->>email", email.replace(/[\\%_]/g, "\\$&"));
+    const { data: candidates, error: candidateError } = await candidateQuery;
 
     if (candidateError) {
       return NextResponse.json(
@@ -135,6 +136,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         meta: {
+          source: "supabase",
           companyId,
           positionId,
           returned: mapped.length,

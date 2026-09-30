@@ -57,11 +57,12 @@ import {
 
 import DetailsModalShell from "@/components/details-modal-shell";
 import { JobPremiumDetailsPanel } from "@/components/job-premium-details-panel";
-import WysiwygEditor from "@/components/wysiwyg-editor";
+import dynamic from "next/dynamic";
+const WysiwygEditor = dynamic(() => import("@/components/wysiwyg-editor"), { loading: () => <div className="h-48 animate-pulse rounded-md bg-muted" aria-label="Loading editor" /> });
 import { loadBreezyCompanyId, saveBreezyCompanyId } from "@/lib/breezy-storage";
 import { extractCompany, extractDepartment } from "@/lib/breezy-position-fields";
 import { getCountryLabel, getCountryEditorOptions } from "@/lib/country";
-import { createAdminRequestCache } from "@/lib/admin-request-cache";
+import { useWorkspaceRequests } from "@/components/workspace-data-provider";
 import { PositionDetailsSkeleton } from "@/components/position-details-skeleton";
 import { PositionsPageSkeleton } from "@/components/positions-page-skeleton";
 import { CountryFlag } from "@/components/country-flag";
@@ -1067,18 +1068,8 @@ export default function BreezyPositionRecordsBrowser({
   const [loadingPositions, setLoadingPositions] = useState(false);
   const [companies, setCompanies] = useState<BreezyCompany[]>([]);
   const [positions, setPositions] = useState<BreezyPosition[]>([]);
-  const [requestCache] = useState(() => createAdminRequestCache());
+  const requestCache = useWorkspaceRequests();
   const cachedFetch = requestCache.request;
-  useEffect(() => {
-    const clearOnReturn = () => { if (document.visibilityState === "visible") requestCache.clear(); };
-    window.addEventListener("focus", clearOnReturn);
-    document.addEventListener("visibilitychange", clearOnReturn);
-    return () => {
-      requestCache.clear();
-      window.removeEventListener("focus", clearOnReturn);
-      document.removeEventListener("visibilitychange", clearOnReturn);
-    };
-  }, [requestCache]);
   // Don't read localStorage during the initial render; it causes hydration mismatches.
   const [companyId, setCompanyId] = useState("");
   const [filter, setFilter] = useState("");
@@ -3219,13 +3210,14 @@ export default function BreezyPositionRecordsBrowser({
     const controller = new AbortController();
     void loadCompanyLogos(controller.signal);
     return () => controller.abort();
-  }, [loadCompanyLogos]);
+  }, [loadCompanyLogos, requestCache]);
 
   useEffect(() => {
     return subscribeJobCompanyLogosChanged(() => {
+      requestCache.clear();
       void loadCompanyLogos();
     });
-  }, [loadCompanyLogos]);
+  }, [loadCompanyLogos, requestCache]);
 
 
 	  return (

@@ -1,4 +1,6 @@
 "use client";
+
+import { useWorkspaceRequests } from "@/components/workspace-data-provider";
 import { Button as UiButton } from "@/components/ui/button";
 import { Input as UiInput } from "@/components/ui/input";
 import { NativeSelect as UiSelect } from "@/components/ui/select";
@@ -102,6 +104,7 @@ const sameCountryOptions = (left: JobCountryOption[], right: JobCountryOption[])
   JSON.stringify(normalizeCountryOptions(left)) === JSON.stringify(normalizeCountryOptions(right));
 
 export default function JobCompaniesAdmin() {
+  const { request: workspaceFetch } = useWorkspaceRequests();
   const [jobCompanies, setJobCompanies] = useState<JobCompanyAdminItem[]>([]);
   const [jobCompaniesLoading, setJobCompaniesLoading] = useState(false);
   const [jobCompaniesSyncing, setJobCompaniesSyncing] = useState(false);
@@ -148,7 +151,7 @@ export default function JobCompaniesAdmin() {
 
   const loadOpeningTypes = useCallback(async () => {
     try {
-      const res = await fetch("/api/breezy/priority-types", { cache: "no-store" });
+      const res = await workspaceFetch("/api/breezy/priority-types", { cache: "no-store" });
       const data = await res.json().catch(() => null);
       const list = Array.isArray(data?.priorityTypes)
         ? (data.priorityTypes as BreezyPriorityType[])
@@ -175,7 +178,7 @@ export default function JobCompaniesAdmin() {
     setJobCompaniesLoading(true);
     setJobCompaniesError(null);
     try {
-      const res = await fetch("/api/company/job-companies", { cache: "no-store" });
+      const res = await workspaceFetch("/api/company/job-companies", { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(data?.error ?? "Failed to load job companies.");
@@ -345,7 +348,7 @@ export default function JobCompaniesAdmin() {
     setJobCompaniesSyncing(true);
     setJobCompaniesError(null);
     try {
-      const res = await fetch("/api/company/job-companies/sync", { method: "POST" });
+      const res = await workspaceFetch("/api/company/job-companies/sync", { method: "POST" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(data?.error ?? "Failed to sync job companies.");
@@ -370,7 +373,7 @@ export default function JobCompaniesAdmin() {
     setJobCompaniesActionId("new");
     setJobCompaniesError(null);
     try {
-      const res = await fetch("/api/company/job-companies", {
+      const res = await workspaceFetch("/api/company/job-companies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -402,7 +405,7 @@ export default function JobCompaniesAdmin() {
       setJobCompaniesActionId(jobCompanyId);
       setJobCompaniesError(null);
       try {
-        const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
+        const res = await workspaceFetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
           method: "DELETE",
         });
         const data = await res.json().catch(() => null);
@@ -439,7 +442,7 @@ export default function JobCompaniesAdmin() {
       setJobCompaniesActionId(sourceCompanyId);
       setJobCompaniesError(null);
       try {
-        const res = await fetch("/api/company/job-companies/merge", {
+        const res = await workspaceFetch("/api/company/job-companies/merge", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sourceCompanyId, targetCompanyId }),
@@ -490,7 +493,7 @@ export default function JobCompaniesAdmin() {
       setJobCompaniesActionId(`undo:${mergeId}`);
       setJobCompaniesError(null);
       try {
-        const res = await fetch(
+        const res = await workspaceFetch(
           `/api/company/job-companies/merge/${encodeURIComponent(mergeId)}/undo`,
           { method: "POST" }
         );
@@ -522,7 +525,7 @@ export default function JobCompaniesAdmin() {
       try {
         const form = new FormData();
         form.set("logo", file);
-        const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
+        const res = await workspaceFetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
           method: "POST",
           body: form,
         });
@@ -551,7 +554,7 @@ export default function JobCompaniesAdmin() {
       try {
         const form = new FormData();
         form.set("removeLogo", "1");
-        const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
+        const res = await workspaceFetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
           method: "POST",
           body: form,
         });
@@ -601,7 +604,7 @@ export default function JobCompaniesAdmin() {
     setJobCompaniesError(null);
     try {
       const benefits = normalizeBenefitOptions(draft);
-      const res = await fetch("/api/company/job-benefits", {
+      const res = await workspaceFetch("/api/company/job-benefits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ benefits }),
@@ -642,7 +645,7 @@ export default function JobCompaniesAdmin() {
     setJobCompaniesError(null);
     try {
       const countries = normalizeCountryOptions(jobCountryOptionsDraft);
-      const res = await fetch("/api/company/job-countries", {
+      const res = await workspaceFetch("/api/company/job-countries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ countries }),
@@ -679,7 +682,7 @@ export default function JobCompaniesAdmin() {
     setOpeningTypeSaving(true);
     setJobCompaniesError(null);
     try {
-      const res = await fetch("/api/breezy/priority-types", {
+      const res = await workspaceFetch("/api/breezy/priority-types", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderedKeys }),
@@ -700,7 +703,7 @@ export default function JobCompaniesAdmin() {
     setOpeningTypeSaving(true);
     setJobCompaniesError(null);
     try {
-      const res = await fetch("/api/breezy/priority-types", {
+      const res = await workspaceFetch("/api/breezy/priority-types", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ label }),
@@ -733,7 +736,7 @@ export default function JobCompaniesAdmin() {
             label,
             ...(tooltipDrafts[normalized] !== undefined ? { tooltip: tooltipDrafts[normalized] } : {}),
           };
-      const res = await fetch("/api/breezy/priority-types", {
+      const res = await workspaceFetch("/api/breezy/priority-types", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -757,7 +760,7 @@ export default function JobCompaniesAdmin() {
     setOpeningTypeSaving(true);
     setJobCompaniesError(null);
     try {
-      const res = await fetch("/api/breezy/priority-types", {
+      const res = await workspaceFetch("/api/breezy/priority-types", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: normalized }),
@@ -808,7 +811,7 @@ export default function JobCompaniesAdmin() {
         form.set("shipType", shipType);
         form.set("shipTypes", JSON.stringify(shipTypes));
         form.set("openingType", openingType);
-        const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
+        const res = await workspaceFetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
           method: "POST",
           body: form,
         });

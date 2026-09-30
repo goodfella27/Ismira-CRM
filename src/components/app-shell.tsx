@@ -3,13 +3,14 @@
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
+import { WorkspaceDataProvider } from "@/components/workspace-data-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AppSidebar, MobileTopNav } from "@/components/app-sidebar";
 import { ChatWidget } from "@/components/chat-widget";
 import { TaskNotificationBell } from "@/components/task-notification-bell";
 import { BrandingTitleSync } from "@/components/branding-title-sync";
 import { AppDialogsProvider } from "@/components/app-dialogs";
-import { hasSupabaseBrowserEnv } from "@/lib/supabase/client";
+import { createSupabaseBrowserClient, hasSupabaseBrowserEnv } from "@/lib/supabase/client";
 import { isPublicShellRoute } from "@/lib/public-shell-routes";
 
 const CHAT_DISABLED_ROUTES = ["/breezy", "/design-system"];
@@ -53,14 +54,26 @@ export function AppShell({ children }: { children: ReactNode }) {
   const hasSupabaseEnv = hasSupabaseBrowserEnv();
 
   useEffect(() => {
-    if (publicShellRoute) return;
-    const controller = new AbortController();
-    void fetch("/api/auth/access", { cache: "no-store", signal: controller.signal })
-      .then((response) => response.json())
-      .then((data) => setIsAdmin(data?.isAdmin === true))
-      .catch(() => undefined);
-    return () => controller.abort();
-  }, [publicShellRoute]);
+    if (publicShellRoute || !hasSupabaseEnv) return;
+    let controller: AbortController | null = null;
+    const refreshAccess = () => {
+      controller?.abort();
+      const next = new AbortController();
+      controller = next;
+      void fetch("/api/auth/access", { cache: "no-store", signal: next.signal })
+        .then(response => response.json())
+        .then(data => { if (!next.signal.aborted) setIsAdmin(data?.isAdmin === true); })
+        .catch(() => { if (!next.signal.aborted) setIsAdmin(false); });
+    };
+    refreshAccess();
+    const { data } = createSupabaseBrowserClient().auth.onAuthStateChange(event => {
+      if (event === "INITIAL_SESSION") return;
+      controller?.abort();
+      setIsAdmin(false);
+      if (event !== "SIGNED_OUT") refreshAccess();
+    });
+    return () => { controller?.abort(); data.subscription.unsubscribe(); };
+  }, [publicShellRoute, hasSupabaseEnv]);
 
   if (!hasSupabaseEnv) {
     return <SupabaseConfigNotice />;
@@ -78,7 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppDialogsProvider>
+    <WorkspaceDataProvider isAdmin={isAdmin}><AppDialogsProvider>
       <div className="flex min-h-screen w-full bg-background text-foreground">
         <BrandingTitleSync fallbackTitle="Ismira CRM" />
         <AppSidebar isAdmin={isAdmin} />
@@ -92,6 +105,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         {!isChatDisabledRoute ? <ChatWidget /> : null}
       </div>
-    </AppDialogsProvider>
+    </AppDialogsProvider></WorkspaceDataProvider>
   );
 }

@@ -8,7 +8,6 @@ import { getMetadataOpeningType } from "@/lib/job-company-opening-types";
 import {
   fetchJobCompanyBenefits,
   mapBenefitTagsByJobCompanyId,
-  syncAutoBenefitsFromCachedPositions,
 } from "@/lib/job-company-benefits";
 import {
   normalizeJobCompanyName,
@@ -17,6 +16,7 @@ import {
   signJobCompanyLogoUrls,
   type JobCompanyRow,
 } from "@/lib/job-companies";
+import { deriveMissingCompanyBenefits } from "@/lib/job-company-benefit-derivation";
 import { resolveJobShipType, resolveJobShipTypes } from "@/lib/job-ship-types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -94,7 +94,7 @@ function addUniqueValues(target: string[], values: string[]) {
   return target;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await requireUser();
     const admin = createSupabaseAdminClient();
@@ -133,51 +133,30 @@ export async function GET() {
           : {};
       return typeof metadata.merged_into_job_company_id !== "string" || mergeTargetIds.has(row.id);
     });
-    const logoUrls = await signJobCompanyLogoUrls(admin, activeRows);
-    let benefits = await fetchJobCompanyBenefits(
-      admin,
-      membership.companyId,
-      activeRows.map((row) => row.id)
-    ).catch((benefitsError) => {
-      const message =
-        benefitsError instanceof Error ? benefitsError.message : "Failed to load job company benefits.";
-      throw new Error(normalizeJobCompaniesError(message));
-    });
+    const lookupOnly = new URL(request.url).searchParams.get("view") === "lookup";
+    const [logoUrls, benefits, positionsResult, joinsResult, countriesResult, mergesResult, benefitOptions, countryOptions] = await Promise.all([
+      signJobCompanyLogoUrls(admin, activeRows),
+      fetchJobCompanyBenefits(admin, membership.companyId, activeRows.map(row => row.id))
+        .catch((error) => { throw new Error(normalizeJobCompaniesError(error instanceof Error ? error.message : null)); }),
+      lookupOnly ? null : admin.from("breezy_positions")
+        .select("breezy_position_id,job_company_id,company,state,org_type,details,details_synced_at,updated_at")
+        .eq("company_id", membership.companyId),
+      lookupOnly ? null : admin.from("job_position_companies")
+        .select("job_company_id,breezy_position_id").eq("company_id", membership.companyId),
+      lookupOnly ? null : admin.from("breezy_position_countries")
+        .select("breezy_position_id,country_code,group").eq("company_id", membership.companyId).eq("group", "processable"),
+      lookupOnly ? null : admin.from("job_company_merge_logs")
+        .select("id,source_job_company_id,target_job_company_id,source_snapshot,target_snapshot,position_snapshots,copied_benefits,created_at")
+        .eq("company_id", membership.companyId).is("undone_at", null)
+        .order("created_at", { ascending: false }).limit(5),
+      lookupOnly ? [] : fetchJobBenefitOptions(admin, membership.companyId).catch(() => []),
+      lookupOnly ? [] : fetchJobCountryOptions(admin, membership.companyId).catch(() => []),
+    ]);
     let benefitTagsByCompanyId = mapBenefitTagsByJobCompanyId(benefits);
-    const companiesMissingBenefits = activeRows.filter((row) => !benefitTagsByCompanyId.has(row.id));
-
-    if (companiesMissingBenefits.length > 0) {
-      await syncAutoBenefitsFromCachedPositions(admin, {
-        companyId: membership.companyId,
-        jobCompanies: companiesMissingBenefits,
-      }).catch((benefitsError) => {
-        const message =
-          benefitsError instanceof Error
-            ? benefitsError.message
-            : "Failed to auto-sync job company benefits.";
-        throw new Error(normalizeJobCompaniesError(message));
-      });
-
-      benefits = await fetchJobCompanyBenefits(
-        admin,
-        membership.companyId,
-        activeRows.map((row) => row.id)
-      ).catch((benefitsError) => {
-        throw new Error(
-          normalizeJobCompaniesError(
-            benefitsError instanceof Error
-              ? benefitsError.message
-              : "Failed to reload job company benefits."
-          )
-        );
-      });
-      benefitTagsByCompanyId = mapBenefitTagsByJobCompanyId(benefits);
-    }
-
-    const { data: positionRows, error: positionError } = await admin
-      .from("breezy_positions")
-      .select("breezy_position_id,job_company_id,company,state,org_type,details")
-      .eq("company_id", membership.companyId);
+    const { data: positionRows, error: positionError } = positionsResult ?? { data: [], error: null };
+    const joinRows = joinsResult?.data;
+    const countryRows = countriesResult?.data;
+    const mergeRows = mergesResult?.data;
 
     if (positionError) {
       throw new Error(positionError.message ?? "Failed to load company counts");
@@ -210,6 +189,8 @@ export async function GET() {
           state: string | null;
           org_type: string | null;
           details: unknown;
+          details_synced_at: string | null;
+          updated_at: string | null;
         }>)
       : [];
 
@@ -227,10 +208,9 @@ export async function GET() {
       if (matchedId) countsById.set(matchedId, (countsById.get(matchedId) ?? 0) + 1);
     }
 
-    const { data: joinRows } = await admin
-      .from("job_position_companies")
-      .select("job_company_id,breezy_position_id")
-      .eq("company_id", membership.companyId);
+    if (!lookupOnly) {
+      benefitTagsByCompanyId = deriveMissingCompanyBenefits(activeRows, positionList, benefitTagsByCompanyId);
+    }
 
     const positionCompanyIds = new Map<string, Set<string>>();
     const addPositionCompany = (positionId: string, jobCompanyId: string) => {
@@ -269,11 +249,6 @@ export async function GET() {
       if (codes.length > 0) countryCodesByPosition.set(positionId, codes);
     }
 
-    const { data: countryRows } = await admin
-      .from("breezy_position_countries")
-      .select("breezy_position_id,country_code,group")
-      .eq("company_id", membership.companyId)
-      .eq("group", "processable");
     if (Array.isArray(countryRows)) {
       for (const row of countryRows) {
         const positionId =
@@ -318,14 +293,6 @@ export async function GET() {
       }
     }
 
-    const { data: mergeRows } = await admin
-      .from("job_company_merge_logs")
-      .select("id,source_job_company_id,target_job_company_id,source_snapshot,target_snapshot,position_snapshots,copied_benefits,created_at")
-      .eq("company_id", membership.companyId)
-      .is("undone_at", null)
-      .order("created_at", { ascending: false })
-      .limit(5);
-
     const recentMerges = Array.isArray(mergeRows)
       ? mergeRows.map((row) => {
           const sourceSnapshot = isRecord(row.source_snapshot) ? row.source_snapshot : {};
@@ -349,8 +316,6 @@ export async function GET() {
         })
       : [];
 
-    const benefitOptions = await fetchJobBenefitOptions(admin, membership.companyId).catch(() => []);
-    const countryOptions = await fetchJobCountryOptions(admin, membership.companyId).catch(() => []);
 
     const rowGroupsByNormalizedName = new Map<string, JobCompanyRow[]>();
     for (const row of activeRows) {
@@ -439,14 +404,12 @@ export async function GET() {
             openingType,
             benefitTags,
             countryCodes,
-            positionsCount: getGroupPositionCount(group),
+            ...(lookupOnly ? {} : { positionsCount: getGroupPositionCount(group) }),
             createdAt: row.created_at ?? null,
             updatedAt: row.updated_at ?? null,
           };
         }),
-        recentMerges,
-        benefitOptions,
-        countryOptions,
+        ...(lookupOnly ? {} : { recentMerges, benefitOptions, countryOptions }),
       },
       { status: 200 }
     );

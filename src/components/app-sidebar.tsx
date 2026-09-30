@@ -41,7 +41,7 @@ const navItems = [
   },
   {
     label: "Ismira HR Portal",
-    href: "/breezy",
+    href: "/breezy/positions",
     description: "Recruitment workspace",
     icon: Briefcase,
   },
@@ -79,6 +79,7 @@ const navItems = [
 
 function isActiveRoute(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
+  if (href === "/breezy/positions") return pathname.startsWith("/breezy");
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

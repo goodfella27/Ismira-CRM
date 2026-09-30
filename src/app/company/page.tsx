@@ -1,5 +1,7 @@
 "use client";
 
+import { useWorkspaceRequests } from "@/components/workspace-data-provider";
+
 import { Button as UiButton } from "@/components/ui/button";
 import { Input as UiInput } from "@/components/ui/input";
 import { NativeSelect as UiSelect } from "@/components/ui/select";
@@ -309,6 +311,7 @@ const sameCountryCodeSelection = (left: string[], right: string[]) =>
 
 
 export default function CompanyPage() {
+  const { request: workspaceFetch } = useWorkspaceRequests();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [activeSection, setActiveSection] = useState<SectionId>("overview");
   const [brandingTitle, setBrandingTitle] = useState("ISMIRA CRM");
@@ -478,7 +481,7 @@ export default function CompanyPage() {
     setUsersLoading(true);
     setUsersError(null);
     try {
-      const res = await fetch("/api/admin/users", { cache: "no-store" });
+      const res = await workspaceFetch("/api/admin/users", { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(data?.error ?? "Failed to load users");
@@ -603,7 +606,7 @@ export default function CompanyPage() {
       form.set("title", brandingTitle);
       if (brandingLogoFile) form.set("logo", brandingLogoFile);
 
-      const res = await fetch("/api/company/branding", {
+      const res = await workspaceFetch("/api/company/branding", {
         method: "POST",
         body: form,
       });
@@ -631,7 +634,7 @@ export default function CompanyPage() {
       form.set("title", brandingTitle);
       form.set("removeLogo", "1");
 
-      const res = await fetch("/api/company/branding", {
+      const res = await workspaceFetch("/api/company/branding", {
         method: "POST",
         body: form,
       });
@@ -653,7 +656,7 @@ export default function CompanyPage() {
 
   const loadOpeningTypes = useCallback(async () => {
     try {
-      const res = await fetch("/api/breezy/priority-types", { cache: "no-store" });
+      const res = await workspaceFetch("/api/breezy/priority-types", { cache: "no-store" });
       const data = await res.json().catch(() => null);
       const list = Array.isArray(data?.priorityTypes)
         ? (data.priorityTypes as BreezyPriorityType[])
@@ -669,7 +672,7 @@ export default function CompanyPage() {
     setJobCompaniesLoading(true);
     setJobCompaniesError(null);
     try {
-      const res = await fetch("/api/company/job-companies", { cache: "no-store" });
+      const res = await workspaceFetch("/api/company/job-companies", { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(data?.error ?? "Failed to load job companies.");
@@ -829,7 +832,7 @@ export default function CompanyPage() {
     setJobsHeroLogosLoading(true);
     setJobsHeroLogosError(null);
     try {
-      const res = await fetch("/api/company/jobs-hero-logos", { cache: "no-store" });
+      const res = await workspaceFetch("/api/company/jobs-hero-logos", { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(getApiErrorMessage(data, "Failed to load jobs hero logos."));
@@ -861,7 +864,7 @@ export default function CompanyPage() {
     setJobsHeroLogosError(null);
     setJobsHeroLogosReordering(false);
     try {
-      const res = await fetch("/api/company/jobs-hero-logos", {
+      const res = await workspaceFetch("/api/company/jobs-hero-logos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ label: "" }),
@@ -891,7 +894,7 @@ export default function CompanyPage() {
         if (options.removeLogo) form.set("removeLogo", "1");
         if (options.label !== undefined) form.set("label", options.label);
 
-        const res = await fetch(
+        const res = await workspaceFetch(
           `/api/company/jobs-hero-logos/${encodeURIComponent(heroLogoId)}`,
           { method: "POST", body: form }
         );
@@ -917,7 +920,7 @@ export default function CompanyPage() {
       setJobsHeroLogosActionId(heroLogoId);
       setJobsHeroLogosError(null);
       try {
-        const res = await fetch(
+        const res = await workspaceFetch(
           `/api/company/jobs-hero-logos/${encodeURIComponent(heroLogoId)}`,
           { method: "DELETE" }
         );
@@ -942,7 +945,7 @@ export default function CompanyPage() {
       setJobsHeroLogosReordering(true);
       setJobsHeroLogosError(null);
       try {
-        const res = await fetch("/api/company/jobs-hero-logos/reorder", {
+        const res = await workspaceFetch("/api/company/jobs-hero-logos/reorder", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ids: nextIds }),
@@ -992,7 +995,7 @@ export default function CompanyPage() {
     setJobCompaniesError(null);
     try {
       const benefits = normalizeBenefitOptions(jobBenefitOptionsDraft);
-      const res = await fetch("/api/company/job-benefits", {
+      const res = await workspaceFetch("/api/company/job-benefits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ benefits }),
@@ -1029,7 +1032,7 @@ export default function CompanyPage() {
     setJobCompaniesError(null);
     try {
       const countries = normalizeCountryOptions(jobCountryOptionsDraft);
-      const res = await fetch("/api/company/job-countries", {
+      const res = await workspaceFetch("/api/company/job-countries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ countries }),
@@ -1053,7 +1056,7 @@ export default function CompanyPage() {
     setJobCompaniesSyncing(true);
     setJobCompaniesError(null);
     try {
-      const res = await fetch("/api/company/job-companies/sync", {
+      const res = await workspaceFetch("/api/company/job-companies/sync", {
         method: "POST",
       });
       const data = await res.json().catch(() => null);
@@ -1080,7 +1083,7 @@ export default function CompanyPage() {
     setJobCompaniesActionId("new");
     setJobCompaniesError(null);
     try {
-      const res = await fetch("/api/company/job-companies", {
+      const res = await workspaceFetch("/api/company/job-companies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -1112,7 +1115,7 @@ export default function CompanyPage() {
       setJobCompaniesActionId(jobCompanyId);
       setJobCompaniesError(null);
       try {
-        const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
+        const res = await workspaceFetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
           method: "DELETE",
         });
         const data = await res.json().catch(() => null);
@@ -1149,7 +1152,7 @@ export default function CompanyPage() {
       setJobCompaniesActionId(sourceCompanyId);
       setJobCompaniesError(null);
       try {
-        const res = await fetch("/api/company/job-companies/merge", {
+        const res = await workspaceFetch("/api/company/job-companies/merge", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sourceCompanyId, targetCompanyId }),
@@ -1197,7 +1200,7 @@ export default function CompanyPage() {
       setJobCompaniesActionId(`undo:${mergeId}`);
       setJobCompaniesError(null);
       try {
-        const res = await fetch(
+        const res = await workspaceFetch(
           `/api/company/job-companies/merge/${encodeURIComponent(mergeId)}/undo`,
           { method: "POST" }
         );
@@ -1226,7 +1229,7 @@ export default function CompanyPage() {
       try {
         const form = new FormData();
         form.set("logo", file);
-        const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
+        const res = await workspaceFetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
           method: "POST",
           body: form,
         });
@@ -1255,7 +1258,7 @@ export default function CompanyPage() {
       try {
         const form = new FormData();
         form.set("removeLogo", "1");
-        const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
+        const res = await workspaceFetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
           method: "POST",
           body: form,
         });
@@ -1300,7 +1303,7 @@ export default function CompanyPage() {
         form.set("shipType", shipType);
         form.set("shipTypes", JSON.stringify(shipTypes));
         form.set("openingType", openingType);
-        const res = await fetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
+        const res = await workspaceFetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}`, {
           method: "POST",
           body: form,
         });
@@ -1672,7 +1675,7 @@ export default function CompanyPage() {
     setInviteLoading(true);
     setInviteError(null);
     try {
-      const res = await fetch("/api/admin/users", {
+      const res = await workspaceFetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, name, role: inviteRole || "Member Basic" }),
@@ -1700,7 +1703,7 @@ export default function CompanyPage() {
   const handleConfirmUser = async (userId: string) => {
     setUserActionId(userId);
     try {
-      const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+      const res = await workspaceFetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ confirm: true }),
@@ -1724,7 +1727,7 @@ export default function CompanyPage() {
   const handleRoleChange = async (userId: string, role: string) => {
     setUserActionId(userId);
     try {
-      const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+      const res = await workspaceFetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role }),
@@ -2658,7 +2661,7 @@ export default function CompanyPage() {
                           setMailerLiteSaving(true);
                           setIntegrationsError(null);
                           try {
-                            const res = await fetch("/api/company/integrations", {
+                            const res = await workspaceFetch("/api/company/integrations", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({
@@ -2669,7 +2672,7 @@ export default function CompanyPage() {
                             if (!res.ok) throw new Error(data?.error ?? "Failed to save");
                             setMailerLiteDraftKey("");
                             // reload status
-                            const statusRes = await fetch("/api/company/integrations", { cache: "no-store" });
+                            const statusRes = await workspaceFetch("/api/company/integrations", { cache: "no-store" });
                             const statusData = await statusRes.json().catch(() => null);
                             const ml = statusData?.mailerlite ?? {};
                             setIntegrationsWarning(
@@ -2696,7 +2699,7 @@ export default function CompanyPage() {
                           setMailerLiteSaving(true);
                           setIntegrationsError(null);
                           try {
-                            const res = await fetch("/api/company/integrations", {
+                            const res = await workspaceFetch("/api/company/integrations", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ mailerlite_api_key: "" }),
@@ -2704,7 +2707,7 @@ export default function CompanyPage() {
                             const data = await res.json().catch(() => null);
                             if (!res.ok) throw new Error(data?.error ?? "Failed to clear");
                             setMailerLiteDraftKey("");
-                            const statusRes = await fetch("/api/company/integrations", { cache: "no-store" });
+                            const statusRes = await workspaceFetch("/api/company/integrations", { cache: "no-store" });
                             const statusData = await statusRes.json().catch(() => null);
                             const ml = statusData?.mailerlite ?? {};
                             setIntegrationsWarning(
@@ -2788,14 +2791,14 @@ export default function CompanyPage() {
                             setSharedInboxSaving(true);
                             setIntegrationsError(null);
                             try {
-                              const res = await fetch("/api/email/mailbox", {
+                              const res = await workspaceFetch("/api/email/mailbox", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ disconnect: true }),
                               });
                               const data = await res.json().catch(() => null);
                               if (!res.ok) throw new Error(data?.error ?? "Failed to disconnect");
-                              const statusRes = await fetch("/api/email/mailbox", {
+                              const statusRes = await workspaceFetch("/api/email/mailbox", {
                                 cache: "no-store",
                               });
                               const statusData = await statusRes.json().catch(() => null);
@@ -2948,7 +2951,7 @@ export default function CompanyPage() {
                               setSharedInboxSaving(true);
                               setIntegrationsError(null);
                               try {
-                                const res = await fetch("/api/email/mailbox", {
+                                const res = await workspaceFetch("/api/email/mailbox", {
                                   method: "POST",
                                   headers: { "Content-Type": "application/json" },
                                   body: JSON.stringify({
@@ -2975,7 +2978,7 @@ export default function CompanyPage() {
                                 });
                                 const data = await res.json().catch(() => null);
                                 if (!res.ok) throw new Error(data?.error ?? "Failed to save");
-                                const statusRes = await fetch("/api/email/mailbox", {
+                                const statusRes = await workspaceFetch("/api/email/mailbox", {
                                   cache: "no-store",
                                 });
                                 const statusData = await statusRes.json().catch(() => null);

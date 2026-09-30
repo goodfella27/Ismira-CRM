@@ -1,5 +1,6 @@
 "use client";
 
+import { useWorkspaceAdmin } from "@/components/workspace-data-provider";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -105,13 +106,8 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export default function BreezyShell({
-  children,
-  isAdmin = false,
-}: {
-  children: ReactNode;
-  isAdmin?: boolean;
-}) {
+export default function BreezyShell({ children }: { children: ReactNode }) {
+  const isAdmin = useWorkspaceAdmin();
   const pathname = usePathname();
   const visibleItems = items.filter(
     (item) =>

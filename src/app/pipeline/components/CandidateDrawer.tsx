@@ -1056,18 +1056,6 @@ export default function CandidateDrawer({
     {}
   );
   const [signingDocId, setSigningDocId] = useState<string | null>(null);
-  const [breezyDocsSyncing, setBreezyDocsSyncing] = useState(false);
-  const [breezyDocsSyncError, setBreezyDocsSyncError] = useState<string | null>(
-    null
-  );
-  const breezyDocsSyncedCandidateRef = useRef<string | null>(null);
-  const [breezyProfileSyncing, setBreezyProfileSyncing] = useState(false);
-  const [breezyProfileSyncError, setBreezyProfileSyncError] = useState<string | null>(
-    null
-  );
-  const breezyProfileSyncedCandidateRef = useRef<string | null>(null);
-  const [breezyAutoRepairNeeded, setBreezyAutoRepairNeeded] = useState(false);
-  const breezyAutoRepairAttemptedRef = useRef<string | null>(null);
   const [leftTab, setLeftTab] = useState<
     "overview" | "experience" | "resume" | "documents" | "questionnaires" | "more"
   >(
@@ -1084,8 +1072,6 @@ export default function CandidateDrawer({
   useEffect(() => {
     setRenamingDocumentId(null);
     setRenameDocumentDraft("");
-    setBreezyAutoRepairNeeded(false);
-    breezyAutoRepairAttemptedRef.current = null;
   }, [candidate?.id]);
 
   useEffect(() => {
@@ -1181,12 +1167,11 @@ export default function CandidateDrawer({
       !timelineLoading &&
       !formLoading &&
       !cvLoading &&
-      !snapshotLoading &&
-      !breezyProfileSyncing
+      !snapshotLoading
     ) {
       setRefreshing(false);
     }
-  }, [refreshing, timelineLoading, formLoading, cvLoading, snapshotLoading, breezyProfileSyncing]);
+  }, [refreshing, timelineLoading, formLoading, cvLoading, snapshotLoading]);
 
   useEffect(() => {
     if (open) return;
@@ -1276,126 +1261,8 @@ export default function CandidateDrawer({
   const handleRefresh = () => {
     if (!candidate?.id) return;
     setRefreshing(true);
-    setBreezyProfileSyncError(null);
-    if (isBreezyCandidate) {
-      void (async () => {
-        setBreezyProfileSyncing(true);
-        try {
-          const res = await fetch("/api/breezy/candidate-full-sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ candidateId: candidate.id }),
-          });
-          const payload = await res.json().catch(() => null);
-          if (!res.ok) {
-            throw new Error(payload?.error ?? "Failed to sync Breezy candidate.");
-          }
-        } catch (err) {
-          setBreezyProfileSyncError(
-            err instanceof Error ? err.message : "Failed to sync Breezy candidate."
-          );
-        } finally {
-          setBreezyProfileSyncing(false);
-          setRefreshCounter((prev) => prev + 1);
-        }
-      })();
-      return;
-    }
     setRefreshCounter((prev) => prev + 1);
   };
-
-  useEffect(() => {
-    if (!open || !candidate?.id) return;
-    if (!isBreezyCandidate) return;
-    if (breezyProfileSyncing) return;
-    if (breezyProfileSyncedCandidateRef.current === candidate.id) return;
-
-    const breezyRaw = (candidate as unknown as { breezy?: unknown })?.breezy;
-    const lastSyncedAt =
-      breezyRaw &&
-      typeof breezyRaw === "object" &&
-      breezyRaw !== null &&
-      "last_synced_at" in (breezyRaw as Record<string, unknown>)
-        ? String((breezyRaw as Record<string, unknown>).last_synced_at ?? "")
-        : "";
-
-    if (lastSyncedAt) {
-      const ms = new Date(lastSyncedAt).getTime();
-      if (!Number.isNaN(ms) && Date.now() - ms < 6 * 60 * 60 * 1000) {
-        return;
-      }
-    }
-
-    breezyProfileSyncedCandidateRef.current = candidate.id;
-    setBreezyProfileSyncError(null);
-    setBreezyProfileSyncing(true);
-    let ignore = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/breezy/candidate-full-sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ candidateId: candidate.id }),
-        });
-        const payload = await res.json().catch(() => null);
-        if (!res.ok) {
-          throw new Error(payload?.error ?? "Failed to sync Breezy candidate.");
-        }
-        if (!ignore) setRefreshCounter((prev) => prev + 1);
-      } catch (err) {
-        if (!ignore) {
-          setBreezyProfileSyncError(
-            err instanceof Error ? err.message : "Failed to sync Breezy candidate."
-          );
-        }
-      } finally {
-        if (!ignore) setBreezyProfileSyncing(false);
-      }
-    })();
-
-    return () => {
-      ignore = true;
-    };
-  }, [breezyProfileSyncing, candidate?.id, isBreezyCandidate, open]);
-
-  useEffect(() => {
-    if (!open || !candidate?.id) return;
-    if (!isBreezyCandidate) return;
-    if (!breezyAutoRepairNeeded) return;
-    if (breezyProfileSyncing) return;
-    if (breezyAutoRepairAttemptedRef.current === candidate.id) return;
-
-    breezyAutoRepairAttemptedRef.current = candidate.id;
-    setBreezyProfileSyncError(null);
-    setBreezyProfileSyncing(true);
-    let ignore = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/breezy/candidate-full-sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ candidateId: candidate.id }),
-        });
-        const payload = await res.json().catch(() => null);
-        if (!res.ok) {
-          throw new Error(payload?.error ?? "Failed to sync Breezy candidate.");
-        }
-        if (!ignore) setRefreshCounter((prev) => prev + 1);
-      } catch (err) {
-        if (!ignore) {
-          setBreezyProfileSyncError(
-            err instanceof Error ? err.message : "Failed to sync Breezy candidate."
-          );
-        }
-      } finally {
-        if (!ignore) setBreezyProfileSyncing(false);
-      }
-    })();
-
-    return () => {
-      ignore = true;
-    };
-  }, [breezyAutoRepairNeeded, breezyProfileSyncing, candidate?.id, isBreezyCandidate, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -2136,30 +2003,6 @@ export default function CandidateDrawer({
         const scorecard = scorecardResult.data
           ? mapScorecardRow(scorecardResult.data as ScorecardRow)
           : undefined;
-
-        if (isBreezyCandidate) {
-          const hasWorkPlaceholders = workHistory.some(
-            (item) =>
-              !item.company ||
-              item.company.trim() === "" ||
-              item.company === "Company" ||
-              (!item.start && !item.end)
-          );
-          const hasEducationPlaceholders = education.some(
-            (item) =>
-              !item.institution ||
-              item.institution.trim() === "" ||
-              item.institution === "Institution" ||
-              (!item.start && !item.end)
-          );
-          setBreezyAutoRepairNeeded(
-            (workHistory.length === 0 && education.length === 0) ||
-              hasWorkPlaceholders ||
-              hasEducationPlaceholders
-          );
-        } else {
-          setBreezyAutoRepairNeeded(false);
-        }
 
         onHydrateCandidate(candidate.id, {
           tasks,
@@ -3136,61 +2979,6 @@ export default function CandidateDrawer({
     if (!isBreezyCandidate) return false;
     return documentAttachments.some((doc) => !doc.path && !doc.url);
   }, [documentAttachments, isBreezyCandidate]);
-
-  useEffect(() => {
-    if (!open || !candidate?.id) return;
-    if (!hasUnresolvedBreezyDocuments) return;
-    if (breezyDocsSyncing) return;
-    if (breezyDocsSyncedCandidateRef.current === candidate.id) return;
-
-    let ignore = false;
-    breezyDocsSyncedCandidateRef.current = candidate.id;
-    setBreezyDocsSyncing(true);
-    setBreezyDocsSyncError(null);
-    (async () => {
-      try {
-        const res = await fetch("/api/breezy/candidate-documents-sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ candidateId: candidate.id }),
-        });
-        const payload = await res.json().catch(() => null);
-        if (!res.ok) {
-          throw new Error(payload?.error ?? "Failed to sync Breezy documents.");
-        }
-
-        const { data, error } = await supabase
-          .from("candidate_attachments")
-          .select("candidate_id,id,name,mime,url,path,kind,created_at,created_by")
-          .eq("candidate_id", candidate.id);
-        if (error) throw new Error(error.message);
-        if (ignore) return;
-        const attachments = (data ?? []).map((row) =>
-          mapAttachmentRow(row as AttachmentRow)
-        );
-        onHydrateCandidate(candidate.id, { attachments });
-      } catch (err) {
-        if (!ignore) {
-          setBreezyDocsSyncError(
-            err instanceof Error ? err.message : "Failed to sync Breezy documents."
-          );
-        }
-      } finally {
-        if (!ignore) setBreezyDocsSyncing(false);
-      }
-    })();
-
-    return () => {
-      ignore = true;
-    };
-  }, [
-    breezyDocsSyncing,
-    candidate?.id,
-    hasUnresolvedBreezyDocuments,
-    onHydrateCandidate,
-    open,
-    supabase,
-  ]);
 
   const documentEntries = documentAttachments.map((doc) => ({
     doc,
@@ -4382,8 +4170,7 @@ export default function CandidateDrawer({
                   timelineLoading ||
                   formLoading ||
                   cvLoading ||
-                  snapshotLoading ||
-                  breezyProfileSyncing
+                  snapshotLoading
                 }
               >
                 <RefreshCw
@@ -4402,19 +4189,7 @@ export default function CandidateDrawer({
             </div>
           </div>
 
-          {isBreezyCandidate && (breezyProfileSyncing || breezyProfileSyncError) ? (
-            <div className="px-6 pb-3">
-              {breezyProfileSyncing ? (
-                <div className="rounded-md border border-input bg-accent px-4 py-2 text-xs text-foreground">
-                  Syncing Breezy candidate data…
-                </div>
-              ) : breezyProfileSyncError ? (
-                <div className="rounded-md border border-destructive/25 bg-danger-muted px-4 py-2 text-xs text-destructive">
-                  {breezyProfileSyncError}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+
 
 		          <div
 		            className={`grid h-full min-h-0 flex-1 overflow-hidden ${
@@ -5251,15 +5026,8 @@ export default function CandidateDrawer({
                         </div>
                       </div>
                     ) : null}
-                    {breezyDocsSyncing ? (
-                      <div className="mt-3 rounded-md border border-input bg-accent px-4 py-3 text-xs text-foreground">
-                        Syncing Breezy documents…
-                      </div>
-                    ) : null}
-                    {breezyDocsSyncError ? (
-                      <div className="mt-3 rounded-md border border-destructive/25 bg-danger-muted px-4 py-3 text-xs text-destructive">
-                        {breezyDocsSyncError}
-                      </div>
+                    {hasUnresolvedBreezyDocuments ? (
+                      <p className="mt-3 text-xs text-muted-foreground">Some imported document references have no stored file. Breezy synchronization is retired; upload the missing files to make them available.</p>
                     ) : null}
                     <div className="mt-3 flex-1 overflow-y-auto">
                       {documentAttachments.length === 0 ? (

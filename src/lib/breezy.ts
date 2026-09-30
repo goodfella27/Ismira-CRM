@@ -1,12 +1,17 @@
-const BREEZY_BASE_URL = "https://api.breezy.hr/v3";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-type BreezyToken = {
-  token: string;
-  tokenType?: string;
-  expiresAt: number;
-};
+export const BREEZY_RETIRED_MESSAGE = "The Breezy integration has been retired. Existing records are available from Supabase; remote sync and sending are unavailable.";
 
-let tokenCache: BreezyToken | null = null;
+export function retiredBreezyResponse() {
+  return Response.json({ error: BREEZY_RETIRED_MESSAGE, code: "BREEZY_INTEGRATION_RETIRED", source: "supabase" }, { status: 410 });
+}
+
+/** Compatibility guard: this function must never perform network requests. */
+export async function breezyFetch(_pathOrUrl: string, _init?: RequestInit) {
+  void _pathOrUrl;
+  void _init;
+  return retiredBreezyResponse();
+}
 
 export function getBreezyEnv() {
   const normalizeEnvValue = (value: string | undefined) => {
@@ -18,158 +23,10 @@ export function getBreezyEnv() {
     return trimmed;
   };
 
-  const email = normalizeEnvValue(process.env.BREEZY_EMAIL);
-  const password = normalizeEnvValue(process.env.BREEZY_PASSWORD);
-  const apiToken = normalizeEnvValue(process.env.BREEZY_API_TOKEN);
   const companyId = normalizeEnvValue(process.env.BREEZY_COMPANY_ID);
   const positionId = normalizeEnvValue(process.env.BREEZY_POSITION_ID);
 
-  return { email, password, apiToken, companyId, positionId };
-}
-
-function buildAuthHeader(token: string, tokenType?: string) {
-  if (tokenType) return `${tokenType} ${token}`;
-  if (token.startsWith("Bearer ")) return token;
-  return token;
-}
-
-async function requestTokenWithBasic(email: string, password: string) {
-  const basic = Buffer.from(`${email}:${password}`).toString("base64");
-  const res = await fetch(`${BREEZY_BASE_URL}/signin`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${basic}`,
-      Accept: "application/json",
-    },
-  });
-
-  const data = await res.json().catch(() => null);
-  return { res, data };
-}
-
-async function requestTokenWithBody(email: string, password: string) {
-  const res = await fetch(`${BREEZY_BASE_URL}/signin`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({ email, password }),
-  });
-
-  const data = await res.json().catch(() => null);
-  return { res, data };
-}
-
-async function getBreezyToken() {
-  const { email, password, apiToken } = getBreezyEnv();
-
-  if (apiToken) {
-    return {
-      token: apiToken,
-      expiresAt: Date.now() + 1000 * 60 * 60,
-    } satisfies BreezyToken;
-  }
-
-  if (!email || !password) {
-    throw new Error("Missing Breezy credentials");
-  }
-
-  if (tokenCache && tokenCache.expiresAt > Date.now() + 1000 * 60) {
-    return tokenCache;
-  }
-
-  const basicAttempt = await requestTokenWithBasic(email, password);
-  if (basicAttempt.res.ok) {
-    const token =
-      basicAttempt.data?.access_token ??
-      basicAttempt.data?.token ??
-      basicAttempt.data?.data?.access_token;
-    const tokenType =
-      basicAttempt.data?.token_type ??
-      basicAttempt.data?.type ??
-      undefined;
-
-    if (!token) {
-      throw new Error("Breezy signin response missing access token");
-    }
-
-    tokenCache = {
-      token,
-      tokenType: tokenType ?? undefined,
-      expiresAt: Date.now() + 1000 * 60 * 30,
-    };
-
-    return tokenCache;
-  }
-
-  const bodyAttempt = await requestTokenWithBody(email, password);
-  if (!bodyAttempt.res.ok) {
-    const message =
-      bodyAttempt.data?.message ||
-      bodyAttempt.data?.error ||
-      "Breezy signin failed";
-    throw new Error(message);
-  }
-
-  const token =
-    bodyAttempt.data?.access_token ??
-    bodyAttempt.data?.token ??
-    bodyAttempt.data?.data?.access_token;
-  const tokenType = bodyAttempt.data?.token_type ?? bodyAttempt.data?.type ?? undefined;
-
-  if (!token) {
-    throw new Error("Breezy signin response missing access token");
-  }
-
-  tokenCache = {
-    token,
-    tokenType: tokenType ?? undefined,
-    expiresAt: Date.now() + 1000 * 60 * 30,
-  };
-
-  return tokenCache;
-}
-
-export async function breezyFetch(pathOrUrl: string, init?: RequestInit) {
-  const tokenInfo = await getBreezyToken();
-  const url = pathOrUrl.startsWith("http")
-    ? pathOrUrl
-    : `${BREEZY_BASE_URL}${pathOrUrl}`;
-
-  const isFormDataBody =
-    typeof FormData !== "undefined" && init?.body instanceof FormData;
-  const headers = new Headers(init?.headers ?? undefined);
-  if (!headers.has("Accept")) headers.set("Accept", "application/json");
-  if (!headers.has("Authorization")) {
-    headers.set("Authorization", buildAuthHeader(tokenInfo.token, tokenInfo.tokenType));
-  }
-  if (!isFormDataBody && init?.body != null && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  let res = await fetch(url, {
-    cache: "no-store",
-    ...init,
-    headers,
-  });
-
-  if (
-    res.status === 401 &&
-    !tokenInfo.tokenType &&
-    !tokenInfo.token.startsWith("Bearer ")
-  ) {
-    res = await fetch(url, {
-      cache: "no-store",
-      ...init,
-      headers: {
-        ...headers,
-        Authorization: `Bearer ${tokenInfo.token}`,
-      },
-    });
-  }
-
-  return res;
+  return { companyId, positionId };
 }
 
 export function requireBreezyIds() {
@@ -190,91 +47,16 @@ export function requireBreezyCompanyId() {
   return { companyId };
 }
 
-type BreezySearchResult = {
-  candidates: Record<string, unknown>[];
-  candidateId: string | null;
-  error?: { status: number; message: string; details?: unknown };
-};
-
-function extractCandidates(payload: unknown) {
-  if (Array.isArray(payload)) return payload;
-  if (payload && typeof payload === "object") {
-    const obj = payload as Record<string, unknown>;
-    if (Array.isArray(obj.data)) return obj.data;
-    if (Array.isArray(obj.candidates)) return obj.candidates;
-    if (Array.isArray(obj.results)) return obj.results;
-  }
-  return [] as unknown[];
-}
-
-export async function findCandidatesByEmail(
-  email: string,
-  companyId: string
-): Promise<BreezySearchResult> {
-  const encoded = encodeURIComponent(email);
-  const attempts: Array<{ method: string; url: string; body?: unknown }> = [
-    {
-      method: "GET",
-      url: `${BREEZY_BASE_URL}/company/${companyId}/candidates/search?email_address=${encoded}`,
-    },
-    {
-      method: "GET",
-      url: `${BREEZY_BASE_URL}/company/${companyId}/candidates/search?email=${encoded}`,
-    },
-    {
-      method: "GET",
-      url: `${BREEZY_BASE_URL}/company/${companyId}/candidates?email_address=${encoded}`,
-    },
-    {
-      method: "GET",
-      url: `${BREEZY_BASE_URL}/company/${companyId}/candidates?email=${encoded}`,
-    },
-    {
-      method: "POST",
-      url: `${BREEZY_BASE_URL}/company/${companyId}/candidates/search`,
-      body: { email_address: email },
-    },
-    {
-      method: "POST",
-      url: `${BREEZY_BASE_URL}/company/${companyId}/candidates/search`,
-      body: { email },
-    },
-  ];
-
-  let lastError: BreezySearchResult["error"];
-
-  for (const attempt of attempts) {
-    const res = await breezyFetch(attempt.url, {
-      method: attempt.method,
-      body: attempt.body ? JSON.stringify(attempt.body) : undefined,
-    });
-    const contentType = res.headers.get("content-type") ?? "";
-    const isJson = contentType.includes("application/json");
-    const body = isJson ? await res.json() : await res.text();
-
-    if (res.ok) {
-      const candidates = extractCandidates(body) as Record<string, unknown>[];
-      const first = candidates[0];
-      const candidateId =
-        (first?._id as string | undefined) ?? (first?.id as string | undefined);
-      return { candidates, candidateId: candidateId ?? null };
-    }
-
-    if ([400, 404, 405].includes(res.status)) {
-      lastError = {
-        status: res.status,
-        message: "Breezy search attempt failed",
-        details: body,
-      };
-      continue;
-    }
-
-    throw new Error(
-      typeof body === "string"
-        ? body
-        : (body as { message?: string })?.message ?? "Breezy search failed"
-    );
-  }
-
-  return { candidates: [], candidateId: null, error: lastError };
+export async function findCandidatesByEmail(email: string, companyId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: auth, error: authError } = await supabase.auth.getUser();
+  if (authError || !auth.user) throw new Error("Not authenticated.");
+  const { data, error } = await supabase.from("candidates")
+    .select("id,data")
+    .contains("data", { breezy: { company_id: companyId } })
+    .ilike("data->>email", email.trim().replace(/[\\%_]/g, "\\$&"))
+    .limit(100);
+  if (error) throw new Error(error.message);
+  const candidates = (data ?? []).map((row) => ({ ...row.data, id: row.id, _id: row.id }));
+  return { candidates, candidateId: candidates[0]?.id ?? null };
 }

@@ -1,40 +1,13 @@
-import { NextResponse } from "next/server";
-
-import { breezyFetch, requireBreezyCompanyId } from "@/lib/breezy";
-
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ pipelineId: string }> }
-) {
-  try {
-    const { pipelineId } = await params;
-    if (!pipelineId) {
-      return NextResponse.json({ error: "Missing pipelineId" }, { status: 400 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const companyParam = (searchParams.get("companyId") ?? "").trim();
-    const companyId = companyParam || requireBreezyCompanyId().companyId;
-
-    const url = `https://api.breezy.hr/v3/company/${encodeURIComponent(
-      companyId
-    )}/pipeline/${encodeURIComponent(pipelineId)}`;
-    const res = await breezyFetch(url);
-    const contentType = res.headers.get("content-type") ?? "";
-    const isJson = contentType.includes("application/json");
-    const body = isJson ? await res.json() : await res.text();
-
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: "Breezy request failed", status: res.status, details: body },
-        { status: res.status }
-      );
-    }
-
-    return NextResponse.json(body, { status: res.status });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+export async function GET(_request: Request, { params }: { params: Promise<{ pipelineId: string }> }) {
+  const supabase = await createSupabaseServerClient();
+  const { data: auth, error: authError } = await supabase.auth.getUser();
+  if (authError || !auth.user) return Response.json({ error: "Not authenticated." }, { status: 401 });
+  const { pipelineId } = await params;
+  const { data, error } = await supabase.from("pipelines").select("id,name").eq("id", pipelineId).maybeSingle();
+  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (!data) return Response.json({ error: "Pipeline not found" }, { status: 404 });
+  const { data: stages, error: stageError } = await supabase.from("pipeline_stages").select("id,name,order").eq("pipeline_id", pipelineId).order("order");
+  if (stageError) return Response.json({ error: stageError.message }, { status: 500 });
+  return Response.json({ ...data, stages: stages ?? [], source: "supabase" });
 }
-

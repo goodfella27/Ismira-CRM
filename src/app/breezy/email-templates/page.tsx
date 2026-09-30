@@ -1,5 +1,7 @@
 "use client";
 
+import { useWorkspaceRequests } from "@/components/workspace-data-provider";
+
 import { Button as UiButton } from "@/components/ui/button";
 import { Input as UiInput } from "@/components/ui/input";
 import { NativeSelect as UiSelect } from "@/components/ui/select";
@@ -222,6 +224,7 @@ function pickBody(template: BreezyTemplate) {
 }
 
 export default function BreezyEmailTemplatesPage() {
+  const { request: workspaceFetch, clear } = useWorkspaceRequests();
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [companies, setCompanies] = useState<BreezyCompany[]>([]);
@@ -244,7 +247,6 @@ export default function BreezyEmailTemplatesPage() {
   const [detailsCanEdit, setDetailsCanEdit] = useState(false);
   const [savingFolder, setSavingFolder] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [folderModalOpen, setFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
@@ -322,12 +324,12 @@ export default function BreezyEmailTemplatesPage() {
     setError(null);
     setTemplatesWarning(null);
     try {
-      const res = await fetch("/api/breezy/companies", { cache: "no-store" });
+      const res = await workspaceFetch("/api/breezy/companies", { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(
           (data && typeof data?.error === "string" && data.error) ||
-            "Failed to load Breezy companies."
+            "Failed to load stored companies."
         );
       }
       const list = normalizeCompanies(data);
@@ -359,12 +361,12 @@ export default function BreezyEmailTemplatesPage() {
       const url = `/api/breezy/templates-cache?companyId=${encodeURIComponent(
         target
       )}`;
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await workspaceFetch(url, { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(
           (data && typeof data?.error === "string" && data.error) ||
-            "Failed to load Breezy templates."
+            "Failed to load stored templates."
         );
       }
       const parsed = isRecord(data) ? (data as CachedTemplatesResponse) : null;
@@ -393,32 +395,6 @@ export default function BreezyEmailTemplatesPage() {
     }
   };
 
-  const syncTemplates = async () => {
-    const target = companyId.trim();
-    if (!target) return;
-    setSyncing(true);
-    setError(null);
-    setTemplatesWarning(null);
-    try {
-      const url = `/api/breezy/templates-cache?companyId=${encodeURIComponent(
-        target
-      )}`;
-      const res = await fetch(url, { method: "POST", cache: "no-store" });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(
-          (data && typeof data?.error === "string" && data.error) ||
-            "Failed to sync templates."
-        );
-      }
-      await loadTemplates(target);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sync templates.");
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   const createFolder = async () => {
     const target = companyId.trim();
     const name = newFolderName.trim();
@@ -430,7 +406,7 @@ export default function BreezyEmailTemplatesPage() {
       const url = `/api/breezy/template-folders?companyId=${encodeURIComponent(
         target
       )}`;
-      const res = await fetch(url, {
+      const res = await workspaceFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -470,7 +446,7 @@ export default function BreezyEmailTemplatesPage() {
       const url = `/api/breezy/templates-cache/${encodeURIComponent(
         id
       )}?companyId=${encodeURIComponent(target)}`;
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await workspaceFetch(url, { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(
@@ -505,7 +481,7 @@ export default function BreezyEmailTemplatesPage() {
       const url = `/api/breezy/templates-cache/${encodeURIComponent(
         templateId
       )}?companyId=${encodeURIComponent(target)}`;
-      const res = await fetch(url, {
+      const res = await workspaceFetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ folderId }),
@@ -598,7 +574,7 @@ export default function BreezyEmailTemplatesPage() {
             Email templates
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Sync Breezy email templates into the database and organize them into folders.
+            Browse stored email templates and organize them into folders.
           </p>
         </div>
 
@@ -606,7 +582,7 @@ export default function BreezyEmailTemplatesPage() {
           <UiButton variant="secondary" size="md"
             type="button"
             className="inline-flex items-center gap-2 transition disabled:opacity-60"
-            onClick={() => void loadCompanies()}
+            onClick={() => { clear(); void loadCompanies(); }}
             disabled={loadingCompanies}
           >
             <RefreshCw
@@ -653,24 +629,15 @@ export default function BreezyEmailTemplatesPage() {
               <UiButton variant="secondary" size="lg"
                 type="button"
                 className="inline-flex h-11 shrink-0 items-center justify-center transition disabled:opacity-60"
-                onClick={() => void loadTemplates()}
-                disabled={loadingTemplates || syncing || !companyId.trim()}
+                onClick={() => { clear(); void loadTemplates(); }}
+                disabled={loadingTemplates || !companyId.trim()}
                 title="Reload templates"
               >
                 <RefreshCw
                   className={loadingTemplates ? "h-4 w-4 animate-spin" : "h-4 w-4"}
                 />
               </UiButton>
-              <UiButton variant="primary" size="lg"
-                type="button"
-                className="inline-flex h-11 shrink-0 items-center justify-center transition disabled:opacity-60"
-                onClick={() => void syncTemplates()}
-                disabled={syncing || loadingTemplates || !companyId.trim()}
-                title="Sync from Breezy into the database"
-              >
-                <RefreshCw className={syncing ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
-                <span className="ml-2 hidden sm:inline">Sync</span>
-              </UiButton>
+
             </div>
           </div>
 
@@ -909,7 +876,7 @@ export default function BreezyEmailTemplatesPage() {
                 <UiButton variant="secondary" size="sm"
                   type="button"
                   className="inline-flex items-center gap-2 transition disabled:opacity-60"
-                  onClick={() => void loadTemplateDetails(selectedTemplateId)}
+                  onClick={() => { clear(); void loadTemplateDetails(selectedTemplateId); }}
                   disabled={detailsLoading}
                 >
                   <RefreshCw
@@ -1026,7 +993,7 @@ export default function BreezyEmailTemplatesPage() {
 
             <div className="max-h-[75vh] overflow-auto px-5 py-5">
               {detailsLoading ? (
-                <div className="text-sm text-muted-foreground">Fetching Breezy data…</div>
+                <div className="text-sm text-muted-foreground">Loading stored template…</div>
               ) : details ? (
                 <div className="grid gap-4">
                   <div className="rounded-panel border border-border bg-muted/60 p-4 text-sm">
@@ -1116,7 +1083,7 @@ export default function BreezyEmailTemplatesPage() {
                 Create folder
               </div>
               <div className="mt-1 text-xs text-muted-foreground">
-                Folders are stored in LinAs CRM (not synced back to Breezy).
+                Templates and folders are stored in Supabase.
               </div>
             </div>
             <div className="p-5">

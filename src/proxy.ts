@@ -6,6 +6,7 @@ import {
   isAdminOnlyRoute,
   isProtectedRoute,
   isPublicRoute,
+  isAuthEntryRoute,
 } from "@/lib/auth/route-policy";
 
 function redirectWithCookies(request: NextRequest, response: NextResponse, pathname: string) {
@@ -28,7 +29,8 @@ export async function proxy(request: NextRequest) {
   const isPublic = isPublicRoute(pathname);
   const isProtected = isProtectedRoute(pathname);
 
-  if (!isPublic && !isProtected) {
+  // Public content does not need an auth round trip; its APIs enforce access independently.
+  if ((isPublic && !isAuthEntryRoute(pathname)) || (!isPublic && !isProtected)) {
     return response;
   }
 

@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -28,10 +29,10 @@ const isMissingAccessTableError = (message: string) =>
   /job_portal_access|schema cache|does not exist|could not find the table/i.test(message);
 
 export async function resolveUserAccess(admin: AdminClient, userId: string): Promise<UserAccess> {
-  const { data: memberRows, error: memberError } = await admin
-    .from("company_members")
-    .select("role")
-    .eq("user_id", userId);
+  const [{ data: memberRows, error: memberError }, { data: portalAccess, error: portalError }] = await Promise.all([
+    admin.from("company_members").select("role").eq("user_id", userId),
+    admin.from("job_portal_access").select("access_level,status,access_until").eq("user_id", userId).maybeSingle(),
+  ]);
 
   if (memberError) {
     throw new Error(memberError.message ?? "Failed to resolve admin access");
@@ -55,11 +56,7 @@ export async function resolveUserAccess(admin: AdminClient, userId: string): Pro
   let status: "active" | "inactive" = "active";
   let accessUntil: string | null = null;
 
-  const { data: portalAccess, error: portalError } = await admin
-    .from("job_portal_access")
-    .select("access_level,status,access_until")
-    .eq("user_id", userId)
-    .maybeSingle();
+
 
   if (portalError && !isMissingAccessTableError(portalError.message ?? "")) {
     throw new Error(portalError.message ?? "Failed to resolve portal access");
@@ -103,13 +100,14 @@ export async function resolveUserAccess(admin: AdminClient, userId: string): Pro
   };
 }
 
-export async function getCurrentUserAccess() {
+// React scopes this memoization to one server render, never across users or requests.
+export const getCurrentUserAccess = cache(async function getCurrentUserAccess() {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) return null;
   const admin = createSupabaseAdminClient();
   return resolveUserAccess(admin, data.user.id);
-}
+});
 
 export async function requireCurrentAdmin() {
   const access = await getCurrentUserAccess();

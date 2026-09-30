@@ -4,7 +4,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 import test from "node:test";
 const ts = createRequire(import.meta.url)("typescript");
-const context = { exports: {}, fetch, Response };
+const context = { exports: {}, fetch, Response, DOMException };
 vm.createContext(context);
 vm.runInContext(ts.transpileModule(fs.readFileSync("src/lib/admin-request-cache.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, context);
 const create = context.exports.createAdminRequestCache;
@@ -38,4 +38,21 @@ test("expired entries and failed responses are fetched again", async () => {
   await cache.request('/jd'); await cache.request('/jd'); assert.equal(calls, 2);
   const failures = create(async () => new Response(String(++calls), {status:500}));
   await failures.request('/jd'); await failures.request('/jd'); assert.equal(calls, 4);
+});
+test('abortable consumers share reads without cancelling each other', async () => {
+  let release; let calls=0;
+  const cache=create(async()=>{calls++;return new Promise(resolve=>{release=resolve;});});
+  const controller=new AbortController();
+  const first=cache.request('/list',{signal:controller.signal});
+  const second=cache.request('/list');
+  controller.abort();
+  release(new Response('data'));
+  await assert.rejects(first,{name:'AbortError'});
+  assert.equal(await (await second).text(),'data');
+  assert.equal(calls,1);
+});
+test('different request headers never reuse an existing representation', async()=>{
+ let calls=0;const cache=create(async()=>new Response(String(++calls)));
+ await cache.request('/list',{headers:{Authorization:'A'}});
+ assert.equal(await (await cache.request('/list',{headers:{Authorization:'B'}})).text(),'2');
 });

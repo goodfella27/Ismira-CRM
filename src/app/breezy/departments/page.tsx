@@ -1,5 +1,7 @@
 "use client";
 
+import { useWorkspaceRequests } from "@/components/workspace-data-provider";
+
 import { Button as UiButton } from "@/components/ui/button";
 import { Input as UiInput } from "@/components/ui/input";
 import { NativeSelect as UiSelect } from "@/components/ui/select";
@@ -59,6 +61,7 @@ function toDraft(item: Department): Draft {
 }
 
 export default function BreezyDepartmentsPage() {
+  const { request: workspaceFetch, clear } = useWorkspaceRequests();
   const [items, setItems] = useState<Department[]>([]);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [newLabel, setNewLabel] = useState("");
@@ -96,7 +99,7 @@ export default function BreezyDepartmentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/company/job-departments", { cache: "no-store" });
+      const res = await workspaceFetch("/api/company/job-departments", { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(
@@ -154,7 +157,7 @@ export default function BreezyDepartmentsPage() {
     setSavingKey(key);
       setError(null);
     try {
-      const res = await fetch(`/api/company/job-departments/${encodeURIComponent(key)}`, {
+      const res = await workspaceFetch(`/api/company/job-departments/${encodeURIComponent(key)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -181,7 +184,7 @@ export default function BreezyDepartmentsPage() {
     setSavingKey("new");
     setError(null);
     try {
-      const res = await fetch("/api/company/job-departments", {
+      const res = await workspaceFetch("/api/company/job-departments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ label: newLabel }),
@@ -207,7 +210,7 @@ export default function BreezyDepartmentsPage() {
     setSavingKey(item.key);
     setError(null);
     try {
-      const res = await fetch(`/api/company/job-departments/${encodeURIComponent(item.key)}`, {
+      const res = await workspaceFetch(`/api/company/job-departments/${encodeURIComponent(item.key)}`, {
         method: "DELETE",
       });
       const data = await res.json().catch(() => null);
@@ -245,7 +248,7 @@ export default function BreezyDepartmentsPage() {
     setSavingKey(`merge:${mergeSource.key}`);
     setError(null);
     try {
-      const res = await fetch("/api/company/job-departments/merge", {
+      const res = await workspaceFetch("/api/company/job-departments/merge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -514,7 +517,7 @@ export default function BreezyDepartmentsPage() {
           <UiButton variant="secondary" size="lg"
             type="button"
             className="inline-flex h-11 items-center justify-center gap-2 transition disabled:opacity-60"
-            onClick={() => void load()}
+            onClick={() => { clear(); void load(); }}
             disabled={loading}
           >
             <RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
