@@ -81,7 +81,7 @@ Import components from `@/components/ui/<name>`.
 
 ## Migration and maintenance
 
-The previous mint/navy shell, global theme override, ornamental gradients, and duplicated compact-control styles have been replaced at their source. The workspace, HR portal, CRM screens and admin authentication pages consume the shared theme. Public jobs, application, CV and candidate forms retain their original presentation. Public-only components live in `src/components/public`; `public-theme.css` restores their original font, palette and corner sizes, including portaled content. Admin dark-mode preferences do not apply to these routes. Complex drag targets, document editors, photo overlays, charts, and business-specific status controls keep their specialized structure and meaningful colors.
+The previous mint/navy shell, global theme override, ornamental gradients, and duplicated compact-control styles have been replaced at their source. The workspace, HR portal, CRM screens consume the shared theme. Public jobs, CV and candidate forms retain their original presentation. The public application form has its own scoped six-stage wizard inspired by the CV Namai reference: a numbered rail, rounded content surface, persistent navigation and reduced-motion-aware transitions. It remains independent of the admin theme. Public-only components live in `src/components/public`; `public-theme.css` restores their original font, palette and corner sizes, including portaled content. Admin dark-mode preferences do not apply to these routes. Complex drag targets, document editors, photo overlays, charts, and business-specific status controls keep their specialized structure and meaningful colors.
 
 Do not add another blanket stylesheet over these components. Extend a shared variant when multiple screens need it. Keep content widths, form handlers, drag geometry, permissions and API contracts separate from appearance changes.
 
@@ -99,3 +99,11 @@ Menus and dialogs must work with keyboard navigation, Escape, visible focus, and
 ### Admin positions table
 
 The positions/pools browser uses an independently implemented CRM table inspired by Kobra's public CRM Table preview (not the paid registry component). It keeps the existing data, filters, pagination and row actions. Company names and logos occupy a pinned first column; opening type has its own column. Scoped CSS provides 44px rows, subtle grid lines and theme-aware tinted tags. Narrow screens scroll horizontally. The public jobs board is unchanged.
+
+The application CV upload uses a scoped, independently implemented magnetic dropzone: dotted surface, pointer/drag tilt, keyboard file picker, single-file selection and removal. Existing PDF/DOC/DOCX and 8 MB validation applies to both picker and drop input. Files stay in form state until submission; no upload progress is simulated. Motion is disabled for reduced-motion users, and new prompts are available in all six application languages.
+
+The first application stage asks whether the applicant has applied before, with duplicate-avoidance guidance. First-time applicants continue to email, first name, surname and phone, followed by the existing application sections. Returning applicants currently receive instructions to contact their recruiter using previous correspondence; a secure email-link update flow is deferred. Phone entry uses a localized country/flag selector and calling code, with international normalization via libphonenumber-js. Introductory copy is available in all six languages.
+
+Experience has its own translated stage after work preferences. Client stage validation is mapped to the existing server validation groups, and the review page has a separate experience section and edit link.
+
+Login and registration retain the original mint background, rounded white form panel, purple buttons, and illustrated panel. Authentication routes use the public light theme independently of admin preferences.

@@ -1,0 +1,21 @@
+.wrapper { width: 100%; }
+.zone { position: relative; perspective: 850px; }
+.input { display: none; }
+.surface { width: 100%; min-height: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 28px; border: 1px dashed #bfcfd4; border-radius: 18px; background-color: #f9fbfb; background-image: radial-gradient(#bdd0d780 .8px,transparent .8px); background-size: 13px 13px; color: #193b47; cursor: pointer; transition: transform 180ms ease-out, border-color 180ms, background-color 180ms, box-shadow 180ms; transform-style: preserve-3d; }
+.surface:hover,.surface[data-dragging="true"] { border-color: #3c899b; background-color: #eff8f9; box-shadow: 0 14px 35px -26px #25637990; }
+.surface[data-dragging="true"] { border-style: solid; }
+.surface[data-invalid="true"] { border-color: #be5263; }
+.surface:focus-visible { outline: 3px solid #74aeba; outline-offset: 4px; }
+.surface:disabled { opacity: .5; cursor: default; transform: none !important; }
+.icon { display: grid; place-items: center; height: 58px; width: 58px; margin-bottom: 4px; border-radius: 17px; border: 1px solid #d6e3e7; background: white; color: #386e7b; box-shadow: 0 4px 12px #183c4610; transition: transform 220ms; }
+.surface[data-dragging="true"] .icon { transform: translateY(-5px) scale(1.08); }
+.surface strong { font-size: 16px; font-weight: 600; line-height: 1.4; }
+.browse { color: #327889; text-decoration: underline; text-underline-offset: 3px; font-size: 13px; }
+.help { font-size: 12px; color: #778b94; max-width: 350px; line-height: 1.6; }
+.file { margin-top: 12px; display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid #d8e5e7; border-radius: 12px; color: #376773; background: #f7fbfa; animation: arrive 220ms ease-out; }
+.file[data-invalid="true"] { border-color: #ebc5cc; background: #fff7f8; color: #a33c50; }
+.fileName { min-width: 0; flex: 1; font-size: 13px; overflow-wrap: anywhere; }.fileName small { display: block; margin-top: 4px; color: #7c919a; font-size: 11px; }
+.remove { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; }.remove:hover { background: #e9f0f2; }
+@keyframes arrive { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) { .surface { min-height: 220px; padding: 24px 16px; }.help { font-size: 11px; } }
+@media (prefers-reduced-motion: reduce) { .surface,.icon { transform: none !important; transition: none; }.file { animation: none; } }

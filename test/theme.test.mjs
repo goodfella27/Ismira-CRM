@@ -20,7 +20,7 @@ test('missing, malformed, or blocked storage falls back to system', () => {
   assert.equal(readThemePreference({getItem:key=>key==='ismira-theme'?'dark':null}),'dark');
 });
 test('public pages stay light despite an admin dark preference', () => {
-  for (const pathname of ['/', '/jobs', '/jobs/embed', '/apply', '/cv/token', '/form/token', '/breezy/positions', '/pipeline', '/admin']) {
+  for (const pathname of ['/', '/jobs', '/jobs/embed', '/apply', '/cv/token', '/form/token', '/breezy/positions', '/pipeline', '/admin', '/login', '/register']) {
     let dark, scheme;
     const browser = {
       location: {pathname}, localStorage:{getItem:()=> 'dark'},
@@ -28,7 +28,7 @@ test('public pages stay light despite an admin dark preference', () => {
       document:{documentElement:{classList:{toggle:(_name,value)=>{dark=value;}},style:{set colorScheme(value){scheme=value;}}}},
     };
     vm.runInNewContext(context.exports.themeInitScript, browser);
-    const admin=['/breezy/positions','/pipeline','/admin'].includes(pathname);
+    const admin=['/breezy/positions','/pipeline'].includes(pathname);
     assert.equal(dark,admin,pathname);
     assert.equal(scheme,admin?'dark':'light',pathname);
   }

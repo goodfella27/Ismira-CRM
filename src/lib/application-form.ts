@@ -37,3 +37,18 @@ export function validateApplicationCV(file: {name: string; size: number} | null)
   if (!file.size || file.size > MAX_APPLICATION_CV_BYTES) return "fileSize";
   return null;
 }
+
+// Display stages are separate from the server's validation groups.
+export const APPLICATION_WIZARD_FIELDS = [
+  ["email", "firstName", "lastName", "phone"],
+  ["department", "desiredPosition"],
+  ["experience"],
+  ["isAdult", "citizenship", "englishLevel"],
+  ["consent"],
+] as const;
+export function validateApplicationStage(values: ApplicationValues, stage: number) {
+  const validationGroup = [0, 1, 1, 2, 3][stage];
+  const errors = validateApplication(values, validationGroup);
+  const fields: readonly string[] = APPLICATION_WIZARD_FIELDS[stage] ?? [];
+  return Object.fromEntries(Object.entries(errors).filter(([key]) => fields.includes(key)));
+}

@@ -19,7 +19,7 @@ export function readThemePreference(
 // Static, contains no user-supplied content. Runs before paint, including when storage is blocked.
 export const themeInitScript = `(function(){var p='system';try{p=localStorage.getItem('ismira-theme')||'system'}catch(e){}var publicUi=(${isPublicUiRoute.toString()})(location.pathname);var d=!publicUi&&(p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches));document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light'})()`;
 
-// Authentication screens belong to the admin UI; applicant pages retain their original design.
+// Applicant and authentication screens retain their original light design.
 export function isPublicUiRoute(pathname: string): boolean {
-  return pathname === "/" || /^\/(jobs|apply|cv|form|_not-found)(\/|$)/.test(pathname);
+  return pathname === "/" || ["/admin", "/login", "/register"].includes(pathname) || /^\/(jobs|apply|cv|form|_not-found)(\/|$)/.test(pathname);
 }

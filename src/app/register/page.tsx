@@ -3,10 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Mail } from "lucide-react";
 
-
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { AuthLayout } from "@/components/auth-layout";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -70,24 +68,24 @@ export default function RegisterPage() {
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
-            <label htmlFor="first_name" className="block text-sm font-medium">First name</label>
-            <Input
+            <input
               id="first_name"
               type="text"
               autoComplete="given-name"
               required
+              className="w-full rounded-full border border-slate-200 px-4 py-2 text-sm outline-none"
               placeholder="First name"
               value={firstName}
               onChange={(event) => setFirstName(event.target.value)}
             />
           </div>
           <div className="space-y-2">
-            <label htmlFor="last_name" className="block text-sm font-medium">Last name</label>
-            <Input
+            <input
               id="last_name"
               type="text"
               autoComplete="family-name"
               required
+              className="w-full rounded-full border border-slate-200 px-4 py-2 text-sm outline-none"
               placeholder="Last name"
               value={lastName}
               onChange={(event) => setLastName(event.target.value)}
@@ -95,13 +93,14 @@ export default function RegisterPage() {
           </div>
         </div>
         <div className="space-y-2">
-          <div className="space-y-2">
-            <label htmlFor="email" className="block text-sm font-medium">Email</label>
-            <Input
+          <div className="flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2">
+            <Mail className="h-4 w-4 text-slate-400" />
+            <input
               id="email"
               type="email"
               autoComplete="email"
               required
+              className="w-full border-none bg-transparent text-sm outline-none"
               placeholder="name@company.com"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -110,12 +109,12 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="password" className="block text-sm font-medium">Password</label>
-            <Input
+          <input
             id="password"
             type="password"
             autoComplete="new-password"
             required
+            className="w-full rounded-full border border-slate-200 px-4 py-2 text-sm outline-none"
             placeholder="Create a password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
@@ -123,28 +122,28 @@ export default function RegisterPage() {
         </div>
 
         {error ? (
-          <div className="rounded-md border border-destructive/20 bg-danger-muted px-3 py-2 text-xs text-destructive">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
             {error}
           </div>
         ) : null}
         {message ? (
-          <div className="rounded-md border border-success/20 bg-success-muted px-3 py-2 text-xs text-success">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
             {message}
           </div>
         ) : null}
 
-        <Button
+        <button
           type="submit"
-          className="w-full" size="lg"
+          className="w-full rounded-full bg-[#3f3d8a] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#353377] disabled:opacity-70"
           disabled={loading}
         >
           {loading ? "Creating..." : "Create account"}
-        </Button>
+        </button>
       </form>
 
-      <div className="text-center text-sm text-muted-foreground">
+      <div className="text-center text-sm text-slate-500">
         Already have an account?{" "}
-        <Link className="font-semibold text-foreground underline underline-offset-4" href="/admin">
+        <Link className="font-semibold text-emerald-600" href="/admin">
           Log in
         </Link>
       </div>
