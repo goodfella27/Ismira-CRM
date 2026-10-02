@@ -593,6 +593,7 @@ async function loadPriorityTypes(
     label: string | null;
     sort_order: number | null;
     tooltip?: string | null;
+    website_title?: string | null;
     show_on_frontpage?: boolean | null;
   }> | null;
   let error = initial.error;
@@ -609,6 +610,7 @@ async function loadPriorityTypes(
       label: string | null;
       sort_order: number | null;
       tooltip?: string | null;
+    website_title?: string | null;
     show_on_frontpage?: boolean | null;
     }> | null;
     error = fallback.error;
@@ -628,6 +630,7 @@ async function loadPriorityTypes(
           label: string | null;
           sort_order: number | null;
           tooltip?: string | null;
+    website_title?: string | null;
     show_on_frontpage?: boolean | null;
         }>)
       : []
@@ -635,6 +638,7 @@ async function loadPriorityTypes(
       key: row.key ?? "",
       label: row.label ?? "",
       tooltip: typeof row.tooltip === "string" ? row.tooltip : undefined,
+      websiteTitle: typeof row.website_title === "string" ? row.website_title : undefined,
       sortOrder: Number.isFinite(row.sort_order) ? Number(row.sort_order) : index,
       showOnFrontpage:
         typeof row.show_on_frontpage === "boolean"

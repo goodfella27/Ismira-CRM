@@ -20,6 +20,7 @@ type PriorityTypeRow = {
   label: string | null;
   sort_order: number | null;
   tooltip?: string | null;
+  website_title?: string | null;
     show_on_frontpage?: boolean | null;
 };
 
@@ -68,6 +69,7 @@ async function readPriorityTypes(companyId: string) {
       key: row.key ?? "",
       label: row.label ?? "",
       tooltip: typeof row.tooltip === "string" ? row.tooltip : undefined,
+      websiteTitle: typeof row.website_title === "string" ? row.website_title : undefined,
       sortOrder: Number.isFinite(row.sort_order) ? Number(row.sort_order) : index,
       showOnFrontpage:
         typeof row.show_on_frontpage === "boolean"
@@ -173,6 +175,7 @@ export async function PATCH(request: Request) {
       label?: unknown;
       showOnFrontpage?: unknown;
       tooltip?: unknown;
+      websiteTitle?: unknown;
     } | null;
     const key = typeof body?.key === "string" ? normalizePriorityKey(body.key) : "";
     const label = typeof body?.label === "string" ? body.label.trim() : "";
@@ -181,7 +184,13 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "A key and non-empty label, when provided, are required." }, { status: 400 });
     }
 
-    const updates: { label?: string; show_on_frontpage?: boolean; tooltip?: string } = {};
+    const updates: { label?: string; show_on_frontpage?: boolean; tooltip?: string; website_title?: string } = {};
+    if (body?.websiteTitle !== undefined) {
+      if (typeof body.websiteTitle !== "string" || body.websiteTitle.trim().length > 200) {
+        return NextResponse.json({ error: "Website section titles must be text with at most 200 characters." }, { status: 400 });
+      }
+      updates.website_title = body.websiteTitle.trim();
+    }
     if (label) updates.label = label;
     if (typeof body?.tooltip === "string") {
       if (body.tooltip.length > 500) return NextResponse.json({ error: "Tooltip must be 500 characters or fewer." }, { status: 400 });
@@ -199,7 +208,10 @@ export async function PATCH(request: Request) {
       .update(updates)
       .eq("company_id", membership.companyId)
       .eq("key", key);
-    if (error) throw new Error(error.message.includes("tooltip") ? "Tooltip storage is not set up. Apply supabase/breezy_priority_type_tooltips.sql first." : error.message);
+    if (error) {
+      if (error.message.includes("website_title")) throw new Error("Website section title storage is not set up. Apply the opening_type_website_titles migration first.");
+      throw new Error(error.message.includes("tooltip") ? "Tooltip storage is not set up. Apply supabase/breezy_priority_type_tooltips.sql first." : error.message);
+    }
 
     clearJobsResponseCache();
 

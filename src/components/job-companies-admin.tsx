@@ -6,7 +6,7 @@ import { Input as UiInput } from "@/components/ui/input";
 import { NativeSelect as UiSelect } from "@/components/ui/select";
 import { Textarea as UiTextarea } from "@/components/ui/textarea";
 import { OpeningTypeOrderControls } from "@/components/opening-type-order-controls";
-import { getPriorityTooltip } from "@/lib/breezy-priority-types";
+import { getPriorityTooltip, getPriorityWebsiteTitle } from "@/lib/breezy-priority-types";
 import { getPriorityBadgeClass } from "@/lib/opening-type-colors";
 
 import { useCallback, useEffect, useState } from "react";
@@ -145,6 +145,7 @@ export default function JobCompaniesAdmin() {
   );
   const [openingTypesModalOpen, setOpeningTypesModalOpen] = useState(false);
   const [tooltipDrafts, setTooltipDrafts] = useState<Record<string, string>>({});
+  const [websiteTitleDrafts, setWebsiteTitleDrafts] = useState<Record<string, string>>({});
   const [openingTypeDrafts, setOpeningTypeDrafts] = useState<Record<string, string>>({});
   const [newOpeningTypeLabel, setNewOpeningTypeLabel] = useState("");
   const [openingTypeSaving, setOpeningTypeSaving] = useState(false);
@@ -735,6 +736,7 @@ export default function JobCompaniesAdmin() {
             key: normalized,
             label,
             ...(tooltipDrafts[normalized] !== undefined ? { tooltip: tooltipDrafts[normalized] } : {}),
+            ...(websiteTitleDrafts[normalized] !== undefined ? { websiteTitle: websiteTitleDrafts[normalized] } : {}),
           };
       const res = await workspaceFetch("/api/breezy/priority-types", {
         method: "PATCH",
@@ -746,7 +748,14 @@ export default function JobCompaniesAdmin() {
         throw new Error(data?.error ?? "Failed to update opening type.");
       }
       if (Array.isArray(data?.priorityTypes)) setOpeningTypes(data.priorityTypes);
-      if (!visibilityOnly) await loadOpeningTypes();
+      if (!visibilityOnly) {
+        setWebsiteTitleDrafts(prev => {
+          const next = { ...prev };
+          delete next[normalized];
+          return next;
+        });
+        await loadOpeningTypes();
+      }
     } catch (err) {
       setJobCompaniesError(err instanceof Error ? err.message : "Failed to update opening type.");
     } finally {
@@ -1675,7 +1684,7 @@ export default function JobCompaniesAdmin() {
               <div>
                 <div className="text-sm font-extrabold text-foreground">Opening types</div>
                 <div className="mt-1 text-xs font-semibold text-muted-foreground">
-                  Use the arrows to reorder types on the jobs page. Order changes save automatically.
+                  Use the arrows to reorder types on the jobs page and Ismira website. Order changes save automatically.
                 </div>
               </div>
               <UiButton variant="secondary" size="md"
@@ -1754,6 +1763,18 @@ export default function JobCompaniesAdmin() {
                         <Trash2 className="h-3.5 w-3.5" />
                         Delete
                       </UiButton>
+                      <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-4">
+                        Website section heading
+                        <UiInput
+                          className="h-11 w-full rounded-panel border border-border bg-card px-4 text-sm text-foreground"
+                          value={websiteTitleDrafts[key] ?? type.websiteTitle ?? ""}
+                          placeholder={getPriorityWebsiteTitle({ label: type.label })}
+                          maxLength={200}
+                          disabled={openingTypeSaving}
+                          onChange={event => setWebsiteTitleDrafts(prev => ({ ...prev, [key]: event.target.value }))}
+                        />
+                        <span className="font-normal">Leave blank to use the opening type’s default heading.</span>
+                      </label>
                       <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-4">
                         Tooltip explanation
                         <UiTextarea

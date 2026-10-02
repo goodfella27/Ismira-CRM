@@ -1,6 +1,6 @@
 import { getOpeningTypeColor } from "./opening-type-colors";
 import { getCountryLabel } from "./country";
-import { normalizePriorityKey } from "./breezy-priority-types";
+import { getPriorityWebsiteTitle, humanizePriorityKey, normalizePriorityKey } from "./breezy-priority-types";
 import { buildPublicPositionDescription } from "./breezy-position-description";
 import { getPublicJobShareUrl } from "./public-job-links";
 
@@ -25,11 +25,19 @@ export type PublicFrontpageJob = {
 
 export type PublicFrontpageJobsPayload = {
   version: 1;
+  sections: PublicFrontpageJobSection[];
   jobs: PublicFrontpageJob[];
   urgentTitle: string;
   interviewJobs: PublicFrontpageJob[];
   interviewsTitle: string;
   benefitLabels: Record<string, string>;
+};
+
+export type PublicFrontpageJobSection = {
+  key: string;
+  title: string;
+  style: PublicFrontpageJob["priority_style"];
+  jobs: PublicFrontpageJob[];
 };
 
 export type PublicFrontpageJobDetails = {
@@ -86,14 +94,7 @@ function asCountryRows(value: unknown) {
     .filter((country) => country.code && country.name);
 }
 
-function isUrgentOpeningType(type: UnknownRecord) {
-  const key = normalizePriorityKey(asString(type.key));
-  const label = normalizePriorityKey(asString(type.label));
-  return key === "urgent-opening" || label === "urgent-opening";
-}
-
 const DEFAULT_INTERVIEWS_TITLE = "UPCOMING INTERVIEWS WITH CRUISE EMPLOYERS";
-const DEFAULT_URGENT_TITLE = "Hot Jobs";
 
 function toPublicJob(
   job: UnknownRecord,
@@ -105,7 +106,7 @@ function toPublicJob(
   const state = asString(job.state).toLowerCase();
   const orgType = asString(job.org_type).toLowerCase();
   if (!id || !name) return null;
-  if (state && state !== "published") return null;
+  if (state !== "published" || asBoolean(job.not_active)) return null;
   if (orgType === "pool") return null;
 
   const shipTypes = asStringArray(job.ship_types);
@@ -196,50 +197,46 @@ export function buildPublicFrontpageJobsPayload(
     ? payload.priorityTypes.filter(isRecord)
     : [];
 
-  const visiblePriorityLabels = new Map<string, { label: string; style: PublicFrontpageJob["priority_style"] }>();
-  const visiblePriorityTypes = priorityTypes
-    .filter((type) => type.showOnFrontpage === true)
-    .sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0));
-  for (const type of visiblePriorityTypes) {
-    if (!isUrgentOpeningType(type)) continue;
-    const key = normalizePriorityKey(asString(type.key));
-    const label = asString(type.label);
-    if (key && label) {
-      visiblePriorityLabels.set(key, {
-        label,
-        style: getOpeningTypeColor(key, [{ key, label }]),
-      });
+  const orderedTypes = [...priorityTypes].sort((a, b) =>
+    Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0) || asString(a.label).localeCompare(asString(b.label))
+  );
+  const typeByKey = new Map(orderedTypes.map(type => [normalizePriorityKey(asString(type.key)), type]));
+  const sectionsByKey = new Map<string, PublicFrontpageJobSection>();
+  const seenJobs = new Set<string>();
+  for (const job of jobs) {
+    if (!asBoolean(job.show_on_ismira_web)) continue;
+    const priority = normalizePriorityKey(asString(job.priority));
+    const type = typeByKey.get(priority);
+    const label = asString(type?.label) || humanizePriorityKey(priority) || "Other Openings";
+    const style = getOpeningTypeColor(priority, [{ key: priority, label }]);
+    const publicJob = toPublicJob(job, origin, { label, style });
+    if (!publicJob) continue;
+    const identity = publicJob.view_id || publicJob.id;
+    if (seenJobs.has(identity)) continue;
+    seenJobs.add(identity);
+    const key = priority || "other-openings";
+    let section = sectionsByKey.get(key);
+    if (!section) {
+      section = { key, title: getPriorityWebsiteTitle({ label, websiteTitle: asString(type?.websiteTitle) }), style, jobs: [] };
+      sectionsByKey.set(key, section);
     }
+    section.jobs.push(publicJob);
   }
-
-  const publicJobs = sortPublicJobs(
-    jobs
-    .map((job): PublicFrontpageJob | null => {
-      const priority = normalizePriorityKey(asString(job.priority));
-      const priorityDisplay = visiblePriorityLabels.get(priority);
-      if (!priorityDisplay?.label) return null;
-      return toPublicJob(job, origin, priorityDisplay);
-    })
-    .filter((job): job is PublicFrontpageJob => job !== null)
-  );
-
-  const interviewJobs = sortPublicJobs(
-    jobs
-      .filter((job) => asBoolean(job.show_on_ismira_web))
-      .map((job) => toPublicJob(job, origin))
-      .filter((job): job is PublicFrontpageJob => job !== null)
-  );
-  const interviewsTitle =
-    jobs
-      .map((job) => (asBoolean(job.show_on_ismira_web) ? asString(job.ismira_web_title) : ""))
-      .find(Boolean) || DEFAULT_INTERVIEWS_TITLE;
+  const configuredKeys = orderedTypes.map(type => normalizePriorityKey(asString(type.key)));
+  const sectionKeys = Array.from(new Set([...configuredKeys, ...sectionsByKey.keys()]));
+  const sections = sectionKeys.flatMap(key => {
+    const section = sectionsByKey.get(key);
+    return section ? [{ ...section, jobs: sortPublicJobs(section.jobs) }] : [];
+  });
 
   return {
     version: 1,
-    jobs: publicJobs,
-    urgentTitle: DEFAULT_URGENT_TITLE,
-    interviewJobs,
-    interviewsTitle,
+    sections,
+    // Flat fields keep older embeds usable during deployment and cache refreshes.
+    jobs: sections.flatMap(section => section.jobs),
+    urgentTitle: "Job Openings",
+    interviewJobs: [],
+    interviewsTitle: DEFAULT_INTERVIEWS_TITLE,
     benefitLabels: asStringMap(payload.benefitLabels),
   };
 }

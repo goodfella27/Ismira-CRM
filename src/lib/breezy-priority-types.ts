@@ -2,6 +2,7 @@ export type BreezyPriorityType = {
   key: string;
   label: string;
   tooltip?: string;
+  websiteTitle?: string;
   sortOrder: number;
   showOnFrontpage: boolean;
 };
@@ -68,6 +69,7 @@ export function dedupePriorityTypes(list: BreezyPriorityType[]) {
       key,
       label,
       tooltip: item.tooltip,
+      websiteTitle: typeof item.websiteTitle === "string" ? item.websiteTitle.trim() : undefined,
       sortOrder: Number.isFinite(item.sortOrder) ? item.sortOrder : normalized.length,
       showOnFrontpage:
         typeof item.showOnFrontpage === "boolean"
@@ -86,6 +88,15 @@ export function getPriorityLabel(
   if (!normalized) return "";
   const match = options.find((item) => normalizePriorityKey(item.key) === normalized);
   return match?.label?.trim() || humanizePriorityKey(normalized);
+}
+
+export function getPriorityWebsiteTitle(type: Pick<BreezyPriorityType, "label" | "websiteTitle">) {
+  const custom = type.websiteTitle?.trim();
+  if (custom) return custom;
+  const label = normalizePriorityKey(type.label);
+  if (label === "live-interview") return "Upcoming Interviews";
+  if (label === "priority-opening" || label === "urgent-opening") return "Priority Openings";
+  return type.label.trim();
 }
 
 export function getPriorityTooltip(type: Pick<BreezyPriorityType, "key" | "label" | "tooltip">) {

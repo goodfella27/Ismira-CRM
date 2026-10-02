@@ -163,6 +163,7 @@
     .ijf-card{position:relative;display:grid;grid-template-columns:86px minmax(0,1fr) 42px;gap:20px;align-items:start;border:1px solid var(--ijf-line);border-radius:24px;background:#fff;padding:21px 22px;box-shadow:0 2px 3px rgba(15,23,42,.08);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;animation:ijf-in .35s ease both}
     .ijf-card:hover{transform:translateY(-2px);border-color:#cbd7e6;box-shadow:0 15px 34px -24px rgba(15,23,42,.55)}
     .ijf-logo{display:grid;width:82px;height:82px;place-items:center;overflow:hidden;border:1px solid var(--ijf-line);border-radius:50%;background:#fff;color:#60708a;font-size:15px;font-weight:800}.ijf-logo img{width:100%;height:100%;object-fit:contain;padding:10px;box-sizing:border-box}
+    .ijf-section-title--sky{background-image:linear-gradient(110deg,#25c7dc,#3ea4e6)}.ijf-section-title--violet{background-image:linear-gradient(110deg,#8b5cf6,#c084fc)}.ijf-section-title--violet:before{background:linear-gradient(180deg,#8b5cf6,#c084fc)}.ijf-section-title--pink{background-image:linear-gradient(110deg,#ec4899,#f9a8d4)}.ijf-section-title--pink:before{background:linear-gradient(180deg,#ec4899,#f9a8d4)}
     .ijf-head{display:flex;align-items:center;gap:10px;min-width:0}.ijf-type{display:inline-flex;flex:none;align-items:center;border-radius:999px;background:linear-gradient(90deg,#ff9d2e,#ffbf5f);padding:6px 11px;color:#fff;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;box-shadow:0 5px 12px -8px #f97316}.ijf-type--sky{background:linear-gradient(90deg,#58d0d8,#3ea4e6);box-shadow:0 5px 12px -8px #0284c7}.ijf-type--violet{background:linear-gradient(90deg,#8b5cf6,#c084fc);box-shadow:0 5px 12px -8px #7c3aed}.ijf-type--pink{background:linear-gradient(90deg,#ec4899,#f9a8d4);box-shadow:0 5px 12px -8px #db2777}.ijf-title{margin:0;min-width:0;font-size:20px;line-height:1.18;font-weight:800;letter-spacing:-.015em;color:var(--ijf-ink)}
     .ijf-benefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px 22px;margin-top:17px}.ijf-benefit{display:flex;align-items:center;gap:9px;min-width:0;font-size:12px;font-weight:650;color:#20283a}.ijf-benefit-icon{display:grid;width:30px;height:30px;flex:none;place-items:center;border-radius:50%;background:#f1f5f9;color:#172033}.ijf-benefit-icon svg{width:15px;height:15px}.ijf-benefit span:last-child{min-width:0}
     .ijf-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.ijf-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid #ffd06f;border-radius:999px;background:#fff7d7;padding:7px 11px;color:#63431c;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;box-shadow:0 3px 8px -7px #f59e0b}.ijf-pill svg{width:14px;height:14px;color:#f59e0b}.ijf-pill--ship{border-color:#8ce7f0;background:#ddfbff;color:#176173}.ijf-pill--ship svg{color:#0891b2}
@@ -307,7 +308,7 @@
         ${metaHtml ? `<div class="ijf-meta">${metaHtml}</div>` : ""}
       </div>
       <span class="ijf-go">${iconSvg("arrow")}</span>
-      <button class="ijf-link" type="button" data-job-id="${escapeHtml(job.id)}" aria-label="View ${escapeHtml(name)}"></button>
+      <button class="ijf-link" type="button" data-job-id="${escapeHtml(job.view_id || job.id)}" aria-label="View ${escapeHtml(name)}"></button>
     </article>`;
   }
 
@@ -318,10 +319,8 @@
 
     const state = {
       jobs: [],
-      interviewJobs: [],
+      sections: [],
       labels: {},
-      urgentTitle: "Hot Jobs",
-      interviewsTitle: "UPCOMING INTERVIEWS WITH CRUISE EMPLOYERS",
       loading: true,
       error: "",
     };
@@ -344,18 +343,16 @@
         listElement.innerHTML = `<div class="ijf-status ijf-status--error">${escapeHtml(state.error)}</div>`;
         return;
       }
-      const total = state.jobs.length + state.interviewJobs.length;
-      if (total === 0) {
+      if (state.jobs.length === 0) {
         listElement.innerHTML = '<div class="ijf-status">No matching jobs are available right now.</div>';
-      } else {
-        const urgentHtml = state.jobs.length
-          ? `<section class="ijf-section"><h2 class="ijf-section-title ijf-section-title--hot">${escapeHtml(state.urgentTitle)}</h2>${state.jobs.map((job, index) => renderJob(job, state.labels, index)).join("")}</section>`
-          : "";
-        const interviewHtml = state.interviewJobs.length
-          ? `<section class="ijf-section"><h2 class="ijf-section-title">${escapeHtml(state.interviewsTitle)}</h2>${state.interviewJobs.map((job, index) => renderJob(job, state.labels, index + state.jobs.length)).join("")}</section>`
-          : "";
-        listElement.innerHTML = `${urgentHtml}${interviewHtml}`;
+        return;
       }
+      let jobIndex = 0;
+      listElement.innerHTML = state.sections.map((section) => {
+        const style = ["orange", "sky", "violet", "pink"].includes(section.style) ? section.style : "sky";
+        const titleClass = style === "orange" ? "hot" : style;
+        return `<section class="ijf-section"><h2 class="ijf-section-title ijf-section-title--${titleClass}">${escapeHtml(section.title)}</h2>${section.jobs.map(job => renderJob(job, state.labels, jobIndex++)).join("")}</section>`;
+      }).join("");
     }
 
     function closeModal() {
@@ -380,14 +377,14 @@
       try {
         const details = await requestDetails(job.id);
         const description = sanitizeRichHtml(details && details.description_html);
-        const benefits = asStringArray(details && details.benefit_tags);
+        const benefits = asStringArray(Array.isArray(job.benefit_tags) ? job.benefit_tags : details && details.benefit_tags);
         const countries = details && Array.isArray(details.processable_countries)
           ? details.processable_countries
           : [];
         const applyUrl = "https://ismira.lt/apply";
         const meta = [
-          asString(details && details.department) || asString(job.department),
-          ...asStringArray(details && details.ship_types).map((value) => value.replaceAll("_", " ")),
+          asString(job.department) || asString(details && details.department),
+          ...asStringArray(Array.isArray(job.ship_types) ? job.ship_types : details && details.ship_types).map((value) => value.replaceAll("_", " ")),
         ].filter(Boolean);
         const benefitsHtml = benefits.length
           ? `<section class="ijf-info-section"><h3 class="ijf-detail-heading">Company Benefits</h3><div class="ijf-feature-grid">${benefits.slice(0, 10).map((key) => `<div class="ijf-feature"><span class="ijf-feature-icon">${iconSvg(benefitIcons[key] || "file")}</span><div class="ijf-feature-copy"><div class="ijf-feature-kicker">You get</div><div class="ijf-feature-label">${escapeHtml(labelForBenefit(key, state.labels))}</div></div></div>`).join("")}</div></section>`
@@ -396,8 +393,9 @@
           ? `<section class="ijf-info-section"><h3 class="ijf-detail-heading">Nationalities we process</h3><div class="ijf-countries">${countries.map((country) => `<span class="ijf-country"><span aria-hidden="true">${countryFlag(country.code)}</span><span>${escapeHtml(country.name)}</span></span>`).join("")}</div></section>`
           : "";
 
-        modalTitle.textContent = asString(details && details.name) || asString(job.name) || "Job opening";
-        modalCompany.textContent = [details && details.company, details && details.department].map(asString).filter(Boolean).join(" · ");
+        // Shared JDs have company-specific feed views; retain the selected card's branding.
+        modalTitle.textContent = asString(job.name) || asString(details && details.name) || "Job opening";
+        modalCompany.textContent = [job.company || (details && details.company), job.department || (details && details.department)].map(asString).filter(Boolean).join(" · ");
         modalBody.innerHTML = `${meta.length ? `<div class="ijf-detail-meta">${meta.map((value) => `<span class="ijf-pill">${escapeHtml(value)}</span>`).join("")}</div>` : ""}${benefitsHtml}${countriesHtml}${description ? `<section class="ijf-detail-section"><h3 class="ijf-detail-heading">Description</h3><div class="ijf-rich">${description}</div></section>` : ""}${applyUrl ? `<div class="ijf-dialog-actions"><a class="ijf-apply" href="${escapeHtml(applyUrl)}" target="_blank" rel="noopener noreferrer">Apply now ${iconSvg("arrow")}</a></div>` : ""}`;
       } catch (error) {
         modalBody.innerHTML = `<div class="ijf-status ijf-status--error">${escapeHtml(error instanceof Error ? error.message : "Unable to load job details.")}</div>`;
@@ -405,20 +403,21 @@
     }
 
     async function load() {
-      state.loading = state.jobs.length === 0 && state.interviewJobs.length === 0;
+      state.loading = state.jobs.length === 0;
       state.error = "";
       render();
       try {
         const payload = await requestFeed();
-        state.jobs = payload && Array.isArray(payload.jobs) ? payload.jobs : [];
-        state.interviewJobs =
-          payload && Array.isArray(payload.interviewJobs) ? payload.interviewJobs : [];
-        state.urgentTitle =
-          asString(payload && payload.urgentTitle) ||
-          "Hot Jobs";
-        state.interviewsTitle =
-          asString(payload && payload.interviewsTitle) ||
-          "UPCOMING INTERVIEWS WITH CRUISE EMPLOYERS";
+        if (payload && Array.isArray(payload.sections)) {
+          state.sections = payload.sections.filter(section => section && Array.isArray(section.jobs) && section.jobs.length);
+        } else {
+          // During deployment an older API response may still be cached.
+          state.sections = [
+            { title: asString(payload && payload.urgentTitle) || "Hot Jobs", style: "orange", jobs: payload && Array.isArray(payload.jobs) ? payload.jobs : [] },
+            { title: asString(payload && payload.interviewsTitle) || "Upcoming Interviews", style: "sky", jobs: payload && Array.isArray(payload.interviewJobs) ? payload.interviewJobs : [] },
+          ].filter(section => section.jobs.length);
+        }
+        state.jobs = state.sections.flatMap(section => section.jobs);
         state.labels = payload && payload.benefitLabels && typeof payload.benefitLabels === "object"
           ? payload.benefitLabels
           : {};
@@ -434,8 +433,8 @@
       listElement.addEventListener("click", (event) => {
         const trigger = event.target instanceof Element ? event.target.closest("[data-job-id]") : null;
         if (!(trigger instanceof HTMLElement)) return;
-        const job = [...state.jobs, ...state.interviewJobs].find(
-          (item) => asString(item.id) === asString(trigger.dataset.jobId)
+        const job = state.jobs.find(
+          (item) => asString(item.view_id || item.id) === asString(trigger.dataset.jobId)
         );
         if (job) void openModal(job, trigger);
       });

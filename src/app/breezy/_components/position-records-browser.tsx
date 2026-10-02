@@ -4,7 +4,7 @@ import { Button as UiButton } from "@/components/ui/button";
 import { Input as UiInput } from "@/components/ui/input";
 import { Textarea as UiTextarea } from "@/components/ui/textarea";
 import { OpeningTypeOrderControls } from "@/components/opening-type-order-controls";
-import { getPriorityTooltip } from "@/lib/breezy-priority-types";
+import { getPriorityTooltip, getPriorityWebsiteTitle } from "@/lib/breezy-priority-types";
 import { getOpeningTypeColor, getPriorityBadgeClass } from "@/lib/opening-type-colors";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
@@ -1098,6 +1098,7 @@ export default function BreezyPositionRecordsBrowser({
   );
   const [jobCompanyFilter, setJobCompanyFilter] = useState("");
   const [openingTypeFilter, setOpeningTypeFilter] = useState("");
+  const [externalFilter, setExternalFilter] = useState<"" | "ismira-web" | "none">("");
   const [showAllCompanies, setShowAllCompanies] = useState(false);
   const [companyCounts, setCompanyCounts] = useState<Array<{ name: string; count: number }>>([]);
   const [companyCountsLoading, setCompanyCountsLoading] = useState(false);
@@ -1186,6 +1187,7 @@ export default function BreezyPositionRecordsBrowser({
   const [pickerQuery, setPickerQuery] = useState("");
   const [managedDepartments, setManagedDepartments] = useState<JobDepartmentOption[]>([]);
   const [tooltipDrafts, setTooltipDrafts] = useState<Record<string, string>>({});
+  const [websiteTitleDrafts, setWebsiteTitleDrafts] = useState<Record<string, string>>({});
   const [priorityDrafts, setPriorityDrafts] = useState<Record<string, string>>({});
   const [newPriorityLabel, setNewPriorityLabel] = useState("");
   const [prioritySaving, setPrioritySaving] = useState(false);
@@ -1658,13 +1660,17 @@ export default function BreezyPositionRecordsBrowser({
       ? companyFiltered.filter((pos) => normalizePriorityKey(pos.priority ?? "") === priorityFilter)
       : companyFiltered;
 
-    if (!query) return priorityFiltered;
-    return priorityFiltered.filter((pos) => {
+    const externalFiltered = externalFilter
+      ? priorityFiltered.filter((pos) => (pos.show_on_ismira_web === true) === (externalFilter === "ismira-web"))
+      : priorityFiltered;
+
+    if (!query) return externalFiltered;
+    return externalFiltered.filter((pos) => {
       const haystack =
         `${pos.name ?? ""} ${pos.company ?? ""} ${pos.department ?? ""} ${pos.state ?? ""} ${pos.org_type ?? ""} ${pos.friendly_id ?? ""} ${pos.id}`.toLowerCase();
       return haystack.includes(query);
     });
-  }, [positions, filter, jobCompanyFilter, openingTypeFilter, recordType]);
+  }, [positions, filter, jobCompanyFilter, openingTypeFilter, externalFilter, recordType]);
 
   const loadCompanies = async () => {
     setLoadingCompanies(true);
@@ -1701,7 +1707,7 @@ export default function BreezyPositionRecordsBrowser({
     if (!target) return;
     const search = serverFilter.trim();
     const priority = normalizePriorityKey(openingTypeFilter);
-    const queryKey = `${target}::${jobCompanyFilter.trim().toLowerCase()}::${priority}::${search.toLowerCase()}`;
+    const queryKey = `${target}::${jobCompanyFilter.trim().toLowerCase()}::${priority}::${externalFilter}::${search.toLowerCase()}`;
     positionsQueryKeyRef.current = queryKey;
     setLoadingPositions(true);
     setLoadingMorePositions(false);
@@ -1719,9 +1725,10 @@ export default function BreezyPositionRecordsBrowser({
       const priorityQuery = priority
         ? `&priority=${encodeURIComponent(priority)}`
         : "";
+      const externalQuery = externalFilter ? `&external=${encodeURIComponent(externalFilter)}` : "";
       const url = `/api/breezy/positions-cache?companyId=${encodeURIComponent(
         target
-      )}&limit=50&offset=0${jobCompanyQuery}${priorityQuery}${searchQuery}`;
+      )}&limit=50&offset=0${jobCompanyQuery}${priorityQuery}${externalQuery}${searchQuery}`;
       const res = await cachedFetch(url, { cache: "no-store" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -1754,7 +1761,7 @@ export default function BreezyPositionRecordsBrowser({
 
     const search = serverFilter.trim();
     const priority = normalizePriorityKey(openingTypeFilter);
-    const queryKey = `${target}::${jobCompanyFilter.trim().toLowerCase()}::${priority}::${search.toLowerCase()}`;
+    const queryKey = `${target}::${jobCompanyFilter.trim().toLowerCase()}::${priority}::${externalFilter}::${search.toLowerCase()}`;
     const keyAtStart = positionsQueryKeyRef.current || queryKey;
     if (keyAtStart !== queryKey) return;
 
@@ -1770,9 +1777,10 @@ export default function BreezyPositionRecordsBrowser({
       const priorityQuery = priority
         ? `&priority=${encodeURIComponent(priority)}`
         : "";
+      const externalQuery = externalFilter ? `&external=${encodeURIComponent(externalFilter)}` : "";
       const url = `/api/breezy/positions-cache?companyId=${encodeURIComponent(
         target
-      )}&limit=50&offset=${encodeURIComponent(String(positionsNextOffset))}${jobCompanyQuery}${priorityQuery}${searchQuery}`;
+      )}&limit=50&offset=${encodeURIComponent(String(positionsNextOffset))}${jobCompanyQuery}${priorityQuery}${externalQuery}${searchQuery}`;
       const res = await cachedFetch(url, { cache: "no-store" });
       if (res.status === 416) {
         // Offset is past the end (typically because filters changed). Treat as end-of-list.
@@ -1813,7 +1821,7 @@ export default function BreezyPositionRecordsBrowser({
     } finally {
       setLoadingMorePositions(false);
     }
-  }, [companyId, loadingPositions, loadingMorePositions, positionsNextOffset, serverFilter, openingTypeFilter, jobCompanyFilter, cachedFetch, positionsTotal]);
+  }, [companyId, loadingPositions, loadingMorePositions, positionsNextOffset, serverFilter, openingTypeFilter, externalFilter, jobCompanyFilter, cachedFetch, positionsTotal]);
 
   const savePremiumDetails = async (positionId: string, value: JobPremiumDetails) => {
     const res = await cachedFetch(
@@ -2490,6 +2498,7 @@ export default function BreezyPositionRecordsBrowser({
             key: normalized,
             label,
             ...(tooltipDrafts[normalized] !== undefined ? { tooltip: tooltipDrafts[normalized] } : {}),
+            ...(websiteTitleDrafts[normalized] !== undefined ? { websiteTitle: websiteTitleDrafts[normalized] } : {}),
           };
       const res = await cachedFetch("/api/breezy/priority-types", {
         method: "PATCH",
@@ -2501,7 +2510,14 @@ export default function BreezyPositionRecordsBrowser({
         throw new Error(data?.error || "Failed to update priority type.");
       }
       if (Array.isArray(data?.priorityTypes)) setPriorityTypes(data.priorityTypes);
-      if (!visibilityOnly) await loadPriorityTypes();
+      if (!visibilityOnly) {
+        setWebsiteTitleDrafts(prev => {
+          const next = { ...prev };
+          delete next[normalized];
+          return next;
+        });
+        await loadPriorityTypes();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update priority type.");
     } finally {
@@ -3103,7 +3119,7 @@ export default function BreezyPositionRecordsBrowser({
     if (!companyId) return;
     void loadPositions(companyId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobCompanyFilter, openingTypeFilter, serverFilter]);
+  }, [jobCompanyFilter, openingTypeFilter, externalFilter, serverFilter]);
 
   useEffect(() => {
     const node = loadMoreSentinelRef.current;
@@ -3469,6 +3485,7 @@ export default function BreezyPositionRecordsBrowser({
 
           {recordType === "position" ? (
             <div className="mt-3 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-3">
+              <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
               <div className="min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-xs font-medium text-muted-foreground">
@@ -3514,6 +3531,41 @@ export default function BreezyPositionRecordsBrowser({
                   })
                 )}
               </div>
+              </div>
+                <div className="min-w-0" role="group" aria-label="External filter">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs font-medium text-muted-foreground">External</div>
+                    {externalFilter ? (
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
+                        onClick={() => setExternalFilter("")}
+                      >
+                        Clear external
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      aria-pressed={externalFilter === "ismira-web"}
+                      data-tone="sky"
+                      className={`${tableStyles.tag} ${tableStyles.filterTag}`}
+                      onClick={() => setExternalFilter(prev => prev === "ismira-web" ? "" : "ismira-web")}
+                    >
+                      <Globe2 className="mr-1.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      Ismira Web
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={externalFilter === "none"}
+                      className={`${tableStyles.tag} ${tableStyles.filterTag}`}
+                      onClick={() => setExternalFilter(prev => prev === "none" ? "" : "none")}
+                    >
+                      Not external
+                    </button>
+                  </div>
+                </div>
               </div>
               <UiButton variant="primary" size="lg"
 		                type="button"
@@ -3998,13 +4050,9 @@ export default function BreezyPositionRecordsBrowser({
                                 ? editForm.show_on_ismira_web
                                 : overrideRecord.show_on_ismira_web === true ||
                                   (details as Record<string, unknown> | null)?.show_on_ismira_web === true;
-                            const title =
-                              (editing ? editForm.ismira_web_title.trim() : "") ||
-                              asString(overrideRecord.ismira_web_title) ||
-                              asString(
-                                (details as Record<string, unknown> | null)?.ismira_web_title
-                              ) ||
-                              DEFAULT_ISMIRA_WEB_TITLE;
+                            const title = showOnIsmiraWeb
+                              ? "Shown on Ismira website under its opening type"
+                              : "Not shown on Ismira website";
                             return canEdit && editing ? (
                               <button
                                 type="button"
@@ -4233,7 +4281,7 @@ export default function BreezyPositionRecordsBrowser({
                       <div>
                         <div className="text-sm font-semibold text-foreground">Priority types</div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          Use the arrows to reorder types on the jobs page. Order changes save automatically.
+                          Use the arrows to reorder types on the jobs page and Ismira website. Order changes save automatically.
                         </div>
                       </div>
                       <ModalCloseButton onClick={() => setPriorityTypesModalOpen(false)} />
@@ -4303,6 +4351,18 @@ export default function BreezyPositionRecordsBrowser({
                               <Trash2 className="h-3.5 w-3.5" />
                               Delete
                             </button>
+                      <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-4">
+                        Website section heading
+                        <input
+                          className="h-11 w-full rounded-panel border border-border bg-card px-4 text-sm text-foreground"
+                          value={websiteTitleDrafts[key] ?? type.websiteTitle ?? ""}
+                          placeholder={getPriorityWebsiteTitle({ label: type.label })}
+                          maxLength={200}
+                          disabled={prioritySaving}
+                          onChange={event => setWebsiteTitleDrafts(prev => ({ ...prev, [key]: event.target.value }))}
+                        />
+                        <span className="font-normal">Leave blank to use the opening type’s default heading.</span>
+                      </label>
                       <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-4">
                         Tooltip explanation
                         <textarea
@@ -4635,7 +4695,7 @@ export default function BreezyPositionRecordsBrowser({
                       <div>
                         <div className="text-sm font-semibold text-foreground">Ismira Web</div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          Manually choose if this opening appears in the Ismira website interviews section.
+                          Choose whether this opening appears on the Ismira website under its opening type.
                         </div>
                       </div>
                       <ModalCloseButton onClick={() => setIsmiraWebPickerOpen(false)} />
@@ -4655,12 +4715,9 @@ export default function BreezyPositionRecordsBrowser({
                           setEditForm((prev) => ({
                             ...prev,
                             show_on_ismira_web: next,
-                            ismira_web_title: prev.ismira_web_title.trim() || DEFAULT_ISMIRA_WEB_TITLE,
                           }));
                           void saveQuickOverride({
                             show_on_ismira_web: next,
-                            ismira_web_title:
-                              editForm.ismira_web_title.trim() || DEFAULT_ISMIRA_WEB_TITLE,
                           });
                         }}
                         disabled={savingEdits || detailsLoading}
@@ -4670,7 +4727,7 @@ export default function BreezyPositionRecordsBrowser({
                             Show on Ismira website
                           </span>
                           <span className="mt-1 block text-xs text-muted-foreground">
-                            Adds this JD below urgent jobs.
+                            Published JDs appear under their opening type’s section heading.
                           </span>
                         </span>
                         <span
@@ -4689,29 +4746,9 @@ export default function BreezyPositionRecordsBrowser({
                         </span>
                       </button>
 
-                      <label className="grid gap-2">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Public section title
-                        </span>
-                        <input
-                          className="h-11 w-full rounded-panel border border-border bg-card px-4 text-sm text-foreground outline-none focus:border-input focus:ring-2 focus:ring-ring disabled:opacity-60"
-                          value={editForm.ismira_web_title}
-                          disabled={savingEdits || detailsLoading}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setEditForm((prev) => ({ ...prev, ismira_web_title: value }));
-                          }}
-                          onBlur={() => {
-                            const title =
-                              editForm.ismira_web_title.trim() || DEFAULT_ISMIRA_WEB_TITLE;
-                            setEditForm((prev) => ({ ...prev, ismira_web_title: title }));
-                            void saveQuickOverride({
-                              show_on_ismira_web: editForm.show_on_ismira_web,
-                              ismira_web_title: title,
-                            });
-                          }}
-                        />
-                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        Website section headings and their order are managed in Opening types.
+                      </p>
                     </div>
                   </div>
                 </div>

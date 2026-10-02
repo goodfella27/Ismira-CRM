@@ -222,12 +222,18 @@ export async function GET(request: Request) {
     const jobCompanyFilter = (searchParams.get("jobCompany") ?? "").trim();
     const searchFilter = (searchParams.get("search") ?? "").trim();
     const priorityFilter = normalizePriorityKey(searchParams.get("priority") ?? "");
+    const externalFilter = (searchParams.get("external") ?? "").trim();
+    if (externalFilter && externalFilter !== "ismira-web" && externalFilter !== "none") {
+      return NextResponse.json({ error: "Invalid external filter." }, { status: 400 });
+    }
     const { limit, offset } = getPaginationFromRequest(request);
 
     const admin = createSupabaseAdminClient();
     const companyId = await getPrimaryCompanyId(admin);
 
-    let query = admin
+    const isServerFiltered = Boolean(jobCompanyFilter || searchFilter || priorityFilter || externalFilter);
+    const sourcePageSize = 1000;
+    const createSourceQuery = () => admin
       .from("breezy_positions")
       .select(
         "breezy_position_id,name,state,friendly_id,org_type,company,department,job_company_id,override_name:overrides->name,override_company:overrides->company,override_department:overrides->department,override_priority:overrides->priority::text,override_hidden:overrides->hidden,override_show_on_ismira_web:overrides->show_on_ismira_web,synced_at,details_synced_at",
@@ -235,13 +241,29 @@ export async function GET(request: Request) {
       )
       .eq("company_id", companyId)
       .eq("breezy_company_id", breezyCompanyId)
-      .order("name", { ascending: true });
+      .order("name", { ascending: true })
+      .order("breezy_position_id", { ascending: true });
 
-    if (!jobCompanyFilter && !searchFilter && !priorityFilter) {
-      query = query.range(offset, offset + limit - 1);
+    const sourceResult = await createSourceQuery().range(
+      isServerFiltered ? 0 : offset,
+      isServerFiltered ? sourcePageSize - 1 : offset + limit - 1
+    );
+    const { error, count } = sourceResult;
+    let data = sourceResult.data;
+    // Company defaults and joined company views are resolved before filtering.
+    // Read every source page so PostgREST's row cap cannot truncate filtered results.
+    if (isServerFiltered && !error && Array.isArray(data)) {
+      const allRows = [...data];
+      let pageLength = data.length;
+      while (pageLength > 0 && (typeof count === "number" ? allRows.length < count : pageLength === sourcePageSize)) {
+        const page = await createSourceQuery().range(allRows.length, allRows.length + sourcePageSize - 1);
+        if (page.error) throw new Error(page.error.message ?? "Failed to load cached positions");
+        const pageRows = Array.isArray(page.data) ? page.data : [];
+        allRows.push(...pageRows);
+        pageLength = pageRows.length;
+      }
+      data = allRows;
     }
-
-    const { data, error, count } = await query;
 
     if (error) {
       const message = (error.message ?? "").toLowerCase();
@@ -396,6 +418,9 @@ export async function GET(request: Request) {
       if (!priorityFilter) return true;
       return normalizePriorityKey(position.priority ?? "") === priorityFilter;
     }).filter((position) => {
+      if (!externalFilter) return true;
+      return (position.show_on_ismira_web === true) === (externalFilter === "ismira-web");
+    }).filter((position) => {
       if (!normalizedSearchFilter) return true;
       const haystack =
         `${position.name ?? ""} ${position.company ?? ""} ${position.department ?? ""} ${position.state ?? ""} ${position.org_type ?? ""} ${position.friendly_id ?? ""} ${position.id}`.toLowerCase();
@@ -403,7 +428,7 @@ export async function GET(request: Request) {
     });
 
     if (filteredList.length === 0) {
-      if (jobCompanyFilter || searchFilter || priorityFilter) {
+      if (jobCompanyFilter || searchFilter || priorityFilter || externalFilter) {
         return NextResponse.json(
           { positions: [], total: 0, nextOffset: null },
           { status: 200 }
@@ -420,7 +445,6 @@ export async function GET(request: Request) {
       );
     }
 
-    const isServerFiltered = Boolean(jobCompanyFilter || searchFilter || priorityFilter);
     const total = isServerFiltered ? filteredList.length : typeof count === "number" ? count : offset + filteredList.length;
     const slice = isServerFiltered ? filteredList.slice(offset, offset + limit) : filteredList;
     const nextOffset = offset + slice.length < total ? offset + slice.length : null;

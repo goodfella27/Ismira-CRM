@@ -14,7 +14,7 @@ function load(path, imports = {}) {
   return context.exports;
 }
 const priorities = load('src/lib/breezy-priority-types.ts');
-function setup({ authenticated = true, writeError = null } = {}) {
+function setup({ authenticated = true, writeError = null, missingTitleStorage = false } = {}) {
   let rows = [
     { company_id: 'ours', key: 'active', label: 'Active', sort_order: 0, show_on_frontpage: true, tooltip: 'Active tooltip' },
     { company_id: 'ours', key: 'soon', label: 'Soon', sort_order: 1, show_on_frontpage: false, tooltip: '' },
@@ -52,6 +52,7 @@ function setup({ authenticated = true, writeError = null } = {}) {
         eq: (field, value) => { filters[field] = value; return query; },
         then: resolve => {
           writes++;
+          if (missingTitleStorage && 'website_title' in updates) return Promise.resolve({ error: { message: 'Could not find the website_title column in the schema cache' } }).then(resolve);
           if ('tooltip' in updates) return Promise.resolve({ error: { message: 'Could not find the tooltip column in the schema cache' } }).then(resolve);
           for (const row of rows) {
             if (Object.entries(filters).every(([key, value]) => row[key] === value)) Object.assign(row, updates);
@@ -123,6 +124,31 @@ test('reorder persists company order, preserves metadata and invalidates public 
   assert.equal(state.writes, 1);
   const reload = await state.route.GET();
   assert.deepEqual(reload.body.priorityTypes.map(type => type.key), ['soon', 'active']);
+});
+
+test('website headings save, reload, survive reordering and can reset to the type default', async () => {
+  const state = setup();
+  const saved = await state.route.PATCH(request({ key: 'active', websiteTitle: '  Current Vacancies  ' }));
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.priorityTypes.find(type => type.key === 'active').websiteTitle, 'Current Vacancies');
+  await state.route.PUT(request({ orderedKeys: ['soon', 'active'] }));
+  const reload = await state.route.GET();
+  assert.equal(reload.body.priorityTypes.find(type => type.key === 'active').websiteTitle, 'Current Vacancies');
+  const reset = await state.route.PATCH(request({ key: 'active', websiteTitle: '' }));
+  assert.equal(reset.status, 200);
+  assert.equal(reset.body.priorityTypes.find(type => type.key === 'active').websiteTitle, '');
+});
+
+test('invalid website titles do not write, and missing heading storage reports how to enable it', async () => {
+  for (const websiteTitle of [null, 42, 'x'.repeat(201)]) {
+    const state = setup();
+    assert.equal((await state.route.PATCH(request({ key: 'active', websiteTitle }))).status, 400);
+    assert.equal(state.writes, 0);
+  }
+  const state = setup({ missingTitleStorage: true });
+  const result = await state.route.PATCH(request({ key: 'active', websiteTitle: 'Hot Jobs' }));
+  assert.equal(result.status, 500);
+  assert.match(result.body.error, /website.*title.*migration/i);
 });
 
 test('invalid or stale orders cannot write', async () => {
