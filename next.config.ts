@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const embedCacheControl =
   process.env.NODE_ENV === "production"
-    ? "public, max-age=31536000, immutable"
+    ? "public, max-age=0, must-revalidate"
     : "no-store";
 
 const nextConfig: NextConfig = {

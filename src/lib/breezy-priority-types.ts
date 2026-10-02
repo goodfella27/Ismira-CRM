@@ -94,8 +94,8 @@ export function getPriorityWebsiteTitle(type: Pick<BreezyPriorityType, "label" |
   const custom = type.websiteTitle?.trim();
   if (custom) return custom;
   const label = normalizePriorityKey(type.label);
-  if (label === "live-interview") return "Upcoming Interviews";
-  if (label === "priority-opening" || label === "urgent-opening") return "Priority Openings";
+  if (label === "live-interview") return "Upcoming Interviews with Cruise Employers";
+  if (label === "priority-opening" || label === "urgent-opening") return "Hot Jobs";
   return type.label.trim();
 }
 

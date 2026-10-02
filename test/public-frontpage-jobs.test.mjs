@@ -43,6 +43,9 @@ test('selected JDs group by stable opening type keys in configured order, includ
   assert.equal(result.sections[1].jobs[0].priority_label, 'PRIORITY OPENING');
   assert.equal(result.sections[1].jobs[0].priority_style, 'orange');
   assert.equal(result.sections[2].jobs[0].priority_style, 'pink');
+  assert.deepEqual(plain(result.sections.map(section => section.title)), [
+    'ACTIVE HIRING', 'Hot Jobs', 'Upcoming Interviews with Cruise Employers', 'COMING SOON',
+  ]);
   assert.deepEqual(plain(result.jobs.map(item => item.id)), ['active', 'waiter', 'interview', 'future']);
   assert.equal(result.interviewJobs.length, 0);
 });
@@ -54,7 +57,7 @@ test('renaming a type preserves inclusion and custom website headings override d
     assert.equal(result.sections[0].jobs[0].priority_label, label);
   }
   const result = build({ priorityTypes: types, jobs: [job('waiter', 'urgent-joining'), job('interview', 'live-interview')] }, origin);
-  assert.deepEqual(plain(result.sections?.map(section => section.title)), ['Priority Openings', 'Upcoming Interviews']);
+  assert.deepEqual(plain(result.sections?.map(section => section.title)), ['Hot Jobs', 'Upcoming Interviews with Cruise Employers']);
 });
 
 test('external selection excludes hidden, draft, inactive and pool JDs and omits empty sections', () => {
