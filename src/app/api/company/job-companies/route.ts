@@ -1,3 +1,4 @@
+import { getCompanyWebsiteVisibility } from "@/lib/job-company-website-visibility";
 import { NextResponse } from "next/server";
 
 import { ensureCompanyMembership } from "@/lib/company/membership";
@@ -402,6 +403,7 @@ export async function GET(request: Request) {
             shipType: resolveJobShipType({ metadata: row.metadata, name: row.name }),
             shipTypes: resolveJobShipTypes({ metadata: row.metadata, name: row.name }),
             openingType,
+            showAllOnIsmiraWeb: group.some((item) => getCompanyWebsiteVisibility(item.metadata)),
             benefitTags,
             countryCodes,
             ...(lookupOnly ? {} : { positionsCount: getGroupPositionCount(group) }),

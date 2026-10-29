@@ -63,6 +63,7 @@ type JobCompanyAdminItem = {
   shipType: JobShipType | "";
   shipTypes: JobShipType[];
   openingType: string;
+  showAllOnIsmiraWeb: boolean;
   benefitTags: BenefitTag[];
   countryCodes: string[];
   positionsCount: number;
@@ -201,6 +202,7 @@ export default function JobCompaniesAdmin() {
             id: typeof row.id === "string" ? row.id : "",
             name: typeof row.name === "string" ? row.name : "Company",
             slug: typeof row.slug === "string" ? row.slug : "",
+            showAllOnIsmiraWeb: row.showAllOnIsmiraWeb === true,
             website: typeof row.website === "string" ? row.website : null,
             logoUrl: typeof row.logoUrl === "string" ? row.logoUrl : null,
             shipType: normalizeJobShipType(row.shipType),
@@ -795,6 +797,27 @@ export default function JobCompaniesAdmin() {
     }
   };
 
+  const handleWebsiteVisibility = async (jobCompanyId: string, enabled: boolean) => {
+    setJobCompaniesActionId(jobCompanyId);
+    setJobCompaniesError(null);
+    try {
+      const res = await workspaceFetch(`/api/company/job-companies/${encodeURIComponent(jobCompanyId)}/website-visibility`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ showAllOnIsmiraWeb: enabled }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "Failed to save website visibility.");
+      setJobCompanies((current) => current.map((company) => company.id === jobCompanyId
+        ? { ...company, showAllOnIsmiraWeb: data.showAllOnIsmiraWeb === true }
+        : company));
+    } catch (error) {
+      setJobCompaniesError(error instanceof Error ? error.message : "Failed to save website visibility.");
+    } finally {
+      setJobCompaniesActionId(null);
+    }
+  };
+
   const handleSaveJobCompany = useCallback(
     async (jobCompanyId: string) => {
       const name = (jobCompanyNameDrafts[jobCompanyId] ?? "").trim();
@@ -1040,6 +1063,26 @@ export default function JobCompaniesAdmin() {
                   <div className="border-t border-border bg-muted px-4 pb-4 pt-4">
                     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
                       <div className="space-y-4">
+                        <div className="rounded-panel border border-border bg-card p-4">
+                          <label className="flex cursor-pointer items-center justify-between gap-4 text-sm font-semibold">
+                            Show all JDs on website
+                            <input
+                              type="checkbox"
+                              role="switch"
+                              aria-label={`Show all ${item.name} JDs on website`}
+                              aria-describedby={`website-visibility-${item.id}`}
+                              checked={item.showAllOnIsmiraWeb}
+                              disabled={jobCompaniesActionId !== null}
+                              onChange={(event) => void handleWebsiteVisibility(item.id, event.target.checked)}
+                              className="h-5 w-5 shrink-0 accent-cyan-600"
+                            />
+                          </label>
+                          <p id={`website-visibility-${item.id}`} className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                            Includes current and future published JDs on ismira.lt, each under its own opening type.
+                            Turning this off keeps individually selected JDs on the website. Saves automatically.
+                          </p>
+                          {isBusy ? <p role="status" className="mt-2 text-xs text-muted-foreground">Saving…</p> : null}
+                        </div>
                         <div>
                           <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                             Company name

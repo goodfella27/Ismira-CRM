@@ -1,3 +1,4 @@
+import { resolveWebsiteVisibility } from "@/lib/job-company-website-visibility";
 import { buildManualCountryGroups } from "@/lib/country";
 import { NextResponse } from "next/server";
 import { createHash } from "crypto";
@@ -68,6 +69,7 @@ type JobListItem = {
   ship_types?: string[];
   benefit_tags?: string[];
   show_on_ismira_web?: boolean;
+  hiddenOverride?: boolean;
   ismira_web_title?: string;
   processable_countries?: string[];
   blocked_countries?: string[];
@@ -463,6 +465,7 @@ async function attachJobCompanyBranding(
     });
     return {
       ...publicItem,
+      show_on_ismira_web: resolveWebsiteVisibility(item.show_on_ismira_web, company.metadata),
       name: replacePositionTitleCompany(item.name, item.company, company.name) || item.name,
       company: company.name,
       company_slug: company.slug,
@@ -784,13 +787,11 @@ export async function GET(request: Request) {
       .map((row) => {
         const overrides = isRecord(row.overrides) ? row.overrides : {};
         const showOnIsmiraWeb = overrides.show_on_ismira_web === true;
-        if (parseHiddenOverride(overrides.hidden) && !showOnIsmiraWeb) return null;
 
         const rawDetails = scrubBreezyPositionDetails(
           applyOverridesToDetails(row.details, overrides)
         );
         if (!isRecord(rawDetails)) return null;
-        if (!showOnIsmiraWeb && !hasPublicJobDescription(rawDetails)) return null;
 
         const overrideName = typeof overrides.name === "string" ? overrides.name.trim() : "";
         const overrideCompany = typeof overrides.company === "string" ? overrides.company.trim() : "";
@@ -831,6 +832,7 @@ export async function GET(request: Request) {
           priorityOverride,
           job_company_id: row.job_company_id ?? undefined,
           show_on_ismira_web: showOnIsmiraWeb,
+          hiddenOverride: parseHiddenOverride(overrides.hidden),
           ...(ismiraWebTitle ? { ismira_web_title: ismiraWebTitle } : {}),
           ...(hasBenefitOverride ? { benefit_tags: normalizeBenefitTags(overrides.benefit_tags) } : {}),
           updated_at: row.updated_at ?? undefined,
@@ -887,10 +889,16 @@ export async function GET(request: Request) {
       // Ignore department overlay failures so jobs remain available.
     }
 
+    // Resolve company inclusion before applying the individual visibility gates.
+    enriched = enriched.filter((item) => item.show_on_ismira_web === true ||
+      (!item.hiddenOverride && hasPublicJobDescription(item.details ?? {})));
+
     enriched = enriched.map((item) => {
+      const publicItem = { ...item };
+      delete publicItem.hiddenOverride;
       const details = isRecord(item.details) ? { ...item.details } : {};
       return {
-        ...item,
+        ...publicItem,
         details: attachPublicApplyUrls([
           {
             ...item,

@@ -1,3 +1,4 @@
+import { getCompanyWebsiteVisibility, resolveWebsiteVisibility } from "@/lib/job-company-website-visibility";
 import { NextResponse } from "next/server";
 
 import { getBreezyEnv } from "@/lib/breezy";
@@ -504,6 +505,7 @@ async function attachJobCompanyBranding(
 
   return {
     ...details,
+    show_on_ismira_web: resolveWebsiteVisibility(isRecord(init.overrides) ? init.overrides.show_on_ismira_web : false, company.metadata),
     ...(nextName ? { name: nextName } : {}),
     ...(nextTitle ? { title: nextTitle } : {}),
     company: company.name,
@@ -601,8 +603,67 @@ export async function GET(
       return jsonResponse(request, { error: "Not found" }, { status: 404 });
     }
 
+    if (!row.details) {
+      return jsonResponse(request, { error: "Not found" }, { status: 404 });
+    }
+
+    const orgType =
+      normalizeOrgType(
+        isRecord(row.details)
+          ? row.details.org_type ?? row.details.orgType
+          : null
+      ) || "";
+    if (orgType.toLowerCase() === "pool") {
+      return jsonResponse(request, { error: "Not found" }, { status: 404 });
+    }
+
+    const merged = clearStaleDetailBenefitsWithoutOverride(
+      scrubBreezyPositionDetails(applyOverrides(row.details, row.overrides)) as Record<
+        string,
+        unknown
+      >,
+      row.overrides
+    );
+
+    const mergedCompany = typeof merged.company === "string" ? merged.company.trim() : "";
+    const mergedDepartment = typeof merged.department === "string" ? merged.department.trim() : "";
+    if (row.company && !mergedCompany) merged.company = row.company;
+    if (row.department && !mergedDepartment) merged.department = row.department;
+
+    let enriched = merged;
+    try {
+      enriched = await attachJobCompanyBranding(merged, {
+        admin,
+        companyId: primaryCompanyId,
+        fallbackCompany: row.company,
+        jobCompanyId: row.job_company_id,
+        overrides: row.overrides,
+      });
+    } catch {
+      enriched = merged;
+    }
+    if (enriched.show_on_ismira_web !== true) {
+      // A shared JD can be included through any of its company views. Detail
+      // links identify the JD, so check secondary memberships as well.
+      const { data: links, error: linksError } = await admin.from("job_position_companies")
+        .select("job_company_id")
+        .eq("company_id", primaryCompanyId)
+        .eq("breezy_position_id", positionId);
+      const ids = [...new Set((links ?? []).map((link) => link.job_company_id).filter(Boolean))];
+      if (!linksError && ids.length > 0) {
+        const { data: companies, error: companiesError } = await admin.from("job_companies")
+          .select("metadata")
+          .eq("company_id", primaryCompanyId)
+          .in("id", ids);
+        if (!companiesError && (companies ?? []).some((company) =>
+          !company.metadata?.merged_into_job_company_id && getCompanyWebsiteVisibility(company.metadata))) {
+          enriched = { ...enriched, show_on_ismira_web: true };
+        }
+      }
+    }
+
     if (isRecord(row.overrides)) {
-      const showOnIsmiraWeb = row.overrides.show_on_ismira_web === true;
+      const showOnIsmiraWeb = row.overrides.show_on_ismira_web === true || enriched.show_on_ismira_web === true;
       const hidden =
         row.overrides.hidden === true ||
         (typeof row.overrides.hidden === "string" &&
@@ -625,47 +686,8 @@ export async function GET(
       }
     }
 
-    if (!row.details) {
-      return jsonResponse(request, { error: "Not found" }, { status: 404 });
-    }
-
-    const orgType =
-      normalizeOrgType(
-        isRecord(row.details)
-          ? row.details.org_type ?? row.details.orgType
-          : null
-      ) || "";
-    if (orgType.toLowerCase() === "pool") {
-      return jsonResponse(request, { error: "Not found" }, { status: 404 });
-    }
-
-    const merged = clearStaleDetailBenefitsWithoutOverride(
-      scrubBreezyPositionDetails(applyOverrides(row.details, row.overrides)) as Record<
-        string,
-        unknown
-      >,
-      row.overrides
-    );
     if (!pickPositionDescription(merged).trim()) {
       return jsonResponse(request, { error: "Not found" }, { status: 404 });
-    }
-
-    const mergedCompany = typeof merged.company === "string" ? merged.company.trim() : "";
-    const mergedDepartment = typeof merged.department === "string" ? merged.department.trim() : "";
-    if (row.company && !mergedCompany) merged.company = row.company;
-    if (row.department && !mergedDepartment) merged.department = row.department;
-
-    let enriched = merged;
-    try {
-      enriched = await attachJobCompanyBranding(merged, {
-        admin,
-        companyId: primaryCompanyId,
-        fallbackCompany: row.company,
-        jobCompanyId: row.job_company_id,
-        overrides: row.overrides,
-      });
-    } catch {
-      enriched = merged;
     }
     enriched = ensureApplicationUrl(enriched);
 
